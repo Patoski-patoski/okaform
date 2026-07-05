@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[error_code]
-pub enum FormchainError {
+pub enum OkaformError {
     #[msg("Survey is not active")]
     SurveyNotActive,
     #[msg("Survey is already closed")]

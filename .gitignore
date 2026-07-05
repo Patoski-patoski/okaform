@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Rust / Anchor
+target/
+**/*.rs.bk
+.anchor/
+test-ledger/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+okaform_mvp.md
+startup_brainstorm.txt
+program-id.json
+okaform_decision_model.md
+AGENTS.md
+*.svg
+
+POST_MVP_TODO.md

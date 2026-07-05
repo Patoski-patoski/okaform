@@ -4,6 +4,12 @@ use crate::constants::*;
 use crate::errors::*;
 use crate::state::*;
 
+// The InitializeSurvey struct defines the accounts needed to initialize a new survey on-chain. It includes:
+
+// 1. Creator (Signer<'info>) — proves the wallet is authorizing this initialization
+// 2. Payer (payer = creator) — pays the rent for creating the new survey PDA account
+// 3. Escrow (escrow_vault) — a PDA used as an escrow vault, no data stored
+
 #[derive(Accounts)]
 #[instruction(survey_id: Vec<u8>)]
 pub struct InitializeSurvey<'info> {
@@ -39,18 +45,16 @@ pub fn process_initialize_survey(
     reward_type: RewardType,
     max_responses: u32,
 ) -> Result<()> {
-    require_gte!(
-        reward_pool,
-        MIN_REWARD_POOL,
-        FormchainError::InsufficientRewardPool
+    require!(
+        reward_pool >= MIN_REWARD_POOL,
+        OkaformError::InsufficientRewardPool
     );
-    require_gte!(
-        MAX_REWARD_POOL,
-        reward_pool,
-        FormchainError::ExcessiveRewardPool
+    require!(
+        reward_pool <= MAX_REWARD_POOL,
+        OkaformError::ExcessiveRewardPool
     );
 
-    let survey = &mut ctx.accounts.survey;
+    let survey: &mut Account<'_, SurveyAccount> = &mut ctx.accounts.survey;
     survey.creator = ctx.accounts.creator.key();
     survey.reward_pool = reward_pool;
     survey.reward_type = reward_type;

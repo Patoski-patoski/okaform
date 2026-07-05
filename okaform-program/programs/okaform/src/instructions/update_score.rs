@@ -8,7 +8,7 @@ use crate::state::*;
 pub struct UpdateScore<'info> {
     #[account(
         mut,
-        constraint = authority.key() == crate::constants::authority::ID @ FormchainError::Unauthorized
+        constraint = authority.key() == crate::constants::authority::ID @ OkaformError::Unauthorized
         )]
     pub authority: Signer<'info>,
 
@@ -25,9 +25,9 @@ pub struct UpdateScore<'info> {
 }
 
 pub fn process_update_score(ctx: Context<UpdateScore>, delta: i32) -> Result<()> {
-    let score_account = &mut ctx.accounts.score_account;
+    let score_account: &mut Account<'_, RespondentScoreAccount> = &mut ctx.accounts.score_account;
 
-    let new_score = if delta >= 0 {
+    let new_score: u16 = if delta >= 0 {
         score_account.global_score.saturating_add(delta as u16)
     } else {
         score_account.global_score.saturating_sub(delta.unsigned_abs() as u16)

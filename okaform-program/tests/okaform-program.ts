@@ -1,17 +1,17 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { FormchainProgram } from "../target/types/formchain_program";
+import { OkaformProgram } from "../target/types/okaform_program";
 import { PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { expect } from "chai";
 
 
 
-describe("formchain-program", () => {
+describe("okaform-program", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace
-    .formchainProgram as Program<FormchainProgram>;
+    .okaformProgram as Program<OkaformProgram>;
   const creator = Keypair.generate();
   const respondent = Keypair.generate();
 

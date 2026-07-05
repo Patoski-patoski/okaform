@@ -11,7 +11,7 @@ use instructions::*;
 use state::*;
 
 #[program]
-pub mod formchain_program {
+pub mod okaform {
     use super::*;
 
     pub fn initialize_survey(
@@ -21,22 +21,39 @@ pub mod formchain_program {
         reward_type: RewardType,
         max_responses: u32,
     ) -> Result<()> {
-        process_initialize_survey(ctx, survey_id, reward_pool, reward_type, max_responses)
+        process_initialize_survey(
+            ctx,
+            survey_id,
+            reward_pool,
+            reward_type,
+            max_responses
+        )
     }
 
-    pub fn register_participant(ctx: Context<RegisterParticipant>) -> Result<()> {
-        process_register_participant(ctx)
+    pub fn register_participant(
+        ctx: Context<RegisterParticipant>,
+        survey_id: Vec<u8>
+    ) -> Result<()> {
+        process_register_participant(ctx, survey_id)
     }
 
-    pub fn initialize_score_account(ctx: Context<InitializeScoreAccount>) -> Result<()> {
+    pub fn initialize_score_account(
+        ctx: Context<InitializeScoreAccount>
+    ) -> Result<()> {
         process_initialize_score_account(ctx)
     }
 
-    pub fn update_score(ctx: Context<UpdateScore>, delta: i32) -> Result<()> {
+    pub fn update_score(
+        ctx: Context<UpdateScore>,
+        delta: i32
+    ) -> Result<()> {
         process_update_score(ctx, delta)
     }
 
-    pub fn close_survey(ctx: Context<CloseSurvey>, survey_id: Vec<u8>) -> Result<()> {
+    pub fn close_survey(
+        ctx: Context<CloseSurvey>,
+        survey_id: Vec<u8>
+    ) -> Result<()> {
         process_close_survey(ctx, survey_id)
     }
 

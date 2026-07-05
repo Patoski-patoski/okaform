@@ -14,14 +14,14 @@ pub struct CloseSurvey<'info> {
         mut,
         seeds = [SURVEY_SEED, creator.key().as_ref(), survey_id.as_ref()],
         bump = survey.bump,
-        has_one = creator @ FormchainError::Unauthorized
+        has_one = creator @ OkaformError::Unauthorized
     )]
     pub survey: Account<'info, SurveyAccount>,
 }
 
-pub fn process_close_survey(_ctx: Context<CloseSurvey>, _survey_id: Vec<u8>) -> Result<()> {
-    let survey = &mut _ctx.accounts.survey;
-    require!(survey.is_active, FormchainError::SurveyAlreadyClosed);
+pub fn process_close_survey(ctx: Context<CloseSurvey>, _survey_id: Vec<u8>) -> Result<()> {
+    let survey = &mut ctx.accounts.survey;
+    require!(survey.is_active, OkaformError::SurveyAlreadyClosed);
 
     survey.is_active = false;
 
