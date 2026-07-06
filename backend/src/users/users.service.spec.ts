@@ -17,6 +17,7 @@ import {
   ResponseDocument,
 } from '../common/schemas/response.schema';
 import { UsernameTakenException } from './users.service';
+import { UsernameAlreadySetException } from '../common/exceptions/auth/username-already-set.exception';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -108,12 +109,15 @@ describe('UsersService', () => {
   });
 
   describe('setUsername', () => {
-    it('should set username for existing user', async () => {
-      userModel.findOne.mockResolvedValue(null); // no existing user with that username
-      userModel.findOneAndUpdate.mockResolvedValue({
+    it('should set username for existing user with no username', async () => {
+      const userWithoutUsername = {
         ...mockUser,
-        username: 'newname',
-      });
+        username: null,
+        save: jest.fn(),
+      };
+      userModel.findOne
+        .mockResolvedValueOnce(userWithoutUsername as UserDocument) // find user
+        .mockResolvedValueOnce(null); // check username not taken
 
       const result = await service.setUsername(
         'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
@@ -121,19 +125,37 @@ describe('UsersService', () => {
       );
 
       expect(result.username).toBe('newname');
-      expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { wallet: 'ABC123DEF456GHI789JKL012MNO345PQR678STU901' },
-        { username: 'newname' },
-        { new: true },
-      );
+      expect(userWithoutUsername.save).toHaveBeenCalled();
+    });
+
+    it('should throw UsernameAlreadySetException if user already has username', async () => {
+      const userWithUsername = {
+        ...mockUser,
+        username: 'existingname',
+      };
+      userModel.findOne.mockResolvedValue(userWithUsername as UserDocument);
+
+      await expect(
+        service.setUsername(
+          'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
+          'newname',
+        ),
+      ).rejects.toThrow(UsernameAlreadySetException);
     });
 
     it('should throw UsernameTakenException if username is taken by another user', async () => {
+      const userWithoutUsername = {
+        ...mockUser,
+        username: null,
+        save: jest.fn(),
+      };
       const existingUser = {
-        wallet: 'DIFFERENT_WALLET_ADDRESS',
+        wallet: 'DIFFERENT_WALLET',
         username: 'takenname',
       };
-      userModel.findOne.mockResolvedValue(existingUser as UserDocument);
+      userModel.findOne
+        .mockResolvedValueOnce(userWithoutUsername as UserDocument) // find user
+        .mockResolvedValueOnce(existingUser as UserDocument); // username taken
 
       await expect(
         service.setUsername(
@@ -143,27 +165,8 @@ describe('UsersService', () => {
       ).rejects.toThrow(UsernameTakenException);
     });
 
-    it('should allow setting same username for same user', async () => {
-      userModel.findOne.mockResolvedValue({
-        wallet: 'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
-        username: 'samename',
-      } as UserDocument);
-      userModel.findOneAndUpdate.mockResolvedValue({
-        ...mockUser,
-        username: 'samename',
-      });
-
-      const result = await service.setUsername(
-        'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
-        'samename',
-      );
-
-      expect(result.username).toBe('samename');
-    });
-
     it('should throw NotFoundException if user not found', async () => {
       userModel.findOne.mockResolvedValue(null);
-      userModel.findOneAndUpdate.mockResolvedValue(null);
 
       await expect(
         service.setUsername('UNKNOWN_WALLET', 'newname'),
