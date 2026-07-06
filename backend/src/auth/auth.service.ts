@@ -205,7 +205,7 @@ export class AuthService {
   private async issueTokens(user: UserDocument): Promise<TokenPairResponse> {
     const payload: JwtPayload = {
       sub: user._id.toString(),
-      wallet: user.wallet!,
+      wallet: user.wallet,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -225,11 +225,11 @@ export class AuthService {
 
   private toUserProfile(user: UserDocument): UserProfile {
     return {
-      wallet: user.wallet!,
-      username: user.username!,
-      globalScore: user.globalScore!,
-      surveysCompleted: user.surveysCompleted!,
-      badgeTier: user.badgeTier!,
+      wallet: user.wallet,
+      username: user.username,
+      globalScore: user.globalScore,
+      surveysCompleted: user.surveysCompleted,
+      badgeTier: user.badgeTier,
     };
   }
 

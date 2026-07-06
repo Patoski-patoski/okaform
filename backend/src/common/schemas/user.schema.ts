@@ -14,28 +14,34 @@ export enum BadgeTier {
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true, index: true })
-  wallet?: string;
-
-  @Prop({ default: null })
-  username?: string;
-
-  @Prop({ default: 0 })
-  globalScore?: number;
-
-  @Prop({ default: 0 })
-  surveysCompleted?: number;
-
-  @Prop({ type: String, enum: BadgeTier, default: BadgeTier.GREY })
-  badgeTier?: BadgeTier;
-
-  @Prop({ default: null })
-  lastLoginAt?: Date;
+  wallet: string;
 
   @Prop({ type: String, default: null })
-  siwsNonce?: string | null;
+  username: string | null;
+
+  @Prop({ default: 0 })
+  globalScore: number;
+
+  @Prop({ default: 0 })
+  surveysCompleted: number;
+
+  @Prop({ type: String, enum: BadgeTier, default: BadgeTier.GREY })
+  badgeTier: BadgeTier;
 
   @Prop({ type: Date, default: null })
-  siwsNonceExpiresAt?: Date | null;
+  lastLoginAt: Date | null;
+
+  @Prop({ type: String, default: null })
+  siwsNonce: string | null;
+
+  @Prop({ type: Date, default: null })
+  siwsNonceExpiresAt: Date | null;
+
+  @Prop({ type: Date })
+  createdAt: Date;
+
+  @Prop({ type: Date })
+  updatedAt: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

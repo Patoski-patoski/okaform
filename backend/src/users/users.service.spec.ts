@@ -95,17 +95,6 @@ describe('UsersService', () => {
 
       expect(result.username).toBeNull();
     });
-
-    it('should handle user with undefined fields gracefully', async () => {
-      const sparseUser = { wallet: 'WALLET123' };
-      userModel.findOne.mockResolvedValue(sparseUser as UserDocument);
-
-      const result = await service.getProfileByWallet('WALLET123');
-
-      expect(result.globalScore).toBe(0);
-      expect(result.surveysCompleted).toBe(0);
-      expect(result.badgeTier).toBe('Grey');
-    });
   });
 
   describe('setUsername', () => {

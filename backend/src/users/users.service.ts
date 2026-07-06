@@ -58,14 +58,13 @@ export class UsersService {
     }
 
     return {
-      wallet: user.wallet ?? wallet,
-      username: user.username ?? null,
-      globalScore: user.globalScore ?? 0,
-      surveysCompleted: user.surveysCompleted ?? 0,
-      badgeTier: user.badgeTier ?? 'Grey',
-      createdAt:
-        (user as unknown as { createdAt: Date }).createdAt ?? new Date(),
-    };
+      wallet: user.wallet,
+      username: user.username,
+      globalScore: user.globalScore,
+      surveysCompleted: user.surveysCompleted,
+      badgeTier: user.badgeTier,
+      createdAt: user.createdAt,
+    } satisfies UserProfileResponse;
   }
 
   async setUsername(
@@ -98,7 +97,7 @@ export class UsersService {
     });
 
     return {
-      wallet: user.wallet ?? wallet,
+      wallet: user.wallet,
       username: user.username ?? username,
     };
   }

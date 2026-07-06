@@ -41,9 +41,7 @@ export class UsersController {
     @CurrentUser() user: UserProfile,
     @Body(new TypeBoxValidationPipe(SetUsernameSchema)) dto: SetUsernameDto,
   ): Promise<{ wallet: string; username: string }> {
-    const wallet: string = String(user.wallet);
-    const username: string = String(dto.username);
-    return await this.usersService.setUsername(wallet, username);
+    return await this.usersService.setUsername(user.wallet, dto.username);
   }
 
   @Get(':wallet/history')
