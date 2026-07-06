@@ -1,1 +1,1 @@
-cd backend && bun test
+cd backend && bun run format && bun run lint && bun run test

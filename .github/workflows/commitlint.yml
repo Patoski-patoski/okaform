@@ -16,6 +16,6 @@ jobs:
         with:
           node-version: '20'
 
-      - run: npm ci
+      - run: bun ci
 
       - uses: wagoid/commitlint-github-action@v6
