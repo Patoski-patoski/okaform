@@ -28,7 +28,7 @@ export class AuthController {
   async getNonce(
     @Body(new TypeBoxValidationPipe(GetNonceSchema)) dto: GetNonceDto,
   ): Promise<{ nonce: string; message: string }> {
-    return this.authService.generateNonce(dto.wallet);
+    return await this.authService.generateNonce(dto.wallet);
   }
 
   @Post('verify')
@@ -38,7 +38,7 @@ export class AuthController {
     @Body(new TypeBoxValidationPipe(VerifySignatureSchema))
     dto: VerifySignatureDto,
   ): Promise<AuthTokensResponse> {
-    return this.authService.verifySignature(dto);
+    return await this.authService.verifySignature(dto);
   }
 
   @Get('me')

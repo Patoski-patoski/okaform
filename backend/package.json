@@ -30,6 +30,7 @@
     "@nestjs/throttler": "^6.5.0",
     "@sinclair/typebox": "^0.34.49",
     "@solana/web3.js": "^1.98.4",
+    "@types/mocha": "^10.0.10",
     "bs58": "^6.0.0",
     "mongoose": "^9.7.3",
     "passport": "^0.7.0",
@@ -76,9 +77,20 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.module.ts",
+      "!**/main.ts",
+      "!**/current-user.decorator.ts"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 80,
+        "branches": 75,
+        "functions": 90,
+        "lines": 80
+      }
+    },
     "testEnvironment": "node"
   }
 }

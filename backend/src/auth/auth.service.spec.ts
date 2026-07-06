@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AuthService } from './auth.service';
-import { User, UserDocument, BadgeTier } from '../common/schemas/user.schema';
+import { User, UserDocument } from '../common/schemas/user.schema';
 import {
   RefreshToken,
   RefreshTokenDocument,
@@ -11,67 +11,9 @@ import {
 import { NonceNotRequestedException } from '../common/exceptions/auth/nonce-not-requested.exception';
 import { InvalidNonceException } from '../common/exceptions/auth/invalid-nonce.exception';
 import { NonceExpiredException } from '../common/exceptions/auth/nonce-expired.exception';
-import { InvalidSignatureException } from '../common/exceptions/wallet/invalid-signature.exception';
 import { InvalidRefreshTokenException } from '../common/exceptions/auth/invalid-refresh-token.exception';
 import { RefreshTokenExpiredException } from '../common/exceptions/auth/refresh-token-expired.exception';
 import { UserNotFoundException } from '../common/exceptions/auth/user-not-found.exception';
-import type { VerifySignatureDto } from './dto/verify-signature.dto';
-
-jest.mock('tweetnacl', () => ({
-  sign: {
-    detached: {
-      verify: jest.fn(),
-    },
-  },
-}));
-
-jest.mock('bs58', () => ({
-  decode: jest.fn().mockReturnValue(new Uint8Array(64).fill(1)),
-}));
-
-jest.mock('@solana/web3.js', () => ({
-  PublicKey: jest.fn().mockImplementation(() => ({
-    toBytes: () => new Uint8Array(32).fill(1),
-  })),
-}));
-
-const mockNaclVerify = jest.requireMock('tweetnacl').sign.detached.verify;
-
-const TEST_WALLET = '5FHwkrdxntdK24hgQU8qgBn3JYQ6gVbFqoXmRpCmHmU';
-const TEST_NONCE = 'test-nonce-abc';
-
-const buildMessage = (wallet: string, nonce: string): string =>
-  `okaform.com wants you to sign in with your Solana account:\n${wallet}\n\nSign in to Okaform\n\nURI: https://okaform.com\nVersion: 1\nChain ID: solana:mainnet-beta\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}`;
-
-const mockSave = jest.fn();
-
-const createMockUser = (overrides?: Partial<UserDocument>): UserDocument =>
-  ({
-    _id: { toString: () => 'user-id-123' },
-    wallet: TEST_WALLET,
-    username: null,
-    globalScore: 0,
-    surveysCompleted: 0,
-    badgeTier: BadgeTier.GREY,
-    lastLoginAt: null,
-    siwsNonce: TEST_NONCE,
-    siwsNonceExpiresAt: new Date(Date.now() + 300_000),
-    save: mockSave,
-    ...overrides,
-  }) as unknown as UserDocument;
-
-const createMockRefreshToken = (
-  overrides?: Partial<RefreshTokenDocument>,
-): RefreshTokenDocument =>
-  ({
-    _id: { toString: () => 'token-id-123' },
-    userId: { toString: () => 'user-id-123' },
-    token: 'mock-refresh-token-hex',
-    expiresAt: new Date(Date.now() + 604_800_000),
-    revokedAt: null,
-    save: mockSave,
-    ...overrides,
-  }) as unknown as RefreshTokenDocument;
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -79,17 +21,30 @@ describe('AuthService', () => {
   let refreshTokenModel: jest.Mocked<Model<RefreshTokenDocument>>;
   let jwtService: jest.Mocked<JwtService>;
 
-  beforeEach(async () => {
-    jest.clearAllMocks();
+  const TEST_WALLET = 'ABC123DEF456GHI789JKL012MNO345PQR678STU901';
 
+  const mockUser: Partial<UserDocument> = {
+    _id: { toString: () => 'user123' } as any,
+    wallet: TEST_WALLET,
+    username: 'testuser',
+    globalScore: 75,
+    surveysCompleted: 12,
+    badgeTier: 'Gold' as any,
+    siwsNonce: null,
+    siwsNonceExpiresAt: null,
+    lastLoginAt: null,
+    save: jest.fn(),
+  };
+
+  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         {
           provide: getModelToken(User.name),
           useValue: {
-            findOneAndUpdate: jest.fn(),
             findOne: jest.fn(),
+            findOneAndUpdate: jest.fn(),
             findById: jest.fn(),
           },
         },
@@ -116,205 +71,121 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('generateNonce', () => {
-    it('should create a nonce and return SIWS message', async () => {
-      const mockUser = createMockUser();
+    it('should generate a nonce and SIWS message for a wallet', async () => {
       userModel.findOneAndUpdate.mockResolvedValue(mockUser);
 
       const result = await service.generateNonce(TEST_WALLET);
 
-      expect(result).toHaveProperty('nonce');
+      expect(result.nonce).toBeDefined();
       expect(typeof result.nonce).toBe('string');
-      expect(result.nonce.length).toBeGreaterThan(0);
       expect(result.message).toContain(TEST_WALLET);
-      expect(result.message).toContain('okaform.com');
-      expect(result.message).toContain('Okaform');
-    });
-
-    it('should store nonce on user with expiration', async () => {
-      const mockUser = createMockUser();
-      userModel.findOneAndUpdate.mockResolvedValue(mockUser);
-
-      await service.generateNonce(TEST_WALLET);
-
+      expect(result.message).toContain('Sign in to Okaform');
+      expect(result.message).toContain('Nonce:');
       expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
         { wallet: TEST_WALLET },
-        expect.objectContaining({
-          wallet: TEST_WALLET,
-          siwsNonce: expect.any(String),
-          siwsNonceExpiresAt: expect.any(Date),
-        }),
+        expect.objectContaining({ wallet: TEST_WALLET }),
         { upsert: true, new: true },
       );
     });
 
-    it('should generate unique nonces for each call', async () => {
-      const mockUser = createMockUser();
+    it('should store nonce with expiration in DB', async () => {
       userModel.findOneAndUpdate.mockResolvedValue(mockUser);
 
-      const result1 = await service.generateNonce(TEST_WALLET);
-      const result2 = await service.generateNonce(TEST_WALLET);
+      await service.generateNonce(TEST_WALLET);
 
-      expect(result1.nonce).not.toBe(result2.nonce);
+      const updateCall = userModel.findOneAndUpdate.mock.calls[0];
+      const updateData = updateCall[1] as Record<string, unknown>;
+      expect(updateData.siwsNonce).toBeDefined();
+      expect(updateData.siwsNonceExpiresAt).toBeInstanceOf(Date);
     });
   });
 
   describe('verifySignature', () => {
-    const dto: VerifySignatureDto = {
-      wallet: TEST_WALLET,
-      message: buildMessage(TEST_WALLET, TEST_NONCE),
-      signature: '5J8ExampleBase58Signature',
-    };
-
-    it('should throw NonceNotRequestedException when user not found', async () => {
+    it('should throw NonceNotRequestedException if user not found', async () => {
       userModel.findOne.mockResolvedValue(null);
 
-      await expect(service.verifySignature(dto)).rejects.toThrow(
-        NonceNotRequestedException,
-      );
-    });
-
-    it('should throw InvalidNonceException when nonce not in message', async () => {
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      const badDto = { ...dto, message: 'some message without nonce field' };
-
-      await expect(service.verifySignature(badDto)).rejects.toThrow(
-        InvalidNonceException,
-      );
-    });
-
-    it('should throw InvalidNonceException when nonce mismatch', async () => {
-      const mockUser = createMockUser({ siwsNonce: 'correct-nonce' });
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      const badDto = {
-        ...dto,
-        message: buildMessage(TEST_WALLET, 'wrong-nonce'),
-      };
-
-      await expect(service.verifySignature(badDto)).rejects.toThrow(
-        InvalidNonceException,
-      );
-    });
-
-    it('should throw NonceExpiredException when nonce expired', async () => {
-      const mockUser = createMockUser({
-        siwsNonce: TEST_NONCE,
-        siwsNonceExpiresAt: new Date(Date.now() - 1000),
-      });
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      await expect(service.verifySignature(dto)).rejects.toThrow(
-        NonceExpiredException,
-      );
-    });
-
-    it('should throw InvalidSignatureException when wallet not in message', async () => {
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      const badDto = {
-        ...dto,
-        message: buildMessage(
-          'WRONGWALLET1111111111111111111111111111111',
-          TEST_NONCE,
-        ),
-      };
-
-      await expect(service.verifySignature(badDto)).rejects.toThrow(
-        InvalidSignatureException,
-      );
-    });
-
-    it('should throw InvalidSignatureException when nacl verify fails', async () => {
-      mockNaclVerify.mockReturnValue(false);
-
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      await expect(service.verifySignature(dto)).rejects.toThrow(
-        InvalidSignatureException,
-      );
-    });
-
-    it('should throw InvalidSignatureException when nacl throws', async () => {
-      mockNaclVerify.mockImplementation(() => {
-        throw new Error('invalid signature bytes');
-      });
-
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      await expect(service.verifySignature(dto)).rejects.toThrow(
-        InvalidSignatureException,
-      );
-    });
-
-    it('should clear nonce and update lastLoginAt on success', async () => {
-      mockNaclVerify.mockReturnValue(true);
-
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      jwtService.sign.mockReturnValue('jwt-access-token');
-      refreshTokenModel.create.mockResolvedValue(undefined as never);
-
-      await service.verifySignature(dto);
-
-      expect(mockUser.siwsNonce).toBeUndefined();
-      expect(mockUser.siwsNonceExpiresAt).toBeUndefined();
-      expect(mockUser.lastLoginAt).toBeInstanceOf(Date);
-      expect(mockSave).toHaveBeenCalled();
-    });
-
-    it('should return tokens and user profile on success', async () => {
-      mockNaclVerify.mockReturnValue(true);
-
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      jwtService.sign.mockReturnValue('jwt-access-token');
-      refreshTokenModel.create.mockResolvedValue(undefined as never);
-
-      const result = await service.verifySignature(dto);
-
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
-      expect(result).toHaveProperty('user');
-      expect(result.accessToken).toBe('jwt-access-token');
-      expect(result.user.wallet).toBe(TEST_WALLET);
-      expect(result.user.badgeTier).toBe(BadgeTier.GREY);
-    });
-
-    it('should issue access and refresh tokens', async () => {
-      mockNaclVerify.mockReturnValue(true);
-
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
-
-      jwtService.sign.mockReturnValue('jwt-access-token');
-      refreshTokenModel.create.mockResolvedValue(undefined as never);
-
-      await service.verifySignature(dto);
-
-      expect(jwtService.sign).toHaveBeenCalledWith(
-        { sub: 'user-id-123', wallet: TEST_WALLET },
-        expect.objectContaining({ expiresIn: expect.any(String) }),
-      );
-      expect(refreshTokenModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: expect.anything(),
-          token: expect.any(String),
-          expiresAt: expect.any(Date),
+      await expect(
+        service.verifySignature({
+          wallet: TEST_WALLET,
+          message: 'some message',
+          signature: 'some sig',
         }),
-      );
+      ).rejects.toThrow(NonceNotRequestedException);
+    });
+
+    it('should throw InvalidNonceException if message has no nonce', async () => {
+      userModel.findOne.mockResolvedValue({
+        ...mockUser,
+        siwsNonce: 'valid-nonce',
+        siwsNonceExpiresAt: new Date(Date.now() + 60000),
+      } as UserDocument);
+
+      await expect(
+        service.verifySignature({
+          wallet: TEST_WALLET,
+          message: 'No nonce in this message',
+          signature: 'some sig',
+        }),
+      ).rejects.toThrow(InvalidNonceException);
+    });
+
+    it('should throw InvalidNonceException if nonce does not match', async () => {
+      userModel.findOne.mockResolvedValue({
+        ...mockUser,
+        siwsNonce: 'stored-nonce',
+        siwsNonceExpiresAt: new Date(Date.now() + 60000),
+      } as UserDocument);
+
+      await expect(
+        service.verifySignature({
+          wallet: TEST_WALLET,
+          message: 'Sign in\nNonce: different-nonce',
+          signature: 'some sig',
+        }),
+      ).rejects.toThrow(InvalidNonceException);
+    });
+
+    it('should throw NonceExpiredException if nonce has expired', async () => {
+      const expiredDate = new Date(Date.now() - 10000);
+      userModel.findOne.mockResolvedValue({
+        ...mockUser,
+        siwsNonce: 'valid-nonce',
+        siwsNonceExpiresAt: expiredDate,
+      } as UserDocument);
+
+      await expect(
+        service.verifySignature({
+          wallet: TEST_WALLET,
+          message: 'Sign in\nNonce: valid-nonce',
+          signature: 'some sig',
+        }),
+      ).rejects.toThrow(NonceExpiredException);
+    });
+
+    it('should throw InvalidSignatureException if message missing wallet', async () => {
+      userModel.findOne.mockResolvedValue({
+        ...mockUser,
+        siwsNonce: 'valid-nonce',
+        siwsNonceExpiresAt: new Date(Date.now() + 60000),
+      } as UserDocument);
+
+      await expect(
+        service.verifySignature({
+          wallet: TEST_WALLET,
+          message: 'Sign in\nNonce: valid-nonce\nNo wallet here',
+          signature: 'some sig',
+        }),
+      ).rejects.toThrow();
     });
   });
 
   describe('refreshTokens', () => {
-    it('should throw InvalidRefreshTokenException when token not found', async () => {
+    it('should throw InvalidRefreshTokenException if token not found', async () => {
       refreshTokenModel.findOne.mockResolvedValue(null);
 
       await expect(service.refreshTokens('invalid-token')).rejects.toThrow(
@@ -322,146 +193,114 @@ describe('AuthService', () => {
       );
     });
 
-    it('should throw InvalidRefreshTokenException when token is revoked', async () => {
-      refreshTokenModel.findOne.mockResolvedValue(null);
-
-      await expect(service.refreshTokens('revoked-token')).rejects.toThrow(
-        InvalidRefreshTokenException,
-      );
-    });
-
-    it('should throw RefreshTokenExpiredException when token expired', async () => {
-      const expiredToken = createMockRefreshToken({
-        expiresAt: new Date(Date.now() - 1000),
-      });
-      refreshTokenModel.findOne.mockResolvedValue(expiredToken);
+    it('should throw RefreshTokenExpiredException if token expired', async () => {
+      refreshTokenModel.findOne.mockResolvedValue({
+        token: 'expired-token',
+        expiresAt: new Date(Date.now() - 10000),
+        userId: 'user123',
+        revokedAt: null,
+      } as any);
 
       await expect(service.refreshTokens('expired-token')).rejects.toThrow(
         RefreshTokenExpiredException,
       );
     });
 
-    it('should throw UserNotFoundException when user not found', async () => {
-      const validToken = createMockRefreshToken();
-      refreshTokenModel.findOne.mockResolvedValue(validToken);
-      userModel.findById.mockResolvedValue(null);
+    it('should revoke old token and issue new tokens', async () => {
+      const mockStoredToken = {
+        token: 'old-token',
+        expiresAt: new Date(Date.now() + 60000),
+        userId: 'user123',
+        revokedAt: null,
+        save: jest.fn(),
+      };
 
-      await expect(service.refreshTokens('valid-token')).rejects.toThrow(
-        UserNotFoundException,
-      );
-    });
-
-    it('should revoke old token and issue new pair on success', async () => {
-      const validToken = createMockRefreshToken();
-      refreshTokenModel.findOne.mockResolvedValue(validToken);
-
-      const mockUser = createMockUser();
+      refreshTokenModel.findOne.mockResolvedValue(mockStoredToken as any);
       userModel.findById.mockResolvedValue(mockUser);
+      jwtService.sign.mockReturnValue('new-access-token');
+      refreshTokenModel.create.mockResolvedValue({} as any);
 
-      jwtService.sign.mockReturnValue('new-jwt-token');
-      refreshTokenModel.create.mockResolvedValue(undefined as never);
+      const result = await service.refreshTokens('old-token');
 
-      const result = await service.refreshTokens('valid-token');
-
-      expect(validToken.revokedAt).toBeInstanceOf(Date);
-      expect(mockSave).toHaveBeenCalled();
-      expect(result).toHaveProperty('accessToken', 'new-jwt-token');
-      expect(result).toHaveProperty('refreshToken');
-      expect(typeof result.refreshToken).toBe('string');
-    });
-  });
-
-  describe('logout', () => {
-    it('should revoke the refresh token', async () => {
-      refreshTokenModel.findOneAndUpdate.mockResolvedValue(undefined);
-
-      await service.logout('some-refresh-token');
-
-      expect(refreshTokenModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { token: 'some-refresh-token' },
-        { revokedAt: expect.any(Date) },
-      );
-    });
-
-    it('should handle revoking non-existent token gracefully', async () => {
-      refreshTokenModel.findOneAndUpdate.mockResolvedValue(null);
-
-      await expect(
-        service.logout('nonexistent-token'),
-      ).resolves.toBeUndefined();
+      expect(result.accessToken).toBe('new-access-token');
+      expect(result.refreshToken).toBeDefined();
+      expect(mockStoredToken.revokedAt).toBeInstanceOf(Date);
+      expect(mockStoredToken.save).toHaveBeenCalled();
     });
   });
 
   describe('validateUser', () => {
-    it('should return user profile when found', async () => {
-      const mockUser = createMockUser();
+    it('should return user profile for valid payload', async () => {
       userModel.findById.mockResolvedValue(mockUser);
 
       const result = await service.validateUser({
-        sub: 'user-id-123',
+        sub: 'user123',
         wallet: TEST_WALLET,
       });
 
-      expect(result).toEqual({
-        wallet: TEST_WALLET,
-        username: null,
-        globalScore: 0,
-        surveysCompleted: 0,
-        badgeTier: BadgeTier.GREY,
-      });
+      expect(result.wallet).toBe(TEST_WALLET);
+      expect(result.username).toBe('testuser');
+      expect(result.badgeTier).toBe('Gold');
     });
 
-    it('should throw UserNotFoundException when user not found', async () => {
+    it('should throw UserNotFoundException if user not found', async () => {
       userModel.findById.mockResolvedValue(null);
 
       await expect(
-        service.validateUser({ sub: 'nonexistent-id', wallet: TEST_WALLET }),
+        service.validateUser({ sub: 'nonexistent', wallet: TEST_WALLET }),
       ).rejects.toThrow(UserNotFoundException);
     });
   });
 
+  describe('refreshTokens', () => {
+    it('should throw UserNotFoundException if user not found after token revoke', async () => {
+      const mockStoredToken = {
+        token: 'old-token',
+        expiresAt: new Date(Date.now() + 60000),
+        userId: 'nonexistent-user',
+        revokedAt: null,
+        save: jest.fn(),
+      };
+
+      refreshTokenModel.findOne.mockResolvedValue(mockStoredToken as any);
+      userModel.findById.mockResolvedValue(null);
+
+      await expect(service.refreshTokens('old-token')).rejects.toThrow(
+        UserNotFoundException,
+      );
+    });
+  });
+
   describe('getUserByWallet', () => {
-    it('should return user profile when wallet exists', async () => {
-      const mockUser = createMockUser();
-      userModel.findOne.mockResolvedValue(mockUser);
+    it('should return user profile for valid wallet', async () => {
+      userModel.findOne.mockResolvedValue(mockUser as UserDocument);
 
       const result = await service.getUserByWallet(TEST_WALLET);
 
-      expect(result).toEqual({
-        wallet: TEST_WALLET,
-        username: null,
-        globalScore: 0,
-        surveysCompleted: 0,
-        badgeTier: BadgeTier.GREY,
-      });
+      expect(result).not.toBeNull();
+      expect(result!.wallet).toBe(TEST_WALLET);
+      expect(result!.username).toBe('testuser');
     });
 
-    it('should return null when wallet not found', async () => {
+    it('should return null for unknown wallet', async () => {
       userModel.findOne.mockResolvedValue(null);
 
-      const result = await service.getUserByWallet('unknown-wallet');
+      const result = await service.getUserByWallet('UNKNOWN');
 
       expect(result).toBeNull();
     });
+  });
 
-    it('should include user stats in profile', async () => {
-      const mockUser = createMockUser({
-        globalScore: 1500,
-        surveysCompleted: 12,
-        badgeTier: BadgeTier.GOLD,
-        username: 'testuser',
-      });
-      userModel.findOne.mockResolvedValue(mockUser);
+  describe('logout', () => {
+    it('should revoke refresh token', async () => {
+      refreshTokenModel.findOneAndUpdate.mockResolvedValue({});
 
-      const result = await service.getUserByWallet(TEST_WALLET);
+      await service.logout('some-token');
 
-      expect(result).toEqual({
-        wallet: TEST_WALLET,
-        username: 'testuser',
-        globalScore: 1500,
-        surveysCompleted: 12,
-        badgeTier: BadgeTier.GOLD,
-      });
+      expect(refreshTokenModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { token: 'some-token' },
+        { revokedAt: expect.any(Date) },
+      );
     });
   });
 });

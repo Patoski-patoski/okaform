@@ -7,6 +7,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 const logger = new Logger('AppModule');
 
@@ -32,6 +33,7 @@ const logger = new Logger('AppModule');
       },
     }),
     AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [

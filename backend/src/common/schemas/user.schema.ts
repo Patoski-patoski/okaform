@@ -14,22 +14,22 @@ export enum BadgeTier {
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true, index: true })
-  wallet: string;
+  wallet?: string;
 
   @Prop({ default: null })
-  username: string;
+  username?: string;
 
   @Prop({ default: 0 })
-  globalScore: number;
+  globalScore?: number;
 
   @Prop({ default: 0 })
-  surveysCompleted: number;
+  surveysCompleted?: number;
 
   @Prop({ type: String, enum: BadgeTier, default: BadgeTier.GREY })
-  badgeTier: BadgeTier;
+  badgeTier?: BadgeTier;
 
   @Prop({ default: null })
-  lastLoginAt: Date;
+  lastLoginAt?: Date;
 
   @Prop({ type: String, default: null })
   siwsNonce?: string | null;

@@ -42,6 +42,7 @@ export default tseslint.config(
           'InvalidRefreshTokenException',
           'RefreshTokenExpiredException',
           'UserNotFoundException',
+          'UsernameAlreadySetException',
         ],
       }],
       "prettier/prettier": ["error", { endOfLine: "auto" }],
@@ -54,6 +55,15 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
+    files: ['**/*.controller.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
     },
   },
 );
