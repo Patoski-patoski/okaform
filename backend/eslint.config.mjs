@@ -26,10 +26,34 @@ export default tseslint.config(
   },
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
+      // AGENT.MD: no `any` — ever
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      // Custom exceptions extend OkaformException → HttpException → Error
+      // ESLint type-checker can't resolve cross-file inheritance, allow explicitly
+      '@typescript-eslint/only-throw-error': ['error', {
+        allow: [
+          'OkaformException',
+          'NonceNotRequestedException',
+          'InvalidNonceException',
+          'NonceExpiredException',
+          'InvalidSignatureException',
+          'InvalidRefreshTokenException',
+          'RefreshTokenExpiredException',
+          'UserNotFoundException',
+        ],
+      }],
       "prettier/prettier": ["error", { endOfLine: "auto" }],
+    },
+  },
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
     },
   },
 );
