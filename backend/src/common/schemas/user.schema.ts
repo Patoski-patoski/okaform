@@ -29,7 +29,7 @@ export class User {
   badgeTier!: BadgeTier;
 
   @Prop({ default: null })
-  lastLoginAt!: Date;
+  lastLoginAt?: Date | null;
 
   @Prop({ type: String, default: null })
   siwsNonce?: string | null;

@@ -15,7 +15,7 @@ export class RefreshToken {
   expiresAt!: Date;
 
   @Prop({ default: null })
-  revokedAt!: Date;
+  revokedAt?: Date | null;
 }
 
 export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
