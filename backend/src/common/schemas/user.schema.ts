@@ -28,7 +28,7 @@ export class User {
   @Prop({ type: String, enum: BadgeTier, default: BadgeTier.GREY })
   badgeTier!: BadgeTier;
 
-  @Prop({ default: null })
+  @Prop({ type: Date, default: null })
   lastLoginAt?: Date | null;
 
   @Prop({ type: String, default: null })
