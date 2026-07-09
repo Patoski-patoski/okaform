@@ -43,7 +43,7 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 
-okaform_mvp.md
+# okaform_mvp.md
 startup_brainstorm.txt
 program-id.json
 okaform_decision_model.md

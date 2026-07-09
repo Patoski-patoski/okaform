@@ -1,4 +1,5 @@
 import { CurrentUser } from './current-user.decorator';
+import { describe, expect, it } from '@jest/globals';
 
 describe('CurrentUser decorator', () => {
   it('should be defined', () => {

@@ -8,6 +8,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { SolanaModule } from './solana/solana.module';
+import { SybilModule } from './sybil/sybil.module';
 
 const logger = new Logger('AppModule');
 
@@ -32,8 +34,10 @@ const logger = new Logger('AppModule');
         return { uri };
       },
     }),
+    SolanaModule,
     AuthModule,
     UsersModule,
+    SybilModule,
   ],
   controllers: [AppController],
   providers: [

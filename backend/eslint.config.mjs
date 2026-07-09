@@ -43,6 +43,8 @@ export default tseslint.config(
           'RefreshTokenExpiredException',
           'UserNotFoundException',
           'UsernameAlreadySetException',
+          'InvalidWalletException',
+          'RpcErrorException',
         ],
       }],
       "prettier/prettier": ["error", { endOfLine: "auto" }],
