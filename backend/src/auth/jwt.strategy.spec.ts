@@ -2,6 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from './jwt.strategy';
 import { AuthService, UserProfile } from './auth.service';
+import {
+  jest,
+  describe,
+  beforeEach,
+  afterEach,
+  it,
+  expect,
+} from '@jest/globals';
 
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;

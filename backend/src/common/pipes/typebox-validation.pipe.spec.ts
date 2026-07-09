@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { TypeBoxValidationPipe } from './typebox-validation.pipe';
 import { Type } from '@sinclair/typebox';
+import { describe, it, expect } from '@jest/globals';
+import { fail } from 'assert';
 
 describe('TypeBoxValidationPipe', () => {
   const schema = Type.Object({
