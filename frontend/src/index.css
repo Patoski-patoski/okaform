@@ -41,10 +41,11 @@
   --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono Variable", monospace;
 
-  /* Scaled Radius Strategy (Crucial to break the template feel) */
-  --radius-ok-outer: 16px;  /* For main dashboard wrappers, cards */
-  --radius-ok-inner: 10px;  /* For nested inputs, action buttons inside cards */
-  --radius-ok-pill: 9999px; /* For compact status badges */
+  /* Scaled Radius Strategy */
+  --radius-ok: 12px;             /* Default — used by most components */
+  --radius-ok-outer: 16px;       /* Dashboard wrappers, large cards */
+  --radius-ok-inner: 10px;       /* Nested inputs, action buttons inside cards */
+  --radius-ok-pill: 9999px;      /* Compact status badges */
 }
 
 @layer base {
@@ -58,4 +59,13 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
 }

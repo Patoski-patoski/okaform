@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   ChevronLeft,
+  AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
@@ -92,6 +93,43 @@ function countWords(text: string): number {
   const trimmed = text.trim();
   if (trimmed === "") return 0;
   return trimmed.split(/\s+/).length;
+}
+
+// ─── Validation ────────────────────────────────────────────────────────────────
+
+function validateAnswers(
+  answers: Record<string, string | string[]>,
+  questions: Question[]
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  for (const q of questions) {
+    const a = answers[q.id];
+
+    // Required check
+    if (q.required) {
+      const isEmpty =
+        a === undefined ||
+        a === "" ||
+        (Array.isArray(a) && a.length === 0);
+      if (isEmpty) {
+        errors[q.id] = "This question is required";
+        continue;
+      }
+    }
+
+    // Word count checks (long_text only)
+    if (q.type === "long_text" && typeof a === "string" && a.trim() !== "") {
+      const words = countWords(a);
+      if (q.minWords && words < q.minWords) {
+        errors[q.id] = `Minimum ${q.minWords} words required (${words} entered)`;
+      } else if (q.maxWords && words > q.maxWords) {
+        errors[q.id] = `Maximum ${q.maxWords} words allowed (${words} entered)`;
+      }
+    }
+  }
+
+  return errors;
 }
 
 
@@ -224,6 +262,7 @@ interface QuestionCardProps {
   question: Question;
   index: number;
   answer: string | string[];
+  error?: string;
   onChange: (id: string, value: string | string[]) => void;
 }
 
@@ -231,6 +270,7 @@ function QuestionCard({
   question,
   index,
   answer,
+  error,
   onChange,
 }: QuestionCardProps) {
   return (
@@ -382,6 +422,14 @@ function QuestionCard({
           })}
         </div>
       )}
+
+      {/* Validation error */}
+      {error && (
+        <div className="flex items-center gap-1.5 pl-7 text-xs text-ok-danger">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          {error}
+        </div>
+      )}
     </Card>
   );
 }
@@ -463,6 +511,7 @@ function SuccessScreen({
 
 export default function SurveyFill() {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
@@ -477,13 +526,23 @@ export default function SurveyFill() {
   const handleAnswer = useCallback(
     (id: string, value: string | string[]) => {
       setAnswers((prev) => ({ ...prev, [id]: value }));
+      // Clear error for this question on input
+      setErrors((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     },
     []
   );
 
   const handleSubmit = useCallback(() => {
+    const validationErrors = validateAnswers(answers, SURVEY_QUESTIONS);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
     setSubmitted(true);
-  }, []);
+  }, [answers]);
 
   // Progress = % of required questions answered
   const progress = useMemo(() => {
@@ -540,21 +599,28 @@ export default function SurveyFill() {
             </div>
 
             {/* ── Wallet gate / eligibility ───────────────────────────────── */}
-            {!connected ? (
-              <WalletGate onConnect={handleConnect} />
-            ) : (
-              <EligibilityPass wallet={wallet} score={score} />
-            )}
+            <div className="transition-all duration-500 ease-in-out">
+              {!connected ? (
+                <div className="animate-fadeIn">
+                  <WalletGate onConnect={handleConnect} />
+                </div>
+              ) : (
+                <div className="animate-fadeIn">
+                  <EligibilityPass wallet={wallet} score={score} />
+                </div>
+              )}
+            </div>
 
             {/* ── Form questions ─────────────────────────────────────────── */}
             {connected && (
-              <div className="space-y-5 pt-2">
+              <div className="space-y-5 pt-2 animate-fadeIn">
                 {SURVEY_QUESTIONS.map((q, i) => (
                   <QuestionCard
                     key={q.id}
                     question={q}
                     index={i}
                     answer={answers[q.id] ?? (q.type === "checkbox" ? [] : "")}
+                    error={errors[q.id]}
                     onChange={handleAnswer}
                   />
                 ))}
