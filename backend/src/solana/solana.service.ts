@@ -4,6 +4,9 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { InvalidWalletException } from '../common/exceptions/solana/invalid-wallet.exception';
 import { RpcErrorException } from '../common/exceptions/solana/rpc-error.exception';
 
+const PAGE_SIZE = 1000;
+const MAX_SIGNATURES = 10000;
+
 @Injectable()
 export class SolanaService {
   private readonly logger = new Logger(SolanaService.name);
@@ -49,20 +52,40 @@ export class SolanaService {
     const pubkey = this.validateWallet(wallet);
 
     try {
-      const signatures = await this.connection.getSignaturesForAddress(pubkey, {
-        limit: 1,
-      });
+      let before: string | undefined;
+      let oldestBlockTime: number | null = null;
+      let scanned = 0;
 
-      if (signatures.length === 0) {
+      while (scanned < MAX_SIGNATURES) {
+        const batch = await this.connection.getSignaturesForAddress(pubkey, {
+          limit: PAGE_SIZE,
+          before,
+        });
+
+        if (batch.length === 0) break;
+
+        // Scan from end (oldest in this batch) to find earliest blockTime
+        for (let i = batch.length - 1; i >= 0; i--) {
+          const tx = batch[i];
+          if (
+            tx.blockTime &&
+            (oldestBlockTime === null || tx.blockTime < oldestBlockTime)
+          ) {
+            oldestBlockTime = tx.blockTime;
+          }
+        }
+
+        scanned += batch.length;
+
+        if (batch.length < PAGE_SIZE) break;
+        before = batch[batch.length - 1].signature;
+      }
+
+      if (oldestBlockTime === null) {
         return 0;
       }
 
-      const oldestTx = signatures[signatures.length - 1];
-      if (!oldestTx.blockTime) {
-        return 0;
-      }
-
-      const firstTxDate = new Date(oldestTx.blockTime * 1000);
+      const firstTxDate = new Date(oldestBlockTime * 1000);
       const now = new Date();
       const diffMs = now.getTime() - firstTxDate.getTime();
       return Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -80,8 +103,24 @@ export class SolanaService {
     const pubkey = this.validateWallet(wallet);
 
     try {
-      const signatures = await this.connection.getSignaturesForAddress(pubkey);
-      return signatures.length;
+      let total = 0;
+      let before: string | undefined;
+
+      while (total < MAX_SIGNATURES) {
+        const batch = await this.connection.getSignaturesForAddress(pubkey, {
+          limit: PAGE_SIZE,
+          before,
+        });
+
+        if (batch.length === 0) break;
+
+        total += batch.length;
+
+        if (batch.length < PAGE_SIZE) break;
+        before = batch[batch.length - 1].signature;
+      }
+
+      return total;
     } catch (error) {
       this.logger.error({
         event: 'RPC_GET_TX_COUNT_FAILED',
