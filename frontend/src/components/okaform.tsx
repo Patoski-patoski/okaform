@@ -1,313 +1,428 @@
-import { type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import { Wallet, Link2, Gem } from "lucide-react"
-import { cn } from "../lib/utils"
+import * as React from "react";
+import { Link } from "react-router-dom";
+import { cva, type VariantProps } from "class-variance-authority";
+import {
+  Link2,
+  Wallet,
+  ChevronDown,
+  Gem,
+  Circle,
+} from "lucide-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
-/* -------------------------------------------------------------------------- */
-/*  Button                                                                    */
-/* -------------------------------------------------------------------------- */
+import { cn } from "@/lib/utils";
+import { useWallet } from "./WalletProvider";
+
+// ─── Button ────────────────────────────────────────────────────────────────────
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-ok font-display font-medium whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/60 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-[var(--radius-ok)] font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50 focus-visible:ring-offset-2 focus-visible:ring-offset-ok-bg disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97]",
   {
     variants: {
       variant: {
-        primary: "bg-ok-green text-ok-bg hover:bg-ok-green/90",
+        primary:
+          "bg-ok-green text-ok-bg hover:bg-ok-green/90 shadow-[0_0_20px_rgba(20,241,149,0.15)] hover:shadow-[0_0_28px_rgba(20,241,149,0.25)]",
         secondary:
-          "border border-ok-green/60 bg-transparent text-ok-green hover:bg-ok-green/10",
-        danger: "bg-ok-danger text-ok-bg hover:bg-ok-danger/90",
+          "border border-ok-green/40 bg-transparent text-ok-green hover:bg-ok-green/10 hover:border-ok-green/60",
+        danger:
+          "bg-ok-danger/15 text-ok-danger border border-ok-danger/25 hover:bg-ok-danger/25 hover:border-ok-danger/40",
       },
       size: {
-        sm: "h-8 px-3 text-sm",
-        md: "h-10 px-4 text-sm",
-        lg: "h-12 px-6 text-base",
+        sm: "h-8 px-3 text-xs",
+        md: "h-10 px-5 text-sm",
+        lg: "h-12 px-7 text-base",
       },
     },
     defaultVariants: {
       variant: "primary",
       size: "md",
     },
-  },
-)
+  }
+);
 
-export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {}
 
-export function Button({ className, variant, size, ...props }: ButtonProps) {
-  return (
-    <button className={cn(buttonVariants({ variant, size }), className)} {...props} />
-  )
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+      />
+    );
+  }
+);
+Button.displayName = "Button";
+
+// ─── Badge ─────────────────────────────────────────────────────────────────────
+
+type BadgeTier = "grey" | "blue" | "green" | "gold" | "diamond";
+
+interface BadgeConfig {
+  label: string;
+  dotClass: string;
+  containerClass: string;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Badge — 5 reputation tiers                                                */
-/* -------------------------------------------------------------------------- */
-
-export type BadgeTier = "grey" | "blue" | "green" | "gold" | "diamond"
-
-const TIER_CONFIG: Record<
-  BadgeTier,
-  { label: string; dot: string; text: string; range: string }
-> = {
-  grey: { label: "Grey", dot: "bg-ok-grey", text: "text-ok-grey", range: "0–25" },
-  blue: { label: "Blue", dot: "bg-ok-blue", text: "text-ok-blue", range: "26–50" },
-  green: { label: "Green", dot: "bg-ok-green", text: "text-ok-green", range: "51–75" },
-  gold: { label: "Gold", dot: "bg-ok-gold", text: "text-ok-gold", range: "76–100" },
+const BADGE_CONFIG: Record<BadgeTier, BadgeConfig> = {
+  grey: {
+    label: "Grey",
+    dotClass: "bg-ok-grey",
+    containerClass:
+      "border-ok-grey/25 bg-ok-grey/10 text-ok-grey",
+  },
+  blue: {
+    label: "Blue",
+    dotClass: "bg-ok-blue",
+    containerClass:
+      "border-ok-blue/25 bg-ok-blue/10 text-ok-blue",
+  },
+  green: {
+    label: "Green",
+    dotClass: "bg-ok-green",
+    containerClass:
+      "border-ok-green/25 bg-ok-green/10 text-ok-green",
+  },
+  gold: {
+    label: "Gold",
+    dotClass: "bg-ok-gold",
+    containerClass:
+      "border-ok-gold/25 bg-ok-gold/10 text-ok-gold",
+  },
   diamond: {
     label: "Diamond",
-    dot: "bg-ok-diamond",
-    text: "text-ok-diamond",
-    range: "100+",
+    dotClass: "bg-cyan-400",
+    containerClass:
+      "border-cyan-400/25 bg-cyan-400/10 text-cyan-300",
   },
+};
+
+function getBadgeTier(score: number): BadgeTier {
+  if (score >= 100) return "diamond";
+  if (score >= 76) return "gold";
+  if (score >= 51) return "green";
+  if (score >= 26) return "blue";
+  return "grey";
 }
 
-export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  tier: BadgeTier
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  tier: BadgeTier;
 }
 
-export function Badge({ tier, className, ...props }: BadgeProps) {
-  const config = TIER_CONFIG[tier]
+function Badge({ tier, className, children, ...props }: BadgeProps) {
+  const config = BADGE_CONFIG[tier];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-ok border border-ok-border bg-ok-surface px-2.5 py-1 font-sans text-xs font-medium",
-        config.text,
-        className,
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        config.containerClass,
+        className
       )}
       {...props}
     >
       {tier === "diamond" ? (
-        <Gem className="size-3.5" aria-hidden="true" />
+        <Gem className="h-3 w-3" />
       ) : (
-        <span className={cn("size-2 rounded-full", config.dot)} aria-hidden="true" />
+        <Circle className={cn("h-2 w-2 fill-current", config.dotClass)} />
       )}
-      {config.label}
+      {children ?? config.label}
     </span>
-  )
+  );
 }
 
-export { TIER_CONFIG }
+// ─── Card ──────────────────────────────────────────────────────────────────────
 
-/* -------------------------------------------------------------------------- */
-/*  Card                                                                      */
-/* -------------------------------------------------------------------------- */
-
-const cardVariants = cva("rounded-ok border border-ok-border bg-ok-surface", {
-  variants: {
-    padding: {
-      none: "p-0",
-      sm: "p-3",
-      md: "p-5",
-      lg: "p-8",
-    },
-  },
-  defaultVariants: {
-    padding: "md",
-  },
-})
-
-export interface CardProps
-  extends HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {}
-
-export function Card({ className, padding, ...props }: CardProps) {
-  return <div className={cn(cardVariants({ padding }), className)} {...props} />
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  padding?: "none" | "sm" | "md" | "lg";
 }
 
-/* -------------------------------------------------------------------------- */
-/*  SOLAmount                                                                 */
-/* -------------------------------------------------------------------------- */
+const CARD_PADDING = {
+  none: "",
+  sm: "p-3",
+  md: "p-5",
+  lg: "p-7",
+} as const;
 
-export interface SOLAmountProps extends HTMLAttributes<HTMLSpanElement> {
-  amount: number | string
-  /** show more decimals for precise on-chain values */
-  decimals?: number
-}
-
-export function SOLAmount({
-  amount,
-  decimals = 2,
-  className,
-  ...props
-}: SOLAmountProps) {
-  const value =
-    typeof amount === "number" ? amount.toFixed(decimals) : amount
+function Card({ className, padding = "md", children, ...props }: CardProps) {
   return (
-    <span
-      className={cn("inline-flex items-baseline gap-1 font-mono tabular-nums", className)}
-      {...props}
-    >
-      <span className="text-ok-green" aria-hidden="true">
-        ◎
-      </span>
-      <span className="text-ok-text">{value}</span>
-      <span className="sr-only">SOL</span>
-    </span>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/*  StatusPill                                                                */
-/* -------------------------------------------------------------------------- */
-
-export type FormStatus = "active" | "closed" | "distributing"
-
-const STATUS_CONFIG: Record<
-  FormStatus,
-  { label: string; className: string; dot: string }
-> = {
-  active: {
-    label: "Active",
-    className: "border-ok-green/30 bg-ok-green/10 text-ok-green",
-    dot: "bg-ok-green",
-  },
-  closed: {
-    label: "Closed",
-    className: "border-ok-border bg-ok-surface text-ok-grey",
-    dot: "bg-ok-grey",
-  },
-  distributing: {
-    label: "Distributing",
-    className: "border-ok-purple/40 bg-ok-purple/10 text-ok-purple",
-    dot: "bg-ok-purple",
-  },
-}
-
-export interface StatusPillProps extends HTMLAttributes<HTMLSpanElement> {
-  status: FormStatus
-}
-
-export function StatusPill({ status, className, ...props }: StatusPillProps) {
-  const config = STATUS_CONFIG[status]
-  return (
-    <span
+    <div
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-ok border px-2.5 py-1 font-sans text-xs font-medium",
-        config.className,
-        className,
+        "rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface shadow-lg shadow-black/20",
+        CARD_PADDING[padding],
+        className
       )}
       {...props}
     >
-      <span className={cn("size-2 rounded-full", config.dot)} aria-hidden="true" />
-      {config.label}
-    </span>
-  )
+      {children}
+    </div>
+  );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  WalletButton                                                              */
-/* -------------------------------------------------------------------------- */
+// ─── WalletButton ──────────────────────────────────────────────────────────────
 
-export interface WalletButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** connected wallet address; when provided the button renders its connected state */
-  address?: string
-  /** reputation tier shown alongside a connected address */
-  tier?: BadgeTier
+function truncateAddress(address: string): string {
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
-function truncateAddress(address: string) {
-  if (address.length <= 11) return address
-  return `${address.slice(0, 4)}...${address.slice(-4)}`
+interface WalletButtonProps {
+  connected?: boolean;
+  wallet?: string;
+  score?: number;
+  onClick?: () => void;
+  className?: string;
 }
 
-export function WalletButton({
-  address,
-  tier,
+function WalletButton({
+  connected = false,
+  wallet,
+  score = 0,
+  onClick,
   className,
-  ...props
 }: WalletButtonProps) {
-  if (!address) {
+  if (connected && wallet) {
+    const tier = getBadgeTier(score);
+    const badgeConfig = BADGE_CONFIG[tier];
+
     return (
       <button
+        onClick={onClick}
         className={cn(
-          "inline-flex h-10 items-center justify-center gap-2 rounded-ok bg-ok-green px-4 font-display text-sm font-medium text-ok-bg transition-colors hover:bg-ok-green/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/60",
-          className,
+          "inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 text-sm font-medium text-ok-text transition-all duration-150 hover:border-ok-green/30 hover:bg-ok-green/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50",
+          className
         )}
-        {...props}
       >
-        <Wallet className="size-4" aria-hidden="true" />
-        Connect Wallet
+        <span className="flex items-center gap-1.5">
+          <Wallet className="h-4 w-4 text-ok-green" />
+          <span className="font-mono text-xs">{truncateAddress(wallet)}</span>
+        </span>
+
+        <span className="h-4 w-px bg-ok-border" />
+
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+            badgeConfig.containerClass
+          )}
+        >
+          {tier === "diamond" ? (
+            <Gem className="h-2.5 w-2.5" />
+          ) : (
+            <Circle
+              className={cn("h-1.5 w-1.5 fill-current", badgeConfig.dotClass)}
+            />
+          )}
+          {badgeConfig.label}
+        </span>
+
+        <ChevronDown className="h-3.5 w-3.5 text-ok-muted" />
       </button>
-    )
+    );
   }
 
   return (
     <button
+      onClick={onClick}
       className={cn(
-        "inline-flex h-10 items-center gap-2.5 rounded-ok border border-ok-border bg-ok-surface px-3 font-sans text-sm text-ok-text transition-colors hover:border-ok-green/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/60",
-        className,
+        "inline-flex items-center gap-2 rounded-[var(--radius-ok)] bg-ok-green px-4 py-2 text-sm font-medium text-ok-bg shadow-[0_0_20px_rgba(20,241,149,0.15)] transition-all duration-150 hover:bg-ok-green/90 hover:shadow-[0_0_28px_rgba(20,241,149,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50 active:scale-[0.97]",
+        className
+      )}
+    >
+      <Wallet className="h-4 w-4" />
+      Connect Wallet
+    </button>
+  );
+}
+
+// ─── SOLAmount ─────────────────────────────────────────────────────────────────
+
+function formatLamports(lamports: number): string {
+  const sol = lamports / 1_000_000_000;
+  return sol.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
+interface SOLAmountProps extends React.HTMLAttributes<HTMLSpanElement> {
+  amount: number;
+  unit?: "lamports" | "sol";
+  showSymbol?: boolean;
+}
+
+function SOLAmount({
+  amount,
+  unit = "lamports",
+  showSymbol = true,
+  className,
+  ...props
+}: SOLAmountProps) {
+  const displayValue = unit === "lamports" ? formatLamports(amount) : amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+  return (
+    <span className={cn("inline-flex items-center gap-1 font-mono", className)} {...props}>
+      {showSymbol && (
+        <span className="text-ok-green text-[0.9em]">◎</span>
+      )}
+      <span className="text-ok-text">{displayValue}</span>
+      {showSymbol && (
+        <span className="text-ok-muted text-xs font-sans">SOL</span>
+      )}
+    </span>
+  );
+}
+
+// ─── StatusPill ────────────────────────────────────────────────────────────────
+
+type StatusType = "active" | "closed" | "distributing";
+
+interface StatusConfig {
+  label: string;
+  dotClass: string;
+  containerClass: string;
+}
+
+const STATUS_CONFIG: Record<StatusType, StatusConfig> = {
+  active: {
+    label: "Active",
+    dotClass: "bg-ok-green animate-pulse",
+    containerClass: "border-ok-green/25 bg-ok-green/10 text-ok-green",
+  },
+  closed: {
+    label: "Closed",
+    dotClass: "bg-ok-muted",
+    containerClass: "border-ok-border bg-ok-border/30 text-ok-muted",
+  },
+  distributing: {
+    label: "Distributing",
+    dotClass: "bg-ok-purple animate-pulse",
+    containerClass: "border-ok-purple/25 bg-ok-purple/10 text-ok-purple",
+  },
+};
+
+interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {
+  status: StatusType;
+}
+
+function StatusPill({ status, className, children, ...props }: StatusPillProps) {
+  const config = STATUS_CONFIG[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        config.containerClass,
+        className
       )}
       {...props}
     >
-      <span className="flex size-5 items-center justify-center rounded-full bg-ok-purple/20 text-ok-purple">
-        <Wallet className="size-3" aria-hidden="true" />
-      </span>
-      <span className="font-mono">{truncateAddress(address)}</span>
-      {tier && <Badge tier={tier} />}
-    </button>
-  )
+      <span className={cn("h-1.5 w-1.5 rounded-full", config.dotClass)} />
+      {children ?? config.label}
+    </span>
+  );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Navbar                                                                    */
-/* -------------------------------------------------------------------------- */
+// ─── Navbar ────────────────────────────────────────────────────────────────────
 
-export interface NavbarProps {
-  links?: { label: string; href: string }[]
-  wallet?: { address?: string; tier?: BadgeTier; onConnect?: () => void }
-  className?: string
-  children?: ReactNode
+interface NavItem {
+  label: string;
+  href: string;
 }
 
-const DEFAULT_LINKS = [
-  { label: "Explore", href: "#explore" },
-  { label: "How it Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-]
+interface NavbarProps {
+  items?: NavItem[];
+  score?: number;
+  className?: string;
+}
 
-export function Navbar({
-  links = DEFAULT_LINKS,
-  wallet,
+const DEFAULT_NAV_ITEMS: NavItem[] = [
+  { label: "Explore Forms", href: "/explore" },
+  { label: "How It Works", href: "/how-it-works" },
+  { label: "Pricing", href: "/pricing" },
+];
+
+function Navbar({
+  items = DEFAULT_NAV_ITEMS,
+  score = 0,
   className,
 }: NavbarProps) {
+  const { connected, publicKey, disconnect } = useWallet();
+  const { setVisible } = useWalletModal();
+
+  const handleWalletClick = () => {
+    if (connected) {
+      disconnect();
+    } else {
+      setVisible(true);
+    }
+  };
+
   return (
     <nav
       className={cn(
-        "flex h-16 items-center justify-between gap-4 border-b border-ok-border bg-ok-bg px-6",
-        className,
+        "sticky top-0 z-50 flex items-center justify-between border-b border-ok-border bg-ok-surface/80 px-6 py-3 backdrop-blur-xl",
+        className
       )}
     >
       {/* Logo */}
-      <a href="#" className="flex items-center gap-2 shrink-0">
-        <span className="flex size-8 items-center justify-center rounded-ok bg-ok-green text-ok-bg">
-          <Link2 className="size-4.5" aria-hidden="true" />
-        </span>
-        <span className="font-display text-lg font-bold tracking-tight text-ok-text">
+      <Link to="/" className="flex items-center gap-2 text-ok-text no-underline">
+        <Link2 className="h-5 w-5 text-ok-green" strokeWidth={2.5} />
+        <span className="font-display text-lg font-bold tracking-tight">
           Okaform
         </span>
-      </a>
+      </Link>
 
-      {/* Center links */}
-      <ul className="hidden items-center gap-8 md:flex">
-        {links.map((link) => (
-          <li key={link.href}>
-            <a
-              href={link.href}
-              className="font-sans text-sm font-medium text-ok-muted transition-colors hover:text-ok-text"
-            >
-              {link.label}
-            </a>
-          </li>
+      {/* Nav Links */}
+      <div className="hidden items-center gap-8 md:flex">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            to={item.href}
+            className="text-sm font-medium text-ok-muted transition-colors duration-150 hover:text-ok-text"
+          >
+            {item.label}
+          </Link>
         ))}
-      </ul>
+      </div>
 
       {/* Wallet */}
       <WalletButton
-        address={wallet?.address}
-        tier={wallet?.tier}
-        onClick={wallet?.onConnect}
+        connected={connected}
+        wallet={publicKey?.toBase58()}
+        score={score}
+        onClick={handleWalletClick}
       />
     </nav>
-  )
+  );
 }
+
+// ─── Exports ───────────────────────────────────────────────────────────────────
+
+export {
+  Button,
+  buttonVariants,
+  Badge,
+  getBadgeTier,
+  Card,
+  WalletButton,
+  SOLAmount,
+  StatusPill,
+  Navbar,
+  truncateAddress,
+  formatLamports,
+};
+
+export type {
+  ButtonProps,
+  BadgeProps,
+  BadgeTier,
+  CardProps,
+  WalletButtonProps,
+  SOLAmountProps,
+  StatusPillProps,
+  NavbarProps,
+  NavItem,
+  StatusType,
+};
