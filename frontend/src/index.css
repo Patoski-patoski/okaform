@@ -1,5 +1,6 @@
+/* frontend/src/index.css */
+
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 @import "tw-animate-css";
 @import "@fontsource-variable/jetbrains-mono";
 
@@ -10,17 +11,20 @@
 
 @theme {
   /* Surfaces */
-  --color-ok-bg: #0d1f1a; /* dark teal-black app background */
-  --color-ok-surface: #142920; /* card / raised surface */
-  --color-ok-border: #1e3d2f; /* hairline borders */
+  --color-ok-bg: #0d1f1a; 
+  --color-ok-surface: #142920; 
+  --color-ok-surface-hover: #1b352a; /* Needed for interactive states */
+  --color-ok-border: #1e3d2f; 
+  --color-ok-border-glow: rgba(20, 241, 149, 0.15); /* For subtle hover rings */
 
   /* Accents */
-  --color-ok-green: #14f195; /* Solana green — CTAs, success, rewards, active */
-  --color-ok-purple: #9945ff; /* Solana purple — badges, on-chain indicators */
+  --color-ok-green: #14f195; 
+  --color-ok-purple: #9945ff; 
 
-  /* Text */
-  --color-ok-text: #f0fdf4; /* primary, near-white with green warmth */
-  --color-ok-muted: #6ee7b7; /* secondary, muted green */
+  /* Text - Intentional Contrast Hierarchy */
+  --color-ok-text: #f0fdf4;       /* Emphasized titles, crisp */
+  --color-ok-muted: #94bba8;      /* Softened from primary for pure reading body text */
+  --color-ok-dim: #436d59;        /* Deeply muted for placeholders, metadata, inactive icons */
 
   /* Feedback */
   --color-ok-danger: #f87171;
@@ -37,13 +41,16 @@
   --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono Variable", monospace;
 
-  /* Consistent 12px radius throughout */
-  --radius-ok: 12px;
+  /* Scaled Radius Strategy (Crucial to break the template feel) */
+  --radius-ok-outer: 16px;  /* For main dashboard wrappers, cards */
+  --radius-ok-inner: 10px;  /* For nested inputs, action buttons inside cards */
+  --radius-ok-pill: 9999px; /* For compact status badges */
 }
 
 @layer base {
   html {
     background-color: var(--color-ok-bg);
+    scroll-behavior: smooth;
   }
   body {
     background-color: var(--color-ok-bg);
