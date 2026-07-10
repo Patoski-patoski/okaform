@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   Link2,
   Home,
@@ -29,6 +30,7 @@ import {
   getBadgeTier,
 } from "@/components/okaform";
 import type { BadgeTier, StatusType } from "@/components/okaform";
+import { buttonVariants } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -306,10 +308,10 @@ function SurveysTable({
         <h2 className="font-display text-lg font-semibold text-ok-text">
           My Surveys
         </h2>
-        <Button variant="primary" size="sm">
+        <Link to="/create" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
           <PlusCircle className="h-3.5 w-3.5" />
           Create Survey
-        </Button>
+        </Link>
       </div>
 
       {/* Table */}

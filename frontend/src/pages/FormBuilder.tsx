@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -29,7 +30,6 @@ import {
   Minus,
   ChevronDown,
   Eye,
-  AlertTriangle,
   X,
   Settings,
   ChevronDownSquare,
@@ -65,7 +65,7 @@ import {
   Globe
 } from "lucide-react";
 
-import { Button, StatusPill } from "@/components/okaform";
+import { Button, StatusPill, buttonVariants } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -93,6 +93,9 @@ interface Question {
   minWords: number;
   maxWords: number;
   randomize: boolean;
+  ratingMax: number;
+  matrixRows: string[];
+  matrixColumns: string[];
 }
 
 interface RewardSettings {
@@ -165,6 +168,39 @@ const QUESTION_TYPE_LABEL = QUESTION_TYPES.reduce((acc, curr) => {
   return acc;
 }, {} as Record<QuestionType, string>);
 
+// ─── Smart DnD Sensor ──────────────────────────────────────────────────────────
+// Extends PointerSensor to skip activation when the event target is an
+// interactive element (input, textarea, select, button). Without this, dnd-kit
+// calls preventDefault() on every pointerdown — even on inputs — which tells
+// the browser not to move focus, making inputs un-typeable.
+
+function isInteractiveElement(element: Element | null): boolean {
+  const tags = ["input", "textarea", "select", "option", "button", "label"];
+  if (!element) return false;
+  if (tags.includes(element.tagName.toLowerCase())) return true;
+  // Also walk up to catch clicks on icons inside buttons
+  if (element.closest(tags.join(","))) return true;
+  return false;
+}
+
+class SmartPointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: ({ nativeEvent: event }: { nativeEvent: PointerEvent }) => {
+        if (
+          !event.isPrimary ||
+          event.button !== 0 ||
+          isInteractiveElement(event.target as Element)
+        ) {
+          return false;
+        }
+        return true;
+      },
+    },
+  ];
+}
+
 let nextId = 1;
 function makeId(): string {
   return `q-${nextId++}`;
@@ -183,6 +219,9 @@ function createQuestion(type: QuestionType): Question {
     minWords: 0,
     maxWords: 0,
     randomize: false,
+    ratingMax: 5,
+    matrixRows: ["Row 1", "Row 2"],
+    matrixColumns: ["Column 1", "Column 2", "Column 3"],
   };
 }
 
@@ -254,6 +293,50 @@ function LeftPanel({
 
 // ─── Center canvas — Question cards ────────────────────────────────────────────
 
+function RatingPreview({
+  question,
+}: {
+  question: Question;
+}) {
+  const [hovered, setHovered] = useState(0);
+  const [selected, setSelected] = useState(0);
+
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      {Array.from({ length: question.ratingMax }, (_, i) => i + 1).map((num) => (
+        <button
+          key={num}
+          type="button"
+          onMouseEnter={() => setHovered(num)}
+          onMouseLeave={() => setHovered(0)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelected(num);
+          }}
+          className={cn(
+            "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border transition-all duration-150",
+            (selected >= num || hovered >= num)
+              ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
+              : "border-ok-border/50 bg-ok-bg/50 text-ok-muted/50 hover:border-ok-green/20"
+          )}
+        >
+          <Star
+            className={cn(
+              "h-4 w-4 transition-colors",
+              (selected >= num || hovered >= num) && "fill-ok-green text-ok-green"
+            )}
+          />
+        </button>
+      ))}
+      {selected > 0 && (
+        <span className="ml-2 font-mono text-xs text-ok-muted">
+          {selected}/{question.ratingMax}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function SortableQuestionCard({
   question,
   index,
@@ -261,6 +344,7 @@ function SortableQuestionCard({
   onSelect,
   onDelete,
   onUpdateLabel,
+  onUpdate,
 }: {
   question: Question;
   index: number;
@@ -268,6 +352,8 @@ function SortableQuestionCard({
   onSelect: () => void;
   onDelete: () => void;
   onUpdateLabel: (label: string) => void;
+  onUpdate: (updates: Partial<Question>) => void;
+  
 }) {
   const {
     attributes,
@@ -277,6 +363,7 @@ function SortableQuestionCard({
     transition,
     isDragging,
   } = useSortable({ id: question.id });
+  
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -319,7 +406,11 @@ function SortableQuestionCard({
           : "border-ok-border bg-ok-surface/40 hover:border-ok-border-glow hover:bg-ok-surface/60",
         isDragging && "shadow-lg shadow-black/20 ring-2 ring-ok-green/30"
       )}
-      onClick={onSelect}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+        onSelect();
+      }}
     >
       {/* Drag handle */}
       <div
@@ -370,24 +461,108 @@ function SortableQuestionCard({
               question.type === "text" && "font-normal text-ok-muted"
             )}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
           />
         )}
 
         {/* Input Previews */}
         {!isNonInput && (
           <div className="mt-3">
-            {/* Short inputs */}
-            {["short_text", "number", "email", "phone", "link", "date", "time", "payment"].includes(question.type) && (
-              <div className="flex h-10 items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/30 pointer-events-none select-none">
-                {QUESTION_TYPE_LABEL[question.type]} response field...
+            {/* Short text */}
+            {question.type === "short_text" && (
+              <input
+                type="text"
+                placeholder="Short text response..."
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+              />
+            )}
+
+            {/* Number */}
+            {question.type === "number" && (
+              <input
+                type="number"
+                placeholder="0"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            )}
+
+            {/* Email */}
+            {question.type === "email" && (
+              <input
+                type="email"
+                placeholder="name@example.com"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+              />
+            )}
+
+            {/* Phone */}
+            {question.type === "phone" && (
+              <input
+                type="tel"
+                placeholder="+1 (555) 000-0000"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+              />
+            )}
+
+            {/* Link */}
+            {question.type === "link" && (
+              <input
+                type="url"
+                placeholder="https://"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+              />
+            )}
+
+            {/* Payment */}
+            {question.type === "payment" && (
+              <div
+                className="flex h-10 items-center gap-2 rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/30"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="text-ok-green">◎</span>
+                <span>0.00 SOL</span>
               </div>
+            )}
+
+            {/* Date — real date input */}
+            {question.type === "date" && (
+              <input
+                type="date"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 focus:border-ok-green/40 focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-40"
+              />
+            )}
+
+            {/* Time — real time input */}
+            {question.type === "time" && (
+              <input
+                type="time"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 focus:border-ok-green/40 focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-40"
+              />
             )}
             
             {/* Long inputs */}
             {question.type === "long_text" && (
-              <div className="h-20 rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 pt-2.5 text-xs text-ok-muted/30 pointer-events-none select-none">
-                Paragraph response field...
-              </div>
+              <textarea
+                placeholder="Paragraph response field..."
+                rows={3}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="w-full resize-none rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 pt-2.5 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+              />
             )}
             
             {/* Choice / Lists */}
@@ -413,7 +588,10 @@ function SortableQuestionCard({
 
             {/* Dropdown / Select */}
             {["dropdown", "multi_select"].includes(question.type) && (
-              <div className="flex h-10 items-center justify-between rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/30 pointer-events-none select-none">
+              <div
+                className="flex h-10 items-center justify-between rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/30"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <span>Select option(s)...</span>
                 <ChevronDown className="h-4 w-4 text-ok-muted" />
               </div>
@@ -421,41 +599,88 @@ function SortableQuestionCard({
 
             {/* File Upload */}
             {question.type === "file_upload" && (
-              <div className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 bg-ok-bg/30 py-8 text-xs text-ok-muted/50 pointer-events-none select-none">
+              <div
+                className="flex flex-col items-center justify-center gap-2 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 bg-ok-bg/30 py-8 text-xs text-ok-muted/50"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Upload className="h-5 w-5 mb-1" />
                 Click to choose a file or drag here
               </div>
             )}
 
-            {/* Matrix */}
+            {/* Matrix — editable rows and columns */}
             {question.type === "matrix" && (
-              <div className="w-full overflow-hidden rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/30 pointer-events-none select-none">
-                <div className="grid grid-cols-4 border-b border-ok-border/30 p-2 text-[10px] uppercase text-ok-dim">
-                  <div /><div>Col 1</div><div>Col 2</div><div>Col 3</div>
-                </div>
-                <div className="grid grid-cols-4 border-b border-ok-border/30 p-2 text-xs text-ok-muted">
-                  <div className="font-medium">Row 1</div><div>○</div><div>○</div><div>○</div>
-                </div>
-                <div className="grid grid-cols-4 p-2 text-xs text-ok-muted">
-                  <div className="font-medium">Row 2</div><div>○</div><div>○</div><div>○</div>
+              <div className="w-full overflow-hidden rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/30">
+                <div className="grid gap-px" style={{ gridTemplateColumns: `1fr repeat(${question.matrixColumns.length}, minmax(0, 1fr))` }}>
+                  {/* Header row */}
+                  <div className="bg-ok-surface/60 p-2 text-[10px] uppercase tracking-wider text-ok-dim" />
+                  {question.matrixColumns.map((col, ci) => (
+                    <input
+                      key={ci}
+                      type="text"
+                      value={col}
+                      onChange={(e) => {
+                        const next = [...question.matrixColumns];
+                        next[ci] = e.target.value;
+                        onUpdate({ matrixColumns: next });
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="bg-ok-surface/60 p-2 text-[10px] font-medium text-ok-muted border-none focus:outline-none focus:ring-1 focus:ring-ok-green/30 text-center"
+                    />
+                  ))}
+
+                  {/* Data rows */}
+                  {question.matrixRows.map((row, ri) => (
+                    <React.Fragment key={ri}>
+                      <input
+                        type="text"
+                        value={row}
+                        onChange={(e) => {
+                          const next = [...question.matrixRows];
+                          next[ri] = e.target.value;
+                          onUpdate({ matrixRows: next });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()} 
+                        className="bg-ok-bg/50 p-2 text-xs font-medium text-ok-muted border-none focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+                      />
+                      {question.matrixColumns.map((_, ci) => (
+                        <div key={ci} className="flex items-center justify-center bg-ok-bg/50 p-2 text-xs text-ok-muted/40">
+                          ○
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Linear Scale / Rating */}
-            {(question.type === "linear_scale" || question.type === "rating") && (
-              <div className="flex items-center gap-3 pointer-events-none select-none mt-2">
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <div key={num} className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 text-xs text-ok-muted">
-                    {question.type === "rating" ? <Star className="h-4 w-4" /> : num}
+            {/* Linear Scale */}
+            {question.type === "linear_scale" && (
+              <div
+                className="flex items-center gap-3 mt-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {Array.from({ length: question.ratingMax }, (_, i) => i + 1).map((num) => (
+                  <div key={num} className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 text-xs text-ok-muted hover:border-ok-green/30 hover:text-ok-green cursor-pointer transition-colors">
+                    {num}
                   </div>
                 ))}
               </div>
             )}
 
+            {/* Rating — clickable stars */}
+            {question.type === "rating" && (
+              <RatingPreview question={question} />
+            )}
+
             {/* Signature */}
             {question.type === "signature" && (
-              <div className="flex items-center justify-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 h-24 text-xs text-ok-muted/30 pointer-events-none select-none">
+              <div
+                className="flex items-center justify-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 h-24 text-xs text-ok-muted/30 cursor-crosshair"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Draw signature here...
               </div>
             )}
@@ -504,6 +729,7 @@ function Canvas({
   onUpdateLabel,
   onUpdateTitle,
   onAddBetween,
+  onUpdateQuestion,
 }: {
   questions: Question[];
   selectedId: string | null;
@@ -514,15 +740,15 @@ function Canvas({
   onUpdateLabel: (id: string, label: string) => void;
   onUpdateTitle: (title: string) => void;
   onAddBetween: (afterIndex: number) => void;
+  onUpdateQuestion: (id: string, updates: Partial<Question>) => void;
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
+    useSensor(SmartPointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  
 
   const questionIds = useMemo(() => questions.map((q) => q.id), [questions]);
 
@@ -545,6 +771,7 @@ function Canvas({
         value={formTitle}
         onChange={(e) => onUpdateTitle(e.target.value)}
         placeholder="Untitled Campaign Survey"
+        onPointerDown={(e) => e.stopPropagation()}
         className="mb-8 w-full border-none bg-transparent font-display text-2xl font-bold text-ok-text placeholder:text-ok-muted/20 focus:outline-none lg:text-3xl"
       />
 
@@ -577,6 +804,7 @@ function Canvas({
                     onSelect={() => onSelect(q.id)}
                     onDelete={() => onDelete(q.id)}
                     onUpdateLabel={(label) => onUpdateLabel(q.id, label)}
+                    onUpdate={(updates) => onUpdateQuestion(q.id, updates)}
                   />
 
                   <div className="absolute left-0 right-0 -bottom-[14px] flex justify-center z-10 opacity-0 group-hover/step:opacity-100 transition-opacity duration-150">
@@ -703,6 +931,7 @@ function QuestionSettings({
                         onUpdate(question.id, { options: next });
                       }}
                       className="flex-1 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-1.5 text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+                      onPointerDown={(e) => e.stopPropagation()}
                     />
                     <button
                       onClick={() => {
@@ -749,6 +978,110 @@ function QuestionSettings({
           </div>
         )}
         
+        {/* Rating max setting */}
+        {question.type === "rating" && (
+          <div className="space-y-3 border-b border-ok-border/20 pb-4">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Maximum Stars</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={question.ratingMax}
+                onChange={(e) => onUpdate(question.id, { ratingMax: Math.max(1, Math.min(10, parseInt(e.target.value) || 5)) })}
+                className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+            </div>
+            <p className="text-[10px] leading-relaxed text-ok-dim">
+              Number of clickable stars shown to respondents (1–10).
+            </p>
+          </div>
+        )}
+
+        {/* Matrix rows & columns editor */}
+        {question.type === "matrix" && (
+          <div className="space-y-4 border-b border-ok-border/20 pb-4">
+            {/* Rows */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Row Labels</label>
+              <div className="space-y-2">
+                {question.matrixRows.map((row, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-5 text-center font-mono text-[10px] text-ok-dim">{i + 1}</span>
+                    <input
+                      type="text"
+                      value={row}
+                      onChange={(e) => {
+                        const next = [...question.matrixRows];
+                        next[i] = e.target.value;
+                        onUpdate(question.id, { matrixRows: next });
+                      }}
+                      className="flex-1 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-1.5 text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={() => {
+                        const next = question.matrixRows.filter((_, j) => j !== i);
+                        onUpdate(question.id, { matrixRows: next });
+                      }}
+                      className="shrink-0 rounded p-1.5 text-ok-muted hover:bg-ok-surface hover:text-ok-danger transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => onUpdate(question.id, { matrixRows: [...question.matrixRows, `Row ${question.matrixRows.length + 1}`] })}
+                className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 py-2 text-xs text-ok-dim transition-colors hover:border-ok-green/40 hover:text-ok-green"
+              >
+                <Plus className="h-3 w-3" />
+                Add Row
+              </button>
+            </div>
+
+            {/* Columns */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Column Labels</label>
+              <div className="space-y-2">
+                {question.matrixColumns.map((col, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-5 text-center font-mono text-[10px] text-ok-dim">{String.fromCharCode(65 + i)}</span>
+                    <input
+                      type="text"
+                      value={col}
+                      onChange={(e) => {
+                        const next = [...question.matrixColumns];
+                        next[i] = e.target.value;
+                        onUpdate(question.id, { matrixColumns: next });
+                      }}
+                      className="flex-1 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-1.5 text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={() => {
+                        const next = question.matrixColumns.filter((_, j) => j !== i);
+                        onUpdate(question.id, { matrixColumns: next });
+                      }}
+                      className="shrink-0 rounded p-1.5 text-ok-muted hover:bg-ok-surface hover:text-ok-danger transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => onUpdate(question.id, { matrixColumns: [...question.matrixColumns, `Column ${question.matrixColumns.length + 1}`] })}
+                className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 py-2 text-xs text-ok-dim transition-colors hover:border-ok-green/40 hover:text-ok-green"
+              >
+                <Plus className="h-3 w-3" />
+                Add Column
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Placeholder for block-specific settings */}
         {isEmbed && (
           <div className="space-y-3">
@@ -795,6 +1128,7 @@ function RewardSettingsPanel({
               value={settings.rewardPool || ""}
               onChange={(e) => onUpdate({ rewardPool: parseFloat(e.target.value) || 0 })}
               className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg py-2 pl-8 pr-3 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+              onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
@@ -807,6 +1141,7 @@ function RewardSettingsPanel({
             value={settings.maxResponses || ""}
             onChange={(e) => onUpdate({ maxResponses: parseInt(e.target.value) || 0 })}
             className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+            onPointerDown={(e) => e.stopPropagation()}
           />
         </div>
 
@@ -847,6 +1182,7 @@ function RewardSettingsPanel({
               value={settings.numWinners || ""}
               onChange={(e) => onUpdate({ numWinners: parseInt(e.target.value) || 0 })}
               className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+              onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
         )}
@@ -864,6 +1200,7 @@ function RewardSettingsPanel({
                 value={settings.minWalletAge || ""}
                 onChange={(e) => onUpdate({ minWalletAge: parseInt(e.target.value) || 0 })}
                 className="w-24 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-2.5 py-1.5 font-mono text-xs text-right text-ok-text focus:border-ok-green/40 focus:outline-none"
+                onPointerDown={(e) => e.stopPropagation()}
               />
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -875,6 +1212,7 @@ function RewardSettingsPanel({
                 value={settings.minSolBalance || ""}
                 onChange={(e) => onUpdate({ minSolBalance: parseFloat(e.target.value) || 0 })}
                 className="w-24 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-2.5 py-1.5 font-mono text-xs text-right text-ok-text focus:border-ok-green/40 focus:outline-none"
+                onPointerDown={(e) => e.stopPropagation()}
               />
             </div>
           </div>
@@ -944,10 +1282,10 @@ export default function FormBuilder() {
           Draft Config
         </StatusPill>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm">
+          <Link to="/dashboard" className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
             <Eye className="h-3.5 w-3.5" />
             Simulate Interface
-          </Button>
+          </Link>
           <Button variant="primary" size="sm">
             Initialize Campaign
           </Button>
@@ -970,6 +1308,7 @@ export default function FormBuilder() {
             onUpdateLabel={updateQuestionLabel}
             onUpdateTitle={setFormTitle}
             onAddBetween={addBetween}
+            onUpdateQuestion={updateQuestion}
           />
         </div>
 

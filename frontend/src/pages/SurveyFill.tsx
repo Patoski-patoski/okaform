@@ -34,7 +34,7 @@ interface QuestionOption {
 
 interface Question {
   id: string;
-  type: "short_text" | "long_text" | "multiple_choice" | "checkbox";
+  type: "short_text" | "long_text" | "multiple_choice" | "checkbox" | "multi_select";
   label: string;
   required: boolean;
   placeholder?: string;
@@ -601,48 +601,53 @@ export default function SurveyFill() {
             {/* ── Wallet gate / eligibility ───────────────────────────────── */}
             <div className="transition-all duration-500 ease-in-out">
               {!connected ? (
-                <div className="animate-fadeIn">
+                <div className="animate-fadeIn" key="wallet-gate">
                   <WalletGate onConnect={handleConnect} />
                 </div>
               ) : (
-                <div className="animate-fadeIn">
+                <div className="animate-fadeIn" key="eligibility-pass">
                   <EligibilityPass wallet={wallet} score={score} />
                 </div>
               )}
             </div>
 
             {/* ── Form questions ─────────────────────────────────────────── */}
-            {connected && (
-              <div className="space-y-5 pt-2 animate-fadeIn">
-                {SURVEY_QUESTIONS.map((q, i) => (
-                  <QuestionCard
-                    key={q.id}
-                    question={q}
-                    index={i}
-                    answer={answers[q.id] ?? (q.type === "checkbox" ? [] : "")}
-                    error={errors[q.id]}
-                    onChange={handleAnswer}
-                  />
-                ))}
+            <div
+              className={cn(
+                "space-y-5 pt-2 transition-all duration-500 ease-in-out",
+                connected
+                  ? "opacity-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 translate-y-2 pointer-events-none h-0 overflow-hidden"
+              )}
+            >
+              {SURVEY_QUESTIONS.map((q, i) => (
+                <QuestionCard
+                  key={q.id}
+                  question={q}
+                  index={i}
+                  answer={answers[q.id] ?? (q.type === "checkbox" ? [] : "")}
+                  error={errors[q.id]}
+                  onChange={handleAnswer}
+                />
+              ))}
 
-                {/* ── Submit ────────────────────────────────────────────── */}
-                
-                <div className="space-y-3 pt-4">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full"
-                    onClick={handleSubmit}
-                  >
-                    Submit Response
-                  </Button>
-                  <p className="text-center text-[11px] text-ok-muted/50">
-                    Submitting signs a message with your wallet. No
-                    transaction fee required.
-                  </p>
-                </div>
+              {/* ── Submit ────────────────────────────────────────────── */}
+              
+              <div className="space-y-3 pt-4">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleSubmit}
+                >
+                  Submit Response
+                </Button>
+                <p className="text-center text-[11px] text-ok-muted/50">
+                  Submitting signs a message with your wallet. No
+                  transaction fee required.
+                </p>
               </div>
-            )}
+            </div>
           </div>
         )}
       </main>

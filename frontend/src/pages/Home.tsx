@@ -14,7 +14,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import { Button, Badge, Card, StatusPill, SOLAmount, Navbar } from "@/components/okaform";
+import { Badge, Card, StatusPill, SOLAmount, Navbar, buttonVariants } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -64,13 +64,13 @@ function Home() {
 
             {/* CTAs */}
             <div className="flex flex-wrap items-center gap-4">
-              <Button variant="primary" size="lg">
+              <Link to="/create" className={cn(buttonVariants({ variant: "primary", size: "lg" }))}>
                 Create a Survey
                 <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button variant="secondary" size="lg">
+              </Link>
+              <Link to="/dashboard" className={cn(buttonVariants({ variant: "secondary", size: "lg" }))}>
                 Explore Surveys
-              </Button>
+              </Link>
             </div>
 
             {/* Social proof */}
@@ -381,14 +381,14 @@ function Home() {
               Ready to Run a Verified Survey?
             </h2>
             <div className="flex flex-wrap justify-center gap-4">
-              <Button variant="primary" size="lg">
+              <Link to="/create" className={cn(buttonVariants({ variant: "primary", size: "lg" }))}>
                 <Wallet className="h-4 w-4" />
                 Create Survey — Connect Wallet
-              </Button>
-              <Button variant="secondary" size="lg">
+              </Link>
+              <Link to="/dashboard" className={cn(buttonVariants({ variant: "secondary", size: "lg" }))}>
                 Fill a Survey — Browse Forms
                 <ChevronRight className="h-4 w-4" />
-              </Button>
+              </Link>
             </div>
           </div>
         </div>
