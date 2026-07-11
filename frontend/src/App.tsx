@@ -1,4 +1,3 @@
-// src/App.tsx
 import { Routes, Route } from "react-router-dom";
 import { WalletContextProvider } from "./components/WalletProvider";
 import Home from "./pages/Home";

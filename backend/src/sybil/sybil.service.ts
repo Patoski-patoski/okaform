@@ -16,7 +16,7 @@ export class SybilService {
     const minBalance = rules.minSolBalance ?? 0;
 
     const [walletAgeDays, solBalance] = await Promise.all([
-      this.solanaService.getWalletAgeDays(wallet),
+      this.solanaService.getWalletAgeDays(wallet, minAge),
       this.solanaService.getSolBalance(wallet),
     ]);
 
