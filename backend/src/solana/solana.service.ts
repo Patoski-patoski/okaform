@@ -7,10 +7,16 @@ import { RpcErrorException } from '../common/exceptions/solana/rpc-error.excepti
 const PAGE_SIZE = 1000;
 const MAX_SIGNATURES = 10000;
 
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
 @Injectable()
 export class SolanaService {
   private readonly logger = new Logger(SolanaService.name);
   private readonly connection: Connection;
+  private readonly cache = new Map<string, CacheEntry<unknown>>();
 
   constructor(private readonly config: ConfigService) {
     const rpcUrl = this.config.get<string>('SOLANA_RPC_URL');
@@ -24,6 +30,20 @@ export class SolanaService {
     });
   }
 
+  private getFromCache<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.value as T;
+  }
+
+  private setCache<T>(key: string, value: T, ttlMs: number): void {
+    this.cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  }
+
   private validateWallet(wallet: string): PublicKey {
     try {
       return new PublicKey(wallet);
@@ -33,11 +53,17 @@ export class SolanaService {
   }
 
   async getSolBalance(wallet: string): Promise<number> {
+    const cacheKey = `balance:${wallet}`;
+    const cached = this.getFromCache<number>(cacheKey);
+    if (cached !== null) return cached;
+
     const pubkey = this.validateWallet(wallet);
 
     try {
       const lamports = await this.connection.getBalance(pubkey);
-      return lamports / LAMPORTS_PER_SOL;
+      const balance = lamports / LAMPORTS_PER_SOL;
+      this.setCache(cacheKey, balance, 5 * 60 * 1000); // 5min cache
+      return balance;
     } catch (error) {
       this.logger.error({
         event: 'RPC_GET_BALANCE_FAILED',
@@ -48,8 +74,19 @@ export class SolanaService {
     }
   }
 
-  async getWalletAgeDays(wallet: string): Promise<number> {
+  /**
+   * Get wallet age in days. Optionally accepts a minAgeDays threshold
+   * for early termination — stops scanning once a tx older than the
+   * threshold is found, avoiding a full paginated scan.
+   */
+  async getWalletAgeDays(wallet: string, minAgeDays?: number): Promise<number> {
+    const cacheKey = `age:${wallet}`;
+    const cached = this.getFromCache<number>(cacheKey);
+    if (cached !== null) return cached;
+
     const pubkey = this.validateWallet(wallet);
+    const cutoffDays = minAgeDays ?? 0;
+    const nowSec = Math.floor(Date.now() / 1000);
 
     try {
       let before: string | undefined;
@@ -77,6 +114,16 @@ export class SolanaService {
 
         scanned += batch.length;
 
+        // Early termination: if we found a tx older than the threshold,
+        // no need to scan further — wallet definitely qualifies
+        if (cutoffDays > 0 && oldestBlockTime !== null) {
+          const ageDays = Math.floor((nowSec - oldestBlockTime) / 86400);
+          if (ageDays >= cutoffDays) {
+            this.setCache(cacheKey, ageDays, 60 * 60 * 1000); // 1hr cache
+            return ageDays;
+          }
+        }
+
         if (batch.length < PAGE_SIZE) break;
         before = batch[batch.length - 1].signature;
       }
@@ -85,10 +132,9 @@ export class SolanaService {
         return 0;
       }
 
-      const firstTxDate = new Date(oldestBlockTime * 1000);
-      const now = new Date();
-      const diffMs = now.getTime() - firstTxDate.getTime();
-      return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const ageDays = Math.floor((nowSec - oldestBlockTime) / 86400);
+      this.setCache(cacheKey, ageDays, 60 * 60 * 1000); // 1hr cache
+      return ageDays;
     } catch (error) {
       this.logger.error({
         event: 'RPC_GET_WALLET_AGE_FAILED',

@@ -28,7 +28,6 @@ import {
   ListChecks,
   CheckSquare,
   Minus,
-  ChevronDown,
   Eye,
   X,
   Settings,
@@ -94,6 +93,8 @@ interface Question {
   maxWords: number;
   randomize: boolean;
   ratingMax: number;
+  lowLabel: string;
+  highLabel: string;
   matrixRows: string[];
   matrixColumns: string[];
 }
@@ -201,9 +202,8 @@ class SmartPointerSensor extends PointerSensor {
   ];
 }
 
-let nextId = 1;
 function makeId(): string {
-  return `q-${nextId++}`;
+  return `q-${crypto.randomUUID()}`;
 }
 
 function createQuestion(type: QuestionType): Question {
@@ -220,6 +220,8 @@ function createQuestion(type: QuestionType): Question {
     maxWords: 0,
     randomize: false,
     ratingMax: 5,
+    lowLabel: "Disagree",
+    highLabel: "Agree",
     matrixRows: ["Row 1", "Row 2"],
     matrixColumns: ["Column 1", "Column 2", "Column 3"],
   };
@@ -337,6 +339,41 @@ function RatingPreview({
   );
 }
 
+function LinearScalePreview({
+  question,
+}: {
+  question: Question;
+}) {
+  const [selected, setSelected] = useState(0);
+  const max = question.ratingMax || 5;
+
+  return (
+    <div className="mt-2 w-fit" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-3">
+        {Array.from({ length: max }, (_, i) => i + 1).map((num) => (
+          <button
+            key={num}
+            type="button"
+            onClick={() => setSelected(num)}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border transition-all duration-150",
+              selected === num
+                ? "border-ok-green/40 bg-ok-green/10 text-ok-green shadow-[0_0_12px_rgba(20,241,149,0.2)]"
+                : "border-ok-border/50 bg-ok-bg/50 text-ok-muted/50 hover:border-ok-green/20 hover:text-ok-green"
+            )}
+          >
+            {num}
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-between mt-1.5">
+        <span className="text-[10px] text-ok-dim/60">{question.lowLabel || "Disagree"}</span>
+        <span className="text-[10px] text-ok-dim/60">{question.highLabel || "Agree"}</span>
+      </div>
+    </div>
+  );
+}
+
 function SortableQuestionCard({
   question,
   index,
@@ -449,6 +486,7 @@ function SortableQuestionCard({
           </div>
         ) : (
           <input
+            key={question.id}
             type="text"
             value={question.label}
             onChange={(e) => onUpdateLabel(e.target.value)}
@@ -567,33 +605,101 @@ function SortableQuestionCard({
             
             {/* Choice / Lists */}
             {["multiple_choice", "checkbox", "ranking"].includes(question.type) && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
                 {question.options.map((opt, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/40 bg-ok-bg/30 px-3 py-2 text-xs text-ok-muted pointer-events-none select-none"
+                    className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/40 bg-ok-bg/30 px-3 py-1.5 text-xs text-ok-muted transition-colors focus-within:border-ok-green/30 focus-within:bg-ok-surface/40"
                   >
                     {question.type === "multiple_choice" ? (
                       <span className="h-3 w-3 shrink-0 rounded-full border border-ok-border bg-ok-surface" />
                     ) : question.type === "checkbox" ? (
                       <span className="h-3 w-3 shrink-0 rounded-[3px] border border-ok-border bg-ok-surface" />
                     ) : (
-                      <span className="font-mono text-[10px] text-ok-dim">{i + 1}.</span>
+                      <span className="font-mono text-[10px] text-ok-dim shrink-0">{i + 1}.</span>
                     )}
-                    {opt}
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const next = [...question.options];
+                        next[i] = e.target.value;
+                        onUpdate({ options: next });
+                      }}
+                      placeholder={`Option ${i + 1}`}
+                      className="flex-1 bg-transparent text-xs text-ok-text placeholder:text-ok-muted/30 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = question.options.filter((_, j) => j !== i);
+                        onUpdate({ options: next });
+                      }}
+                      className="shrink-0 rounded p-0.5 text-ok-muted/40 hover:bg-ok-surface hover:text-ok-danger transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdate({ options: [...question.options, `Option ${question.options.length + 1}`] });
+                  }}
+                  className="flex w-full items-center justify-center gap-1 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/40 py-1.5 text-[11px] text-ok-dim/60 transition-colors hover:border-ok-green/30 hover:text-ok-green"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add option
+                </button>
               </div>
             )}
 
-            {/* Dropdown / Select */}
+            {/* Dropdown / Multi-select */}
             {["dropdown", "multi_select"].includes(question.type) && (
-              <div
-                className="flex h-10 items-center justify-between rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/30"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span>Select option(s)...</span>
-                <ChevronDown className="h-4 w-4 text-ok-muted" />
+              <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                {question.options.map((opt, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/40 bg-ok-bg/30 px-3 py-1.5 text-xs text-ok-muted transition-colors focus-within:border-ok-green/30 focus-within:bg-ok-surface/40"
+                  >
+                    {question.type === "multi_select" ? (
+                      <span className="h-3 w-3 shrink-0 rounded-[3px] border border-ok-border bg-ok-surface" />
+                    ) : (
+                      <span className="h-3 w-3 shrink-0 rounded-full border border-ok-border bg-ok-surface" />
+                    )}
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const next = [...question.options];
+                        next[i] = e.target.value;
+                        onUpdate({ options: next });
+                      }}
+                      placeholder={`Option ${i + 1}`}
+                      className="flex-1 bg-transparent text-xs text-ok-text placeholder:text-ok-muted/30 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = question.options.filter((_, j) => j !== i);
+                        onUpdate({ options: next });
+                      }}
+                      className="shrink-0 rounded p-0.5 text-ok-muted/40 hover:bg-ok-surface hover:text-ok-danger transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdate({ options: [...question.options, `Option ${question.options.length + 1}`] });
+                  }}
+                  className="flex w-full items-center justify-center gap-1 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/40 py-1.5 text-[11px] text-ok-dim/60 transition-colors hover:border-ok-green/30 hover:text-ok-green"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add option
+                </button>
               </div>
             )}
 
@@ -658,16 +764,7 @@ function SortableQuestionCard({
 
             {/* Linear Scale */}
             {question.type === "linear_scale" && (
-              <div
-                className="flex items-center gap-3 mt-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {Array.from({ length: question.ratingMax }, (_, i) => i + 1).map((num) => (
-                  <div key={num} className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 text-xs text-ok-muted hover:border-ok-green/30 hover:text-ok-green cursor-pointer transition-colors">
-                    {num}
-                  </div>
-                ))}
-              </div>
+              <LinearScalePreview question={question} />
             )}
 
             {/* Rating — clickable stars */}

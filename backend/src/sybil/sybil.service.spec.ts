@@ -142,7 +142,10 @@ describe('SybilService', () => {
         minSolBalance: 0,
       });
 
-      expect(solanaService.getWalletAgeDays).toHaveBeenCalledWith(TEST_WALLET);
+      expect(solanaService.getWalletAgeDays).toHaveBeenCalledWith(
+        TEST_WALLET,
+        0,
+      );
       expect(solanaService.getSolBalance).toHaveBeenCalledWith(TEST_WALLET);
     });
 
