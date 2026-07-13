@@ -11,7 +11,7 @@ use crate::state::*;
 // - Fields tracked:
 // - global_score — cumulative reputation score
 // - surveys_completed — lifetime count
-// - badge_tier — reputation level (Grey → higher tiers)
+// - badge_tier — reputation level (Ghost → higher tiers)
 
 // The score_account is the foundation for the reputation system.
 // When update_score runs after survey completion, it modifies this global account — incrementing surveys_completed, 
@@ -42,7 +42,7 @@ pub fn process_initialize_score_account(ctx: Context<InitializeScoreAccount>) ->
     score_account.wallet = ctx.accounts.wallet.key(); // set the wallet field to the wallet's public key
     score_account.global_score = 0; // initialize the global score to 0
     score_account.surveys_completed = 0; // initialize the surveys completed to 0
-    score_account.badge_tier = BadgeTier::Grey; // initialize the badge tier to Grey
+    score_account.badge_tier = BadgeTier::Ghost; // initialize the badge tier to Ghost
     score_account.bump = ctx.bumps.score_account; // set the bump for PDA derivation
 
     msg!("Score account initialized");

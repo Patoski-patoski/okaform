@@ -11,10 +11,10 @@ import {
 } from '@jest/globals';
 
 enum BadgeTier {
-  GREY = 'Grey',
+  GREY = 'Ghost',
   BRONZE = 'Bronze',
   SILVER = 'Silver',
-  GOLD = 'Gold',
+  GOLD = 'Oracle',
   PLATINUM = 'Platinum',
 }
 

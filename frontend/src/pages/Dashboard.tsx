@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Eye,
   XCircle,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,9 @@ import {
 import type { BadgeTier, StatusType } from "@/components/okaform";
 import { buttonVariants } from "@/components/okaform";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
+import { useWallet } from "@/components/WalletProvider";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Creator dashboard — single component, two-panel layout.
@@ -154,25 +158,27 @@ const SIDEBAR_NAV = [
 function Sidebar({
   activeNav,
   onNavChange,
-  wallet,
-  score,
 }: {
   activeNav: string;
   onNavChange: (id: string) => void;
-  wallet: string;
-  score: number;
 }) {
+  const { connected, publicKey } = useWallet();
+  const { setVisible } = useWalletModal();
+  const { user, isAuthenticated, isLoading, login } = useAuth();
+
+  const wallet = publicKey?.toBase58();
+  const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-ok-border bg-ok-bg">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2.5 border-b border-ok-border/50 px-6">
+      <Link to="/" className="flex h-16 items-center gap-2.5 border-b border-ok-border/50 px-6 no-underline">
         <Link2 className="h-5 w-5 text-ok-green" strokeWidth={2.5} />
         <span className="font-display text-xl font-bold tracking-tight text-ok-text">
           Okaform
         </span>
-      </div>
+      </Link>
 
       {/* Nav items */}
       <nav className="flex-1 space-y-1.5 px-4 py-6">
@@ -203,20 +209,50 @@ function Sidebar({
 
       {/* Wallet / Reputation */}
       <div className="border-t border-ok-border/50 p-4">
-        <div className="flex flex-col gap-3 rounded-[var(--radius-ok-outer)] border border-ok-border/50 bg-ok-surface/30 p-3 transition-colors hover:border-ok-border">
-          <div className="flex items-center justify-between">
+        {!connected ? (
+          <button
+            onClick={() => setVisible(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-ok)] border border-dashed border-ok-border bg-ok-surface/20 px-3 py-2.5 text-sm font-medium text-ok-muted transition-colors hover:border-ok-green/40 hover:text-ok-green"
+          >
+            <Wallet className="h-4 w-4" />
+            Connect Wallet
+          </button>
+        ) : isLoading ? (
+          <div className="flex items-center justify-center gap-2 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface/20 px-3 py-2.5 text-xs text-ok-muted">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Signing in...
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="flex flex-col gap-2 rounded-[var(--radius-ok-outer)] border border-ok-border/50 bg-ok-surface/30 p-3">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-ok-muted" />
               <p className="truncate font-mono text-xs font-medium text-ok-text">
-                {truncateAddress(wallet)}
+                {truncateAddress(wallet ?? '')}
               </p>
             </div>
+            <button
+              onClick={() => login()}
+              className="mt-1 w-full rounded-[var(--radius-ok-inner)] bg-ok-green/10 px-2 py-1.5 text-xs font-medium text-ok-green transition-colors hover:bg-ok-green/20"
+            >
+              Sign In with Solana
+            </button>
           </div>
-          <div className="flex items-center justify-between border-t border-ok-border/30 pt-2">
-            <span className="text-[10px] uppercase tracking-wider text-ok-dim">Reputation</span>
-            <Badge tier={tier} className="scale-90 origin-right" />
+        ) : (
+          <div className="flex flex-col gap-3 rounded-[var(--radius-ok-outer)] border border-ok-border/50 bg-ok-surface/30 p-3 transition-colors hover:border-ok-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-ok-muted" />
+                <p className="truncate font-mono text-xs font-medium text-ok-text">
+                  {truncateAddress(wallet ?? '')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between border-t border-ok-border/30 pt-2">
+              <span className="text-[10px] uppercase tracking-wider text-ok-dim">Reputation</span>
+              <Badge tier={tier} className="scale-90 origin-right" />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </aside>
   );
@@ -425,11 +461,11 @@ function ResponsesTab() {
             className="appearance-none rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-3 py-2 pr-8 text-xs text-ok-text focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
           >
             <option value="all">All Badges</option>
-            <option value="grey">Grey</option>
-            <option value="blue">Blue</option>
-            <option value="green">Green</option>
-            <option value="gold">Gold</option>
-            <option value="diamond">Diamond</option>
+            <option value="grey">Ghost</option>
+            <option value="blue">Cipher</option>
+            <option value="green"> Sentinel</option>
+            <option value="gold">Oracle</option>
+            <option value="diamond">Sovereign</option>
           </select>
           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ok-muted" />
         </div>
@@ -790,8 +826,7 @@ export default function Dashboard() {
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [closeTarget, setCloseTarget] = useState<Survey | null>(null);
 
-  const wallet = "7xKpT9mQr3nBv2Ys8kLw4jF6hD1cX5eZ";
-  const score = 88;
+
 
   const selectedSurvey = useMemo(
     () => SURVEYS.find((s) => s.id === selectedSurveyId) ?? null,
@@ -821,8 +856,6 @@ export default function Dashboard() {
       <Sidebar
         activeNav={activeNav}
         onNavChange={handleNavChange}
-        wallet={wallet}
-        score={score}
       />
 
       {/* Main content */}

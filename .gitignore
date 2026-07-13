@@ -47,7 +47,8 @@ coverage/
 startup_brainstorm.txt
 program-id.json
 okaform_decision_model.md
-AGENTS.md
+# AGENTS.md
+prompt.md
 *.svg
 POST_MVP_TODO.md
 scripts

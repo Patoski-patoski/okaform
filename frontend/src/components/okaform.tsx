@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
@@ -7,11 +8,15 @@ import {
   ChevronDown,
   Gem,
   Circle,
+  Loader2,
 } from "lucide-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useConnection } from "@solana/wallet-adapter-react";
 
 import { cn } from "@/lib/utils";
 import { useWallet } from "./WalletProvider";
+import { useAuth } from "./AuthProvider";
+import solanaLogo from "@/assets/icons/solana-logo.svg";
 
 // ─── Button ────────────────────────────────────────────────────────────────────
 
@@ -69,31 +74,31 @@ interface BadgeConfig {
 
 const BADGE_CONFIG: Record<BadgeTier, BadgeConfig> = {
   grey: {
-    label: "Grey",
+    label: "Ghost",
     dotClass: "bg-ok-grey",
     containerClass:
       "border-ok-grey/25 bg-ok-grey/10 text-ok-grey",
   },
   blue: {
-    label: "Blue",
+    label: "Cipher",
     dotClass: "bg-ok-blue",
     containerClass:
       "border-ok-blue/25 bg-ok-blue/10 text-ok-blue",
   },
   green: {
-    label: "Green",
+    label: " Sentinel",
     dotClass: "bg-ok-green",
     containerClass:
       "border-ok-green/25 bg-ok-green/10 text-ok-green",
   },
   gold: {
-    label: "Gold",
+    label: "Oracle",
     dotClass: "bg-ok-gold",
     containerClass:
       "border-ok-gold/25 bg-ok-gold/10 text-ok-gold",
   },
   diamond: {
-    label: "Diamond",
+    label: "Sovereign",
     dotClass: "bg-cyan-400",
     containerClass:
       "border-cyan-400/25 bg-cyan-400/10 text-cyan-300",
@@ -172,6 +177,7 @@ interface WalletButtonProps {
   connected?: boolean;
   wallet?: string;
   score?: number;
+  balance?: number | null;
   onClick?: () => void;
   className?: string;
 }
@@ -180,18 +186,20 @@ function WalletButton({
   connected = false,
   wallet,
   score = 0,
+  balance,
   onClick,
   className,
 }: WalletButtonProps) {
   if (connected && wallet) {
     const tier = getBadgeTier(score);
     const badgeConfig = BADGE_CONFIG[tier];
+    const solBalance = balance != null ? (balance / 1_000_000_000).toFixed(2) : null;
 
     return (
       <button
         onClick={onClick}
         className={cn(
-          "inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 text-sm font-medium text-ok-text transition-all duration-150 hover:border-ok-green/30 hover:bg-ok-green/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50",
+          "group inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 text-sm font-medium text-ok-text transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50",
           className
         )}
       >
@@ -199,6 +207,16 @@ function WalletButton({
           <Wallet className="h-4 w-4 text-ok-green" />
           <span className="font-mono text-xs">{truncateAddress(wallet)}</span>
         </span>
+
+        {solBalance !== null && (
+          <>
+            <span className="h-4 w-px bg-ok-border" />
+            <span className="flex items-center gap-1 text-xs text-ok-muted transition-colors group-hover:text-ok-text">
+              <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
+              <span className="font-mono">{solBalance}</span>
+            </span>
+          </>
+        )}
 
         <span className="h-4 w-px bg-ok-border" />
 
@@ -265,7 +283,7 @@ function SOLAmount({
   return (
     <span className={cn("inline-flex items-center gap-1 font-mono", className)} {...props}>
       {showSymbol && (
-        <span className="text-ok-green text-[0.9em]">◎</span>
+        <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
       )}
       <span className="text-ok-text">{displayValue}</span>
       {showSymbol && (
@@ -349,11 +367,34 @@ function Navbar({
   className,
 }: NavbarProps) {
   const { connected, publicKey, disconnect } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
+  const { isAuthenticated, user, isLoading, login } = useAuth();
+
+  const [balance, setBalance] = useState<number | null>(null);
+
+  const displayScore = user?.globalScore ?? score;
+  const wallet = publicKey?.toBase58();
+
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setBalance(null);
+      return;
+    }
+    let cancelled = false;
+    void connection.getBalance(publicKey).then((lamports) => {
+      if (!cancelled) setBalance(lamports);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey, connection]);
 
   const handleWalletClick = () => {
-    if (connected) {
+    if (connected && isAuthenticated) {
       disconnect();
+    } else if (connected && !isAuthenticated && !isLoading) {
+      void login();
     } else {
       setVisible(true);
     }
@@ -387,13 +428,29 @@ function Navbar({
         ))}
       </div>
 
-      {/* Wallet */}
-      <WalletButton
-        connected={connected}
-        wallet={publicKey?.toBase58()}
-        score={score}
-        onClick={handleWalletClick}
-      />
+      {/* Wallet / Auth */}
+      {isLoading ? (
+        <div className="flex items-center gap-2 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 text-sm text-ok-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Signing in...
+        </div>
+      ) : connected && !isAuthenticated ? (
+        <button
+          onClick={handleWalletClick}
+          className="inline-flex items-center gap-2 rounded-[var(--radius-ok)] bg-ok-green px-4 py-2 text-sm font-medium text-ok-bg shadow-[0_0_20px_rgba(20,241,149,0.15)] transition-all duration-150 hover:bg-ok-green/90 hover:shadow-[0_0_28px_rgba(20,241,149,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50 active:scale-[0.97]"
+        >
+          <Wallet className="h-4 w-4" />
+          Sign In with Solana
+        </button>
+      ) : (
+        <WalletButton
+          connected={connected && isAuthenticated}
+          wallet={connected && isAuthenticated ? wallet : undefined}
+          score={displayScore}
+          balance={connected && isAuthenticated ? balance : null}
+          onClick={handleWalletClick}
+        />
+      )}
     </nav>
   );
 }

@@ -4,10 +4,10 @@ import { HydratedDocument } from 'mongoose';
 export type UserDocument = HydratedDocument<User>;
 
 export enum BadgeTier {
-  GREY = 'Grey',
+  GREY = 'Ghost',
   BRONZE = 'Bronze',
   SILVER = 'Silver',
-  GOLD = 'Gold',
+  GOLD = 'Oracle',
   PLATINUM = 'Platinum',
 }
 

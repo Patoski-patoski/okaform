@@ -5,36 +5,36 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 /*
-  Okaform design system — Web3 survey platform on Solana.
-  Dark theme only. The palette is intentionally small (see design tokens below).
+  Okaform design system — GitHub-inspired premium dark palette.
+  High-contrast, documentation-style aesthetic.
 */
 
 @theme {
-  /* Surfaces */
-  --color-ok-bg: #0d1f1a; 
-  --color-ok-surface: #142920; 
-  --color-ok-surface-hover: #1b352a; /* Needed for interactive states */
-  --color-ok-border: #1e3d2f; 
-  --color-ok-border-glow: rgba(20, 241, 149, 0.15); /* For subtle hover rings */
+  /* Surfaces — GitHub Darkest */
+  --color-ok-bg: #0D1117;
+  --color-ok-surface: #151B23;
+  --color-ok-surface-hover: #1C2128;
+  --color-ok-border: #3D444D;
+  --color-ok-border-glow: rgba(56, 189, 248, 0.15);
 
   /* Accents */
-  --color-ok-green: #14f195; 
-  --color-ok-purple: #9945ff; 
+  --color-ok-green: #3FB950;
+  --color-ok-purple: #A371F7;
 
-  /* Text - Intentional Contrast Hierarchy */
-  --color-ok-text: #f0fdf4;       /* Emphasized titles, crisp */
-  --color-ok-muted: #94bba8;      /* Softened from primary for pure reading body text */
-  --color-ok-dim: #436d59;        /* Deeply muted for placeholders, metadata, inactive icons */
+  /* Text — GitHub Contrast Hierarchy */
+  --color-ok-text: #F0F6F6;
+  --color-ok-muted: #9198A1;
+  --color-ok-dim: #656C76;
 
   /* Feedback */
-  --color-ok-danger: #f87171;
-  --color-ok-warning: #fbbf24;
+  --color-ok-danger: #F85149;
+  --color-ok-warning: #D29922;
 
   /* Badge tiers */
-  --color-ok-grey: #94a3b8;
-  --color-ok-blue: #38bdf8;
-  --color-ok-gold: #fbbf24;
-  --color-ok-diamond: #67e8f9;
+  --color-ok-grey: #8B949E;
+  --color-ok-blue: #58A6FF;
+  --color-ok-gold: #E3B341;
+  --color-ok-diamond: #79C0FF;
 
   /* Typography */
   --font-display: "Space Grotesk", sans-serif;
