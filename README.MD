@@ -23,7 +23,7 @@ Creators launch surveys backed by an on-chain SOL escrow pool. Respondents conne
 - **On-chain escrow** — reward pool locked in a program-derived vault at survey creation; released automatically on close
 - **Sybil resistance** — wallet age, SOL balance, and funding-graph clustering filter out bots before a single response is accepted
 - **Reputation scoring** — five-metric system (completion rate, response depth, consistency, wallet history, creator rating) produces a cumulative global score stored in a per-wallet PDA
-- **Badge tiers** — Grey → Blue → Green → Gold → Diamond, each carrying a reward weight multiplier
+- **Badge tiers** — Ghost → Cipher →  Sentinel → Oracle → Sovereign, each carrying a reward weight multiplier
 - **Weighted distribution** — rewards distributed proportionally by badge tier (0.5x to 1.5x); optional lottery mode available as a creator toggle
 - **Zero respondent fees** — all transaction costs absorbed by the platform; respondents pay nothing to participate
 
@@ -96,11 +96,11 @@ Badge tiers and their reward multipliers:
 
 | Badge | Score Range | Reward Weight |
 | --- | --- | --- |
-| 🔘 Grey | 0–25 | 0.5x |
-| 🔵 Blue | 26–50 | 0.75x |
-| 🟢 Green | 51–75 | 1.0x |
-| 🟡 Gold | 76–100 | 1.25x |
-| 💎 Diamond | 100+ | 1.5x |
+| 🔘 Ghost | 0–25 | 0.5x |
+| 🔵 Cipher | 26–50 | 0.75x |
+| 🟢  Sentinel | 51–75 | 1.0x |
+| 🟡 Oracle | 76–100 | 1.25x |
+| 💎 Sovereign | 100+ | 1.5x |
 
 ---
 

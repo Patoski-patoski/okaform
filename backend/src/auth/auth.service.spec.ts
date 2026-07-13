@@ -29,7 +29,7 @@ describe('AuthService', () => {
     username: 'testuser',
     globalScore: 75,
     surveysCompleted: 12,
-    badgeTier: 'Gold' as any,
+    badgeTier: 'Oracle' as any,
     siwsNonce: null,
     siwsNonceExpiresAt: null,
     lastLoginAt: null,
@@ -240,7 +240,7 @@ describe('AuthService', () => {
 
       expect(result.wallet).toBe(TEST_WALLET);
       expect(result.username).toBe('testuser');
-      expect(result.badgeTier).toBe('Gold');
+      expect(result.badgeTier).toBe('Oracle');
     });
 
     it('should throw UserNotFoundException if user not found', async () => {

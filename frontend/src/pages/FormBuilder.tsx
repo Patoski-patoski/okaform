@@ -1,6 +1,8 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   DndContext,
   closestCenter,
@@ -61,11 +63,17 @@ import {
   Calculator,
   EyeOff,
   ShieldCheck,
-  Globe
+  Globe,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 
-import { Button, StatusPill, buttonVariants } from "@/components/okaform";
+import { Button, StatusPill, Card } from "@/components/okaform";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
+import { useWallet } from "@/components/WalletProvider";
+import { createForm } from "@/lib/forms";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -443,11 +451,7 @@ function SortableQuestionCard({
           : "border-ok-border bg-ok-surface/40 hover:border-ok-border-glow hover:bg-ok-surface/60",
         isDragging && "shadow-lg shadow-black/20 ring-2 ring-ok-green/30"
       )}
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-        onSelect();
-      }}
+      onClick={() => onSelect()}
     >
       {/* Drag handle */}
       <div
@@ -498,7 +502,6 @@ function SortableQuestionCard({
               question.type === "h3" && "font-display text-lg font-semibold",
               question.type === "text" && "font-normal text-ok-muted"
             )}
-            onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           />
         )}
@@ -1203,9 +1206,11 @@ function QuestionSettings({
 function RewardSettingsPanel({
   settings,
   onUpdate,
+  balanceWarning,
 }: {
   settings: RewardSettings;
   onUpdate: (updates: Partial<RewardSettings>) => void;
+  balanceWarning?: string;
 }) {
   return (
     <div className="border-t border-ok-border/60 bg-ok-surface/20 p-4 space-y-4">
@@ -1228,6 +1233,12 @@ function RewardSettingsPanel({
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
+          {balanceWarning && (
+            <p className="text-[11px] text-ok-danger flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              {balanceWarning}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -1327,6 +1338,69 @@ export default function FormBuilder() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reward, setReward] = useState<RewardSettings>(INITIAL_REWARD);
   const [showMobilePicker, setShowMobilePicker] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [initializing, setInitializing] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { publicKey } = useWallet();
+  const { connection } = useConnection();
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+
+  const { draftId } = useParams<{ draftId: string }>();
+
+  // Restore draft from localStorage on mount
+  useEffect(() => {
+    if (!draftId) return;
+    const saved = localStorage.getItem(`okaform_draft_${draftId}`);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed.formTitle) setFormTitle(parsed.formTitle);
+      if (parsed.questions?.length) setQuestions(parsed.questions);
+      if (parsed.reward) setReward(parsed.reward);
+      if (parsed.selectedId && parsed.questions?.some((q: Question) => q.id === parsed.selectedId)) {
+        setSelectedId(parsed.selectedId);
+      }
+    } catch {
+      localStorage.removeItem(`okaform_draft_${draftId}`);
+    }
+  }, [draftId]);
+
+  // Auto-save draft to localStorage on changes
+  useEffect(() => {
+    if (!draftId) return;
+    const draft = { formTitle, questions, reward, selectedId };
+    localStorage.setItem(`okaform_draft_${draftId}`, JSON.stringify(draft));
+  }, [formTitle, questions, reward, selectedId, draftId]);
+
+  const rewardInLamports = reward.rewardPool * LAMPORTS_PER_SOL;
+  const insufficientBalance =
+    walletBalance !== null && rewardInLamports > walletBalance;
+  const balanceWarning =
+    insufficientBalance && walletBalance !== null
+      ? `Wallet balance (${(walletBalance / LAMPORTS_PER_SOL).toFixed(2)}) is less than the pool amount`
+      : undefined;
+
+  useEffect(() => {
+    if (!publicKey) {
+      setWalletBalance(null);
+      return;
+    }
+
+    const fetchBalance = async () => {
+      try {
+        const bal = await connection.getBalance(publicKey);
+        setWalletBalance(bal);
+      } catch {
+        setWalletBalance(null);
+      }
+    };
+
+    void fetchBalance();
+    const interval = setInterval(fetchBalance, 10000);
+    return () => clearInterval(interval);
+  }, [publicKey, connection]);
 
   const selectedQuestion = useMemo(
     () => questions.find((q) => q.id === selectedId),
@@ -1366,6 +1440,62 @@ export default function FormBuilder() {
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...updates } : q)));
   }, []);
 
+  const handleInitialize = useCallback(async () => {
+    if (!formTitle.trim()) {
+      setInitError('Please enter a form title before initializing.');
+      return;
+    }
+    if (questions.length === 0) {
+      setInitError('Please add at least one question before initializing.');
+      return;
+    }
+    if (!isAuthenticated) {
+      setInitError('Please connect your wallet and sign in first.');
+      return;
+    }
+    if (insufficientBalance) {
+      setInitError('Insufficient wallet balance to cover the Escrow Reservoir Pool.');
+      return;
+    }
+
+    setInitError(null);
+    setInitializing(true);
+
+    try {
+      await createForm({
+        title: formTitle.trim(),
+        questions: questions.map((q) => ({
+          id: q.id,
+          type: q.type,
+          label: q.label,
+          required: q.required,
+          options: q.options,
+          minWords: q.minWords,
+          maxWords: q.maxWords,
+          randomize: q.randomize,
+          ratingMax: q.ratingMax,
+          lowLabel: q.lowLabel,
+          highLabel: q.highLabel,
+          matrixRows: q.matrixRows,
+          matrixColumns: q.matrixColumns,
+        })),
+        rewardPool: reward.rewardPool,
+        maxResponses: reward.maxResponses,
+        rewardType: reward.rewardType,
+        numWinners: reward.numWinners,
+        minWalletAge: reward.minWalletAge,
+        minSolBalance: reward.minSolBalance,
+      });
+
+      if (draftId) localStorage.removeItem(`okaform_draft_${draftId}`);
+      navigate('/dashboard');
+    } catch (err) {
+      setInitError(err instanceof Error ? err.message : 'Failed to initialize campaign');
+    } finally {
+      setInitializing(false);
+    }
+  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate, draftId]);
+
   return (
     <div className="flex h-screen flex-col bg-ok-bg text-ok-text selection:bg-ok-green/20">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-ok-border bg-ok-surface px-4">
@@ -1375,16 +1505,44 @@ export default function FormBuilder() {
             Workspace Dashboard
           </Link>
         </div>
-        <StatusPill status="active" className="opacity-70 bg-ok-surface border border-ok-border/80 text-[10px]">
-          Draft Config
-        </StatusPill>
+        <div className="flex items-center gap-3">
+          {initError && (
+            <span className="text-xs text-ok-danger">{initError}</span>
+          )}
+          <StatusPill status="active" className="opacity-70 bg-ok-surface border border-ok-border/80 text-[10px]">
+            Draft Config
+          </StatusPill>
+        </div>
         <div className="flex items-center gap-2">
-          <Link to="/dashboard" className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              if (!formTitle.trim()) {
+                setInitError('Enter a form title above, then preview your survey.');
+                return;
+              }
+              setInitError(null);
+              setShowPreview(true);
+            }}
+          >
             <Eye className="h-3.5 w-3.5" />
             Simulate Interface
-          </Link>
-          <Button variant="primary" size="sm">
-            Initialize Campaign
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleInitialize}
+            disabled={initializing}
+          >
+            {initializing ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Initializing...
+              </>
+            ) : (
+              'Initialize Campaign'
+            )}
           </Button>
         </div>
       </div>
@@ -1413,7 +1571,7 @@ export default function FormBuilder() {
           <div className="flex-1 overflow-y-auto">
             <QuestionSettings question={selectedQuestion} onUpdate={updateQuestion} />
           </div>
-          <RewardSettingsPanel settings={reward} onUpdate={(updates) => setReward((prev) => ({ ...prev, ...updates }))} />
+          <RewardSettingsPanel settings={reward} onUpdate={(updates) => setReward((prev) => ({ ...prev, ...updates }))} balanceWarning={balanceWarning} />
         </div>
       </div>
 
@@ -1434,6 +1592,182 @@ export default function FormBuilder() {
           </div>
         </div>
       )}
+
+      {showPreview && (
+        <PreviewModal
+          title={formTitle}
+          questions={questions}
+          reward={reward}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Preview Modal ────────────────────────────────────────────────────────────
+
+function PreviewModal({
+  title,
+  questions,
+  reward,
+  onClose,
+}: {
+  title: string;
+  questions: Question[];
+  reward: RewardSettings;
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const current = questions[currentIndex];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg shadow-2xl">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ok-border bg-ok-surface/90 backdrop-blur-md px-5 py-3">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-ok-green" />
+            <span className="font-display text-sm font-semibold text-ok-text">
+              Form Preview
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-ok-muted">
+              {currentIndex + 1} / {questions.length}
+            </span>
+            <button
+              onClick={onClose}
+              className="rounded-[var(--radius-ok-inner)] p-1 text-ok-muted transition-colors hover:bg-ok-surface hover:text-ok-text"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Title */}
+          <div>
+            <h1 className="font-display text-xl font-bold text-ok-text">
+              {title || 'Untitled Form'}
+            </h1>
+            <p className="mt-1 text-xs text-ok-muted">
+              {questions.length} question{questions.length !== 1 ? 's' : ''}
+              {reward.rewardPool > 0 && (
+                <> &middot; ◎{reward.rewardPool} reward pool</>
+              )}
+            </p>
+          </div>
+
+          {/* Current Question */}
+          {current && (
+            <Card padding="md" className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-sm font-medium text-ok-text">
+                  {current.label}
+                  {current.required && (
+                    <span className="ml-1 text-ok-danger">*</span>
+                  )}
+                </p>
+                <span className="shrink-0 rounded-full border border-ok-border bg-ok-surface px-2 py-0.5 text-[10px] font-medium text-ok-muted">
+                  {current.type.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              {current.type === 'short_text' && (
+                <input
+                  disabled
+                  placeholder="Short text answer..."
+                  className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-sm text-ok-text/50 placeholder:text-ok-muted/30"
+                />
+              )}
+
+              {current.type === 'long_text' && (
+                <textarea
+                  disabled
+                  placeholder="Long text answer..."
+                  rows={3}
+                  className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-sm text-ok-text/50 placeholder:text-ok-muted/30 resize-none"
+                />
+              )}
+
+              {(current.type === 'multiple_choice' || current.type === 'dropdown') && (
+                <div className="space-y-1.5">
+                  {(current.options.length > 0 ? current.options : ['Option 1', 'Option 2', 'Option 3']).map((opt, i) => (
+                    <label key={i} className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/50 px-3 py-2 text-xs text-ok-muted cursor-not-allowed">
+                      <input type="radio" disabled className="accent-ok-green" />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {current.type === 'checkbox' && (
+                <div className="space-y-1.5">
+                  {(current.options.length > 0 ? current.options : ['Option A', 'Option B']).map((opt, i) => (
+                    <label key={i} className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/50 px-3 py-2 text-xs text-ok-muted cursor-not-allowed">
+                      <input type="checkbox" disabled className="accent-ok-green" />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {current.type === 'number' && (
+                <input
+                  disabled
+                  placeholder="0"
+                  className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-sm text-ok-text/50 placeholder:text-ok-muted/30"
+                />
+              )}
+
+              {current.type === 'rating' && (
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: current.ratingMax || 5 }, (_, i) => (
+                    <span
+                      key={i}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-ok-border bg-ok-surface text-xs text-ok-muted"
+                    >
+                      {i + 1}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {!current && questions.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className="text-sm text-ok-muted">No questions yet</p>
+              <p className="text-xs text-ok-dim">Add questions in the builder to see a preview</p>
+            </div>
+          )}
+
+          {/* Navigation */}
+          {questions.length > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={currentIndex === 0}
+                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={currentIndex === questions.length - 1}
+                onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

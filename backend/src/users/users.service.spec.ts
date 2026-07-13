@@ -29,7 +29,7 @@ describe('UsersService', () => {
     username: 'testuser',
     globalScore: 75,
     surveysCompleted: 12,
-    badgeTier: 'Gold' as any,
+    badgeTier: 'Oracle' as any,
     // createdAt: new Date('2026-01-01'),
   };
 
@@ -104,7 +104,7 @@ describe('UsersService', () => {
 
       expect(result.globalScore).toBe(0);
       expect(result.surveysCompleted).toBe(0);
-      expect(result.badgeTier).toBe('Grey');
+      expect(result.badgeTier).toBe('Ghost');
     });
   });
 

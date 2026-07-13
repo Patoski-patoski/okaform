@@ -2,31 +2,31 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
 pub enum BadgeTier {
-    Grey,
-    Blue,
-    Green,
-    Gold,
-    Diamond,
+    Ghost,
+    Cipher,
+    Sentinel,
+    Oracle,
+    Sovereign,
 }
 
 impl BadgeTier {
     pub fn from_score(score: u16) -> Self {
         match score {
-            0..=25 => BadgeTier::Grey,
-            26..=50 => BadgeTier::Blue,
-            51..=75 => BadgeTier::Green,
-            76..=100 => BadgeTier::Gold,
-            _ => BadgeTier::Diamond,
+            0..=25 => BadgeTier::Ghost,
+            26..=50 => BadgeTier::Cipher,
+            51..=75 => BadgeTier::Sentinel,
+            76..=100 => BadgeTier::Oracle,
+            _ => BadgeTier::Sovereign,
         }
     }
 
     pub fn weight(&self) -> u8 {
         match self {
-            BadgeTier::Grey => 50,
-            BadgeTier::Blue => 75,
-            BadgeTier::Green => 100,
-            BadgeTier::Gold => 125,
-            BadgeTier::Diamond => 150,
+            BadgeTier::Ghost => 50,
+            BadgeTier::Cipher => 75,
+            BadgeTier::Sentinel => 100,
+            BadgeTier::Oracle => 125,
+            BadgeTier::Sovereign => 150,
         }
     }
 }

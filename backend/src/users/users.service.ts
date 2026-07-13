@@ -62,7 +62,7 @@ export class UsersService {
       username: user.username ?? null,
       globalScore: user.globalScore ?? 0,
       surveysCompleted: user.surveysCompleted ?? 0,
-      badgeTier: user.badgeTier ?? 'Grey',
+      badgeTier: user.badgeTier ?? 'Ghost',
       createdAt:
         (user as unknown as { createdAt: Date }).createdAt ?? new Date(),
     };

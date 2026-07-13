@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { Response, Request } from 'express';
 import {
   jest,
   describe,
@@ -9,6 +10,14 @@ import {
   it,
   expect,
 } from '@jest/globals';
+
+function mockResponse() {
+  return { cookie: jest.fn(), clearCookie: jest.fn() } as unknown as Response;
+}
+
+function mockRequest(cookies: Record<string, string | undefined> = {}) {
+  return { cookies } as unknown as Request;
+}
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -53,7 +62,7 @@ describe('AuthController', () => {
   });
 
   describe('verify', () => {
-    it('should call verifySignature with dto', async () => {
+    it('should call verifySignature with dto and set cookie', async () => {
       authService.verifySignature.mockResolvedValue({
         accessToken: 'token',
         refreshToken: 'refresh',
@@ -62,35 +71,47 @@ describe('AuthController', () => {
           username: 'u',
           globalScore: 0,
           surveysCompleted: 0,
-          badgeTier: 'Grey',
+          badgeTier: 'Ghost',
         },
       });
 
-      const result = await controller.verify({
-        wallet: 'W',
-        message: 'm',
-        signature: 's',
-      });
+      const res = mockResponse();
+      const result = await controller.verify(
+        { wallet: 'W', message: 'm', signature: 's' },
+        res,
+      );
 
       expect(authService.verifySignature).toHaveBeenCalledWith({
         wallet: 'W',
         message: 'm',
         signature: 's',
       });
+      expect(res.cookie).toHaveBeenCalledWith(
+        'refreshToken',
+        'refresh',
+        expect.any(Object),
+      );
       expect(result.accessToken).toBe('token');
     });
   });
 
   describe('refresh', () => {
-    it('should call refreshTokens with refreshToken string', async () => {
+    it('should call refreshTokens with token from cookie', async () => {
       authService.refreshTokens.mockResolvedValue({
         accessToken: 'new',
         refreshToken: 'newrefresh',
       });
 
-      const result = await controller.refresh('old');
+      const req = mockRequest({ refreshToken: 'old' });
+      const res = mockResponse();
+      const result = await controller.refresh(req, res);
 
       expect(authService.refreshTokens).toHaveBeenCalledWith('old');
+      expect(res.cookie).toHaveBeenCalledWith(
+        'refreshToken',
+        'newrefresh',
+        expect.any(Object),
+      );
       expect(result.accessToken).toBe('new');
     });
   });
@@ -102,7 +123,7 @@ describe('AuthController', () => {
         username: 'testuser',
         globalScore: 75,
         surveysCompleted: 12,
-        badgeTier: 'Gold',
+        badgeTier: 'Oracle',
       };
 
       const result = controller.getMe(mockUser);
@@ -112,12 +133,17 @@ describe('AuthController', () => {
   });
 
   describe('logout', () => {
-    it('should call logout with refreshToken string', async () => {
+    it('should call logout with token from cookie and clear it', async () => {
       authService.logout.mockResolvedValue(undefined);
 
-      const result = await controller.logout('token');
+      const req = mockRequest({ refreshToken: 'token' });
+      const res = mockResponse();
+      const result = await controller.logout(req, res);
 
       expect(authService.logout).toHaveBeenCalledWith('token');
+      expect(res.clearCookie).toHaveBeenCalledWith('refreshToken', {
+        path: '/auth',
+      });
       expect(result.message).toBe('Logged out successfully');
     });
   });

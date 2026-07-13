@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SolanaModule } from './solana/solana.module';
 import { SybilModule } from './sybil/sybil.module';
+import { FormsModule } from './forms/forms.module';
 
 const logger = new Logger('AppModule');
 
@@ -38,6 +39,7 @@ const logger = new Logger('AppModule');
     AuthModule,
     UsersModule,
     SybilModule,
+    FormsModule,
   ],
   controllers: [AppController],
   providers: [
