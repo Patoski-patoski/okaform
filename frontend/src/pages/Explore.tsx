@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Button, Badge, getBadgeTier } from "@/components/okaform";
 import { useWallet } from "@/components/WalletProvider";
+import { useAuth } from "@/components/AuthProvider";
 import { cn } from "@/lib/utils";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -232,7 +233,8 @@ function WalletBadge() {
     );
   }
 
-  const score = 67;
+  const { user } = useAuth();
+  const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
   const truncated = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
 
