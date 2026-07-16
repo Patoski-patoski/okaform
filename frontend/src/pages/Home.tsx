@@ -6,7 +6,6 @@ import {
   BarChart3,
   Lock,
   Database,
-  Circle,
   ArrowRight,
   Terminal,
   Users,
@@ -67,24 +66,6 @@ function Home() {
               >
                 Explore Surveys
               </Link>
-            </div>
-
-            {/* Social proof */}
-            <div className="flex flex-col gap-3 pt-4 border-t border-[#3D444D]/40">
-              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
-                Integrated Ledger Participants
-              </span>
-              <div className="flex items-center gap-3">
-                {["Jupiter", "Marinade", "Orca", "Raydium"].map((name) => (
-                  <span
-                    key={name}
-                    className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#151B23] px-3 py-1 font-mono text-[10px] text-[#9198A1]"
-                  >
-                    <Circle className="h-1.5 w-1.5 fill-[#3D444D] text-[#3D444D]" />
-                    {name}
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
 

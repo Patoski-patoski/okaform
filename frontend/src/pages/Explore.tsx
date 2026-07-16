@@ -9,6 +9,13 @@ import {
   ArrowRight,
   Link2,
   Bot,
+  Activity,
+  Lock,
+  Terminal,
+  Grid,
+  List,
+  ShieldAlert,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -192,14 +199,14 @@ function formatTimeRemaining(date: Date): string {
 
 function StatusPill({ status }: { status: SurveyListing["status"] }) {
   const config = {
-    active: { dot: "bg-ok-green", text: "text-ok-green", label: "Active" },
-    ending_soon: { dot: "bg-ok-warning", text: "text-ok-warning", label: "Ending" },
-    closed: { dot: "bg-[#656C76]", text: "text-[#656C76]", label: "Closed" },
+    active: { dot: "bg-ok-green", text: "text-ok-green border-ok-green/20 bg-ok-green/5", label: "Active" },
+    ending_soon: { dot: "bg-ok-warning", text: "text-ok-warning border-ok-warning/20 bg-ok-warning/5", label: "Ending" },
+    closed: { dot: "bg-[#656C76]", text: "text-[#656C76] border-[#3D444D] bg-transparent", label: "Closed" },
   }[status];
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider", config.text)}>
-      <span className={cn("h-1 w-1 rounded-full", config.dot)} />
+    <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider", config.text)}>
+      <span className={cn("h-1 w-1 rounded-full animate-pulse", config.dot)} />
       {config.label}
     </span>
   );
@@ -208,8 +215,8 @@ function StatusPill({ status }: { status: SurveyListing["status"] }) {
 function ProtocolLogo({ name, color }: { name: string; color: string }) {
   return (
     <div
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-mono font-bold"
-      style={{ backgroundColor: `${color}15`, color }}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#3D444D] text-[11px] font-mono font-bold transition-all group-hover:scale-105"
+      style={{ backgroundColor: `${color}10`, color, borderColor: `${color}30` }}
     >
       {name.charAt(0).toUpperCase()}
     </div>
@@ -225,9 +232,9 @@ function WalletBadge() {
     return (
       <button
         onClick={() => setVisible(true)}
-        className="inline-flex items-center gap-2 border-b border-[#3D444D] pb-0.5 font-mono text-xs text-[#656C76] transition-colors hover:text-[#F0F6F6]"
+        className="group inline-flex items-center gap-2 rounded border border-[#3D444D] bg-[#151B23] px-3.5 py-2 font-mono text-xs text-[#9198A1] transition-all hover:border-ok-green/40 hover:text-[#F0F6F6]"
       >
-        <Wallet className="h-3.5 w-3.5" />
+        <Wallet className="h-3.5 w-3.5 text-[#656C76] transition-colors group-hover:text-ok-green" />
         Connect Identity Wallet
       </button>
     );
@@ -239,141 +246,219 @@ function WalletBadge() {
   const truncated = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
 
   return (
-    <div className="inline-flex items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] px-3 py-1.5">
-      <span className="font-mono text-xs text-[#F0F6F6]">{truncated}</span>
-      <span className="h-3.5 w-px bg-[#3D444D]" />
+    <div className="inline-flex items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] px-3.5 py-2">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-ok-green" />
+        <span className="font-mono text-xs text-[#F0F6F6]">{truncated}</span>
+      </div>
+      <span className="h-4 w-px bg-[#3D444D]" />
       <Badge tier={tier} className="text-xs" />
     </div>
   );
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
+// ─── Refactored Visual Components ──────────────────────────────────────────────
 
-function SurveyRow({
-  survey,
-}: {
+interface SurveyCardProps {
   survey: SurveyListing;
-}) {
+}
+
+/**
+ * Tactical Grid Module Component
+ * Replaces generic cards with complex, diagnostic-looking terminal windows.
+ */
+function SurveyCard({ survey }: SurveyCardProps) {
   const isOpen = survey.status !== "closed";
   const responsePercent = Math.round((survey.responses / survey.maxResponses) * 100);
+
+  // Generate notched visual progress bar [|||||.....]
+  const renderNotchedProgress = () => {
+    const totalNotches = 15;
+    const filledNotches = Math.round((responsePercent / 100) * totalNotches);
+    return (
+      <div className="flex gap-0.5 font-mono text-xs text-ok-green/40 select-none">
+        {Array.from({ length: totalNotches }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "transition-colors duration-300",
+              i < filledNotches ? "text-ok-green font-bold" : "text-[#3D444D]"
+            )}
+          >
+            |
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <Link
       to={isOpen ? `/form/${survey.id}` : "#"}
       className={cn(
-        "group block border-t border-[#3D444D] py-6 transition-colors first:border-t-0",
-        isOpen ? "hover:bg-[#151B23]/30" : "opacity-30 pointer-events-none"
+        "group relative flex flex-col justify-between overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40 p-5 transition-all hover:border-ok-green/40 hover:bg-[#151B23]/70 hover:shadow-[0_0_25px_rgba(63,185,80,0.03)]",
+        !isOpen && "opacity-35 pointer-events-none"
       )}
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-        
-        {/* Left Section: Core Info & Identity */}
-        <div className="flex flex-1 items-start gap-4 min-w-0">
+      {/* Background Micro-Grid Decorative Line */}
+      <div className="absolute right-0 top-0 h-16 w-16 opacity-[0.02] transition-opacity group-hover:opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(var(--tw-gradient-stops), #3FB950 1px, transparent 1px)', backgroundSize: '4px 4px' }} />
+
+      {/* Card Header: Node Diagnostic Bar */}
+      <div>
+        <div className="mb-4 flex items-center justify-between border-b border-[#3D444D]/50 pb-3">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] text-[#656C76]">
+            <Terminal className="h-3 w-3 text-[#3D444D]" />
+            <span>NODE // {survey.id.toUpperCase()}</span>
+          </div>
+          <StatusPill status={survey.status} />
+        </div>
+
+        {/* Title & Protocol Section */}
+        <div className="flex items-start gap-3">
           <ProtocolLogo name={survey.protocol} color={survey.protocolColor} />
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-mono text-xs font-medium text-[#656C76]">
-                {survey.protocol}
-              </span>
-              <StatusPill status={survey.status} />
-              {survey.featured && (
-                <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-ok-purple">
-                  [ Featured Campaign ]
-                </span>
-              )}
-            </div>
-            
-            <h3 className="text-base font-medium tracking-tight text-[#F0F6F6] transition-colors group-hover:text-ok-green">
+          <div className="space-y-1">
+            <span className="font-mono text-[11px] font-medium text-[#656C76]">
+              {survey.protocol}
+            </span>
+            <h3 className="text-base font-medium leading-snug tracking-tight text-[#F0F6F6] transition-colors group-hover:text-ok-green">
               {survey.title}
             </h3>
-
-            {survey.featured && survey.previewQuestion && (
-              <p className="text-xs text-[#9198A1] line-clamp-1 border-l border-[#3D444D] pl-3 mt-1.5">
-                &ldquo;{survey.previewQuestion}&rdquo;
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Middle Section: Criteria Gates & Volume Metrics */}
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-4 lg:justify-end flex-1 min-w-0">
-          
-          {/* Target / Progress Meter */}
-          <div className="flex w-full flex-col gap-1.5 sm:w-44">
-            <div className="flex items-center justify-between font-mono text-[10px] text-[#656C76]">
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" /> {survey.responses} / {survey.maxResponses}
-              </span>
-              <span>{responsePercent}%</span>
-            </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-[#3D444D]">
-              <div
-                className="h-full bg-ok-green/60 transition-all group-hover:bg-ok-green"
-                style={{ width: `${responsePercent}%` }}
-              />
-            </div>
-          </div>
+        {/* Preview Question (Optional and stylised) */}
+        {survey.previewQuestion && (
+          <p className="mt-3.5 border-l-2 border-[#3D444D] pl-3 font-mono text-xs text-[#9198A1] line-clamp-2 italic">
+            &ldquo;{survey.previewQuestion}&rdquo;
+          </p>
+        )}
 
-          {/* Verification gates */}
-          <div className="flex flex-wrap gap-1.5 min-w-[120px]">
+        {/* Verification Gates (Middle) */}
+        <div className="mt-5 space-y-2 border-t border-[#3D444D]/30 pt-4">
+          <span className="block font-mono text-[9px] uppercase tracking-wider text-[#656C76]">
+            Cryptographic Criteria Gating
+          </span>
+          <div className="flex flex-wrap gap-1.5">
             {survey.requirements.length > 0 ? (
               survey.requirements.map((req, i) => (
                 <span
                   key={i}
                   className={cn(
-                    "inline-flex items-center gap-1 font-mono text-[10px] font-medium tracking-wide",
-                    req.type === "token_hold"
-                      ? "text-ok-purple"
-                      : "text-[#9198A1]"
+                    "inline-flex items-center gap-1 rounded bg-[#0D1117] border border-[#3D444D]/80 px-2 py-0.5 font-mono text-[10px]",
+                    req.type === "token_hold" ? "text-ok-purple border-ok-purple/20" : "text-[#9198A1]"
                   )}
                 >
-                  {req.type === "token_hold" && <Bot className="h-3 w-3" />}
+                  {req.type === "token_hold" ? (
+                    <Bot className="h-2.5 w-2.5 text-ok-purple/80" />
+                  ) : (
+                    <span className="h-1 w-1 rounded-full bg-[#656C76]" />
+                  )}
                   {req.label}
                 </span>
               ))
             ) : (
-              <span className="font-mono text-[10px] text-[#656C76]">Open Eligibility</span>
+              <span className="inline-flex items-center gap-1 rounded bg-[#0D1117] border border-ok-green/10 px-2 py-0.5 font-mono text-[10px] text-ok-green">
+                <span className="h-1 w-1 rounded-full bg-ok-green animate-pulse" />
+                Open Consensus
+              </span>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* Temporal constraints */}
-          <div className="flex items-center gap-1.5 font-mono text-xs text-[#9198A1] min-w-[80px]">
-            <Clock className="h-3.5 w-3.5 text-[#656C76]" />
-            <span>{isOpen ? formatTimeRemaining(survey.closesAt) : "Concluded"}</span>
+      {/* Progress & Target Statistics (Lower) */}
+      <div className="mt-6 space-y-3">
+        <div className="flex items-center justify-between font-mono text-[11px]">
+          <div className="flex items-center gap-1.5 text-[#9198A1]">
+            <Users className="h-3.5 w-3.5 text-[#656C76]" />
+            <span>Inbound Vectors:</span>
           </div>
+          <span className="text-[#F0F6F6]">
+            {survey.responses} / {survey.maxResponses}
+          </span>
+        </div>
+        
+        {/* Dynamic bar wrapper */}
+        <div className="flex items-center justify-between rounded bg-[#0D1117] px-3 py-1.5 border border-[#3D444D]/40">
+          {renderNotchedProgress()}
+          <span className="font-mono text-[10px] text-ok-green font-semibold">
+            {responsePercent}%
+          </span>
         </div>
 
-        {/* Right Section: Pool Parameters & Execution Trigger */}
-        <div className="flex items-center justify-between border-t border-[#3D444D]/40 pt-4 lg:border-t-0 lg:pt-0 lg:justify-end gap-6 shrink-0">
-          <div className="flex flex-col lg:items-end">
-            <span className="font-mono text-base font-medium text-ok-green">
-              {survey.rewardPool.toFixed(2)} SOL
-            </span>
-            <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
-              {survey.rewardType === "weighted"
-                ? "Weighted Allocation"
-                : `${survey.numWinners ?? 5} Payout Targets`}
-            </span>
+        {/* Card Footer: Escrow details and action trigger */}
+        <div className="mt-4 flex items-center justify-between border-t border-[#3D444D]/50 pt-4">
+          <div className="flex flex-col">
+            <span className="font-mono text-xs text-[#656C76] uppercase tracking-wider">Escrowed Rewards</span>
+            <div className="flex items-center gap-1">
+              <Lock className="h-3 w-3 text-ok-green/80" />
+              <span className="font-display font-mono text-base font-semibold text-ok-green">
+                {survey.rewardPool.toFixed(2)} SOL
+              </span>
+            </div>
           </div>
-
-          <div className="h-8 w-8 hidden sm:flex items-center justify-center rounded border border-[#3D444D] bg-[#151B23] transition-colors group-hover:border-[#9198A1]">
-            <ArrowRight className="h-3.5 w-3.5 text-[#656C76] transition-transform group-hover:translate-x-0.5 group-hover:text-[#F0F6F6]" />
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[9px] text-[#656C76] uppercase tracking-wider text-right hidden sm:block">
+              {survey.rewardType === "weighted" ? "Weighted Yield" : "Lottery Draw"}
+            </span>
+            <div className="flex h-8 w-8 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117] transition-all group-hover:border-ok-green/50 group-hover:bg-ok-green/5">
+              <ArrowRight className="h-4 w-4 text-[#656C76] transition-transform group-hover:translate-x-0.5 group-hover:text-ok-green" />
+            </div>
           </div>
         </div>
-
       </div>
     </Link>
   );
 }
 
-// ─── Main page ─────────────────────────────────────────────────────────────────
+/**
+ * Compact Monospace Log Stream Row Component
+ * Replaces list views with high-density system-trace lines.
+ */
+function SurveyRow({ survey }: SurveyCardProps) {
+  const isOpen = survey.status !== "closed";
+  return (
+    <Link
+      to={isOpen ? `/form/${survey.id}` : "#"}
+      className={cn(
+        "group flex flex-col gap-4 border-b border-[#3D444D]/40 py-3.5 font-mono text-xs transition-all hover:bg-[#151B23]/30 px-4 md:flex-row md:items-center md:justify-between md:gap-6",
+        !isOpen && "opacity-30 pointer-events-none"
+      )}
+    >
+      <div className="flex flex-1 items-center gap-4 min-w-0">
+        <span className="text-[#656C76] shrink-0 font-mono">[{survey.id.toUpperCase()}]</span>
+        <span className="text-ok-green shrink-0 font-semibold">{survey.rewardPool.toFixed(1)} SOL</span>
+        <span className="text-[#9198A1] shrink-0">{survey.protocol}</span>
+        <span className="text-[#3D444D] shrink-0">|</span>
+        <span className="text-[#F0F6F6] truncate group-hover:text-ok-green transition-colors font-medium">
+          {survey.title}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-6 shrink-0 border-t border-[#3D444D]/20 pt-2 md:border-0 md:pt-0">
+        <div className="flex items-center gap-2 text-[#656C76]">
+          <Users className="h-3 w-3" />
+          <span>{survey.responses}/{survey.maxResponses}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <StatusPill status={survey.status} />
+          <span className="text-[#9198A1] text-[11px]">{isOpen ? formatTimeRemaining(survey.closesAt) : "Concluded"}</span>
+          <ArrowRight className="h-3.5 w-3.5 text-[#3D444D] transition-transform group-hover:translate-x-0.5 group-hover:text-ok-green" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ─── Main Explore Component ───────────────────────────────────────────────────
 
 export default function Explore() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterLabel>("All");
   const [sortKey, setSortKey] = useState<SortKey>("latest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(8);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [visibleCount, setVisibleCount] = useState(6);
 
   const sortOptions: { label: string; value: SortKey }[] = [
     { label: "Latest Deployment", value: "latest" },
@@ -446,9 +531,9 @@ export default function Explore() {
         </div>
       </nav>
 
-      {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
-      <div className="mx-auto max-w-5xl px-8 pt-20 pb-12">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      {/* ─── HEADER & TELEMETRY ──────────────────────────────────────────────── */}
+      <div className="mx-auto max-w-5xl px-8 pt-16 pb-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <span className="font-mono text-xs text-ok-green tracking-wider uppercase">[ Public Index ]</span>
             <h1 className="text-3xl font-medium tracking-tight text-[#F0F6F6] sm:text-4xl">
@@ -462,22 +547,52 @@ export default function Explore() {
             <WalletBadge />
           </div>
         </div>
+
+        {/* Technical HUD Telemetry Strip */}
+        <div className="mt-8 grid grid-cols-2 gap-4 rounded border border-[#3D444D]/60 bg-[#151B23]/30 p-4 font-mono sm:grid-cols-4">
+          <div className="border-r border-[#3D444D]/40 last:border-0 pr-4">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Active Escrows</span>
+            <span className="text-sm font-semibold text-[#F0F6F6] flex items-center gap-1.5 mt-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-ok-green animate-pulse" />
+              7 / 8 Nodes Active
+            </span>
+          </div>
+          <div className="sm:border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Total Pool Value</span>
+            <span className="text-sm font-semibold text-ok-green mt-0.5">
+              265.00 SOL
+            </span>
+          </div>
+          <div className="border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Audited Signatures</span>
+            <span className="text-sm font-semibold text-[#F0F6F6] mt-0.5">
+              1,424 Handshakes
+            </span>
+          </div>
+          <div className="pr-4 pl-4 last:border-0">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Oracle Sync</span>
+            <span className="text-sm font-semibold text-ok-purple flex items-center gap-1.5 mt-0.5">
+              <Activity className="h-3.5 w-3.5 animate-spin" />
+              Mainnet-Beta
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* ─── FILTER BAR ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 border-y border-[#3D444D] bg-[#0D1117]/80 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl px-8 py-4">
+      {/* ─── FILTER STICKY HUD BAR ──────────────────────────────────────────── */}
+      <div className="sticky top-0 z-10 border-y border-[#3D444D] bg-[#0D1117]/90 backdrop-blur-md">
+        <div className="mx-auto max-w-5xl px-8 py-3.5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-1 flex-wrap items-center gap-6">
+            <div className="flex flex-1 flex-wrap items-center gap-5">
               
-              {/* Search */}
-              <div className="relative w-full sm:w-64">
+              {/* Search Vector */}
+              <div className="relative w-full sm:w-60">
                 <Search className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#656C76]" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Query vector identifier..."
+                  placeholder="Scan vector signature..."
                   className="w-full border-b border-[#3D444D] bg-transparent py-1.5 pl-6 pr-6 font-mono text-xs text-[#F0F6F6] placeholder:text-[#656C76]/70 focus:border-ok-green/40 focus:outline-none transition-colors"
                 />
                 {search && (
@@ -490,17 +605,17 @@ export default function Explore() {
                 )}
               </div>
 
-              {/* Filter pills */}
-              <div className="flex flex-wrap gap-1">
+              {/* Filtering matrices */}
+              <div className="flex flex-wrap items-center gap-1">
                 {filterOptions.map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
                     className={cn(
-                      "rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors",
+                      "rounded px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-all",
                       activeFilter === f
-                        ? "bg-ok-green/10 text-ok-green"
-                        : "text-[#656C76] hover:text-[#F0F6F6]"
+                        ? "bg-ok-green/10 text-ok-green border border-ok-green/20"
+                        : "text-[#656C76] border border-transparent hover:text-[#F0F6F6]"
                     )}
                   >
                     {f}
@@ -509,18 +624,41 @@ export default function Explore() {
               </div>
             </div>
 
-            {/* Sort + count */}
-            <div className="flex items-center justify-between md:justify-end gap-6 border-t border-[#3D444D]/40 pt-3 md:border-t-0 md:pt-0">
-              <span className="font-mono text-[11px] text-[#656C76]">
-                {filtered.length} Segment{filtered.length !== 1 ? "s" : ""} Found
-              </span>
+            {/* Sorting & Layout Toggles */}
+            <div className="flex items-center justify-between gap-4 border-t border-[#3D444D]/40 pt-3 md:border-t-0 md:pt-0">
+              
+              {/* Layout Engine Switch */}
+              <div className="flex items-center gap-1 rounded bg-[#151B23] p-1 border border-[#3D444D]/50">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={cn(
+                    "p-1 rounded transition-colors",
+                    viewMode === "grid" ? "bg-[#0D1117] text-ok-green" : "text-[#656C76] hover:text-[#9198A1]"
+                  )}
+                  title="Tactical Grid Modules"
+                >
+                  <Grid className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "p-1 rounded transition-colors",
+                    viewMode === "list" ? "bg-[#0D1117] text-ok-green" : "text-[#656C76] hover:text-[#9198A1]"
+                  )}
+                  title="Compact Log Stream"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
               <div className="relative">
                 <button
                   onClick={() => setShowSortDropdown((v) => !v)}
-                  className="flex items-center gap-1.5 border-b border-transparent py-1 font-mono text-[11px] uppercase tracking-wide text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+                  className="flex items-center gap-1.5 border-b border-transparent py-1 font-mono text-[11px] uppercase tracking-wide text-[#9198A1] transition-all hover:border-[#656C76] hover:text-[#F0F6F6]"
                 >
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-[#656C76]" />
                   {sortOptions.find((o) => o.value === sortKey)?.label}
-                  <ChevronDown className="h-3 w-3 text-[#656C76]" />
+                  <ChevronDown className="h-3.5 w-3.5 text-[#656C76]" />
                 </button>
                 {showSortDropdown && (
                   <>
@@ -528,7 +666,7 @@ export default function Explore() {
                       className="fixed inset-0 z-10"
                       onClick={() => setShowSortDropdown(false)}
                     />
-                    <div className="absolute right-0 top-full z-20 mt-2 w-52 border border-[#3D444D] bg-[#151B23] shadow-2xl">
+                    <div className="absolute right-0 top-full z-20 mt-2 w-52 border border-[#3D444D] bg-[#151B23] shadow-2xl rounded">
                       {sortOptions.map((opt) => (
                         <button
                           key={opt.value}
@@ -555,46 +693,68 @@ export default function Explore() {
         </div>
       </div>
 
-      {/* ─── SURVEY LIST ────────────────────────────────────────────────────── */}
-      <div className="mx-auto max-w-5xl px-8 pb-24">
+      {/* ─── MAIN SURVEY CAMPAIGNS DISPLAY ─────────────────────────────────── */}
+      <div className="mx-auto max-w-5xl px-8 py-16">
         {displayed.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-32 text-center">
-            <Search className="h-5 w-5 text-[#656C76]" />
-            <h3 className="text-base font-medium text-[#F0F6F6]">
-              Zero Active Queries Found
+          <div className="flex flex-col items-center gap-3 py-32 text-center rounded border border-dashed border-[#3D444D]">
+            <ShieldAlert className="h-6 w-6 text-[#656C76] animate-pulse" />
+            <h3 className="text-base font-medium text-[#F0F6F6] font-mono">
+              [ ZERO MATCHING DATA BLOCKS ]
             </h3>
-            <p className="text-sm text-[#9198A1]">
-              No database blocks match the active sorting/filter matrices.
+            <p className="text-sm text-[#9198A1] max-w-xs">
+              No database blocks match the active sorting / filter parameters.
             </p>
             <button
               onClick={() => {
                 setSearch("");
                 setActiveFilter("All");
               }}
-              className="mt-2 font-mono text-xs text-ok-green border-b border-transparent hover:border-ok-green transition-colors"
+              className="mt-3 font-mono text-xs text-ok-green border-b border-transparent hover:border-ok-green transition-colors"
             >
               [ Flush Pipeline Parameters ]
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-[#3D444D]/50">
-            {displayed.map((survey) => (
-              <SurveyRow
-                key={survey.id}
-                survey={survey}
-              />
-            ))}
+          <div>
+            {viewMode === "grid" ? (
+              /* Grid Layout Mode */
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {displayed.map((survey) => (
+                  <SurveyCard key={survey.id} survey={survey} />
+                ))}
+              </div>
+            ) : (
+              /* High-Density Tabular List Mode */
+              <div className="rounded border border-[#3D444D] bg-[#151B23]/20 overflow-hidden divide-y divide-[#3D444D]/30">
+                <div className="hidden md:flex items-center justify-between px-4 py-2.5 bg-[#151B23]/60 border-b border-[#3D444D] font-mono text-[10px] uppercase tracking-wider text-[#656C76] select-none">
+                  <div className="flex gap-4 flex-1">
+                    <span>Node ID</span>
+                    <span>Reward Block</span>
+                    <span>Issuer Protocol</span>
+                    <span>Core Vector Identification</span>
+                  </div>
+                  <div className="flex gap-14 mr-16">
+                    <span>Volume</span>
+                    <span>Auditor Gate</span>
+                    <span>State</span>
+                  </div>
+                </div>
+                {displayed.map((survey) => (
+                  <SurveyRow key={survey.id} survey={survey} />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Load more */}
+        {/* Monospace Load More Indicator */}
         {visibleCount < filtered.length && (
-          <div className="pt-12 text-center border-t border-[#3D444D]">
+          <div className="mt-12 text-center">
             <button
-              onClick={() => setVisibleCount((v) => v + 8)}
-              className="font-mono text-xs text-[#9198A1] border border-[#3D444D] bg-[#151B23] px-6 py-2.5 transition-colors hover:border-[#9198A1] hover:text-[#F0F6F6]"
+              onClick={() => setVisibleCount((v) => v + 6)}
+              className="font-mono text-xs text-[#9198A1] border border-[#3D444D] bg-[#151B23]/80 px-6 py-2.5 rounded transition-all hover:border-[#656C76] hover:text-[#F0F6F6] hover:shadow-[0_0_15px_rgba(63,185,80,0.02)]"
             >
-              Load Additional Indexes
+              [ Read Next Campaign Segment Block ]
             </button>
           </div>
         )}
