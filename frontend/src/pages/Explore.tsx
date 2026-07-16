@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import {
   Search,
-  Clock,
   Users,
   Wallet,
   ChevronDown,
@@ -16,6 +15,7 @@ import {
   List,
   ShieldAlert,
   SlidersHorizontal,
+  Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -226,31 +226,64 @@ function ProtocolLogo({ name, color }: { name: string; color: string }) {
 function WalletBadge() {
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
-  const wallet = publicKey?.toBase58() ?? "";
+  const { isAuthenticated, isLoading, login } = useAuth();
+  const [copied, setCopied] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded border border-[#3D444D] bg-[#151B23] px-3.5 py-2">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#9198A1]" />
+        <span className="font-mono text-xs text-[#9198A1]">Signing in...</span>
+      </div>
+    );
+  }
 
   if (!connected) {
     return (
       <button
         onClick={() => setVisible(true)}
-        className="group inline-flex items-center gap-2 rounded border border-[#3D444D] bg-[#151B23] px-3.5 py-2 font-mono text-xs text-[#9198A1] transition-all hover:border-ok-green/40 hover:text-[#F0F6F6]"
+        className="inline-flex items-center gap-2 rounded border border-dashed border-[#3D444D] bg-[#151B23]/20 px-3.5 py-2 font-mono text-xs text-[#9198A1] transition-colors hover:border-ok-green/40 hover:text-ok-green"
       >
-        <Wallet className="h-3.5 w-3.5 text-[#656C76] transition-colors group-hover:text-ok-green" />
-        Connect Identity Wallet
+        <Wallet className="h-3.5 w-3.5" />
+        Connect
       </button>
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <button
+        onClick={() => login()}
+        className="inline-flex items-center gap-2 rounded border border-ok-green/30 bg-ok-green/10 px-3.5 py-2 font-mono text-xs text-ok-green transition-colors hover:bg-ok-green/20"
+      >
+        Sign In
+      </button>
+    );
+  }
+
+  const wallet = publicKey?.toBase58() ?? "";
   const { user } = useAuth();
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
   const truncated = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
 
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(wallet);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
     <div className="inline-flex items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] px-3.5 py-2">
-      <div className="flex items-center gap-2">
+      <button
+        onClick={handleCopy}
+        className="flex items-center gap-2 cursor-pointer transition-colors hover:text-ok-green"
+        title="Click to copy"
+      >
         <span className="h-2 w-2 rounded-full bg-ok-green" />
-        <span className="font-mono text-xs text-[#F0F6F6]">{truncated}</span>
-      </div>
+        <span className="font-mono text-xs text-[#F0F6F6]">{copied ? 'Copied!' : truncated}</span>
+      </button>
       <span className="h-4 w-px bg-[#3D444D]" />
       <Badge tier={tier} className="text-xs" />
     </div>

@@ -164,13 +164,23 @@ function Sidebar({
   activeNav: string;
   onNavChange: (id: string) => void;
 }) {
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
   const { user, isAuthenticated, isLoading, login } = useAuth();
+  const [copied, setCopied] = useState(false);
 
   const wallet = publicKey?.toBase58();
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
+
+  const handleCopyAddress = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (wallet) {
+      navigator.clipboard.writeText(wallet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-[#3D444D] bg-[#0D1117]">
@@ -226,12 +236,16 @@ function Sidebar({
           </div>
         ) : !isAuthenticated ? (
           <div className="flex flex-col gap-2 rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-3">
-            <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyAddress}
+              className="flex items-center gap-2 cursor-pointer transition-colors hover:text-ok-green"
+              title="Click to copy"
+            >
               <Wallet className="h-4 w-4 text-[#9198A1]" />
-              <p className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
-                {truncateAddress(wallet ?? '')}
-              </p>
-            </div>
+              <span className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
+                {copied ? 'Copied!' : truncateAddress(wallet ?? '')}
+              </span>
+            </button>
             <button
               onClick={() => login()}
               className="mt-1 w-full rounded bg-ok-green/10 px-2 py-1.5 text-xs font-medium text-ok-green transition-colors hover:bg-ok-green/20"
@@ -242,12 +256,25 @@ function Sidebar({
         ) : (
           <div className="flex flex-col gap-3 rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-3 transition-colors hover:border-[#3D444D]">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyAddress}
+                className="flex items-center gap-2 cursor-pointer transition-colors hover:text-ok-green"
+                title="Click to copy"
+              >
                 <Wallet className="h-4 w-4 text-[#9198A1]" />
-                <p className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
-                  {truncateAddress(wallet ?? '')}
-                </p>
-              </div>
+                <span className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
+                  {copied ? 'Copied!' : truncateAddress(wallet ?? '')}
+                </span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  disconnect();
+                }}
+                className="rounded px-1.5 py-0.5 font-mono text-[9px] text-[#656C76] transition-colors hover:bg-ok-danger/10 hover:text-ok-danger"
+              >
+                Disconnect
+              </button>
             </div>
             <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-2">
               <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Reputation</span>
@@ -454,6 +481,27 @@ function SurveysTable({
 
 // ─── Responses tab ─────────────────────────────────────────────────────────────
 
+function CopyableAddress({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="min-w-0 flex-1 truncate font-mono text-xs text-[#9198A1] cursor-pointer transition-colors hover:text-[#F0F6F6]"
+      title="Click to copy"
+    >
+      {copied ? 'Copied!' : truncateAddress(address)}
+    </button>
+  );
+}
+
 function ResponsesTab() {
   const [badgeFilter, setBadgeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -520,9 +568,7 @@ function ResponsesTab() {
               key={r.id}
               className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[#151B23]/40"
             >
-              <span className="min-w-0 flex-1 truncate font-mono text-xs text-[#9198A1]">
-                {truncateAddress(r.wallet)}
-              </span>
+              <CopyableAddress address={r.wallet} />
               <Badge tier={r.tier} />
               <span className="whitespace-nowrap font-mono text-[10px] text-[#656C76]">
                 {r.submittedAt}
@@ -663,8 +709,8 @@ function DistributionTab() {
           <tbody className="divide-y divide-[#3D444D]/40">
             {MOCK_DISTRIBUTION.map((row) => (
               <tr key={row.txSignature} className="hover:bg-[#151B23]/40">
-                <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-[#9198A1]">
-                  {truncateAddress(row.wallet)}
+                <td className="whitespace-nowrap px-5 py-3">
+                  <CopyableAddress address={row.wallet} />
                 </td>
                 <td className="px-5 py-3">
                   <Badge tier={row.tier} />

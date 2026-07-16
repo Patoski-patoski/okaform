@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import { Badge, StatusPill, SOLAmount } from "@/components/okaform";
+import { Badge, SOLAmount } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link 
-                to="/dashboard" 
+                to="/explore" 
                 className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#3D444D] bg-[#151B23] px-6 font-mono text-xs font-bold uppercase tracking-wide text-[#F0F6F6] transition-colors hover:border-[#656C76] hover:bg-[#0D1117]"
               >
                 Explore Surveys
@@ -71,38 +71,45 @@ function Home() {
 
           {/* Right — floating mockup card */}
           <div className="hidden lg:block">
-            <div className="rounded border border-[#3D444D] bg-[#151B23] p-1 shadow-2xl">
-              <div className="rounded-sm border border-[#3D444D]/50 bg-[#0D1117] p-6">
-                {/* Card header */}
-                <div className="mb-6 flex items-start justify-between border-b border-[#3D444D] pb-4">
+            <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] shadow-2xl">
+              {/* Decorative corner */}
+              <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
+                   style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+
+              <div className="border-b border-[#3D444D]/50 px-6 py-4">
+                <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-base font-medium text-[#F0F6F6]">
+                    <h3 className="font-mono text-sm font-medium text-[#F0F6F6]">
                       Jupiter Community Pulse
                     </h3>
                     <p className="mt-1 font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
                       Q2 2025 Governance Feedback
                     </p>
                   </div>
-                  <StatusPill status="active" />
+                  <span className="rounded border border-ok-green/20 bg-ok-green/10 px-2 py-0.5 font-mono text-[9px] text-ok-green uppercase tracking-wider">
+                    ACTIVE
+                  </span>
                 </div>
+              </div>
 
+              <div className="p-6">
                 {/* Reward pool */}
-                <div className="mb-6 flex items-center justify-between rounded border border-[#3D444D] bg-[#151B23] p-4">
+                <div className="mb-5 flex items-center justify-between rounded border border-[#3D444D] bg-[#0D1117]/60 p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded bg-ok-green/10">
                       <span className="font-mono text-sm text-ok-green">◎</span>
                     </div>
                     <div>
-                      <p className="font-mono text-[10px] text-[#9198A1] uppercase tracking-wider">Locked Escrow</p>
+                      <p className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Locked Escrow</p>
                       <SOLAmount amount={50} unit="sol" className="font-mono text-sm font-medium text-[#F0F6F6]" />
                     </div>
                   </div>
                 </div>
 
                 {/* Response bar */}
-                <div className="mb-6">
+                <div className="mb-5">
                   <div className="mb-2 flex items-center justify-between font-mono text-[10px]">
-                    <span className="text-[#9198A1] uppercase tracking-wider">Data Vectors</span>
+                    <span className="text-[#656C76] uppercase tracking-wider">Data Vectors</span>
                     <span className="text-[#F0F6F6]">234 / 500 (46.8%)</span>
                   </div>
                   <div className="h-1 overflow-hidden rounded-full bg-[#3D444D]">
@@ -145,10 +152,11 @@ function Home() {
       <section id="how-it-works" className="border-t border-[#3D444D] bg-[#151B23]/30">
         <div className="mx-auto max-w-5xl px-8 py-24">
           <div className="mb-12 max-w-2xl">
-            <h2 className="text-2xl font-medium tracking-tight text-[#F0F6F6] sm:text-3xl">
-              Execution Pipeline
+            <h2 className="font-mono text-sm text-[#F0F6F6] flex items-center gap-2 mb-2">
+              <Terminal className="h-4 w-4 text-ok-green" />
+              [ Execution Pipeline ]
             </h2>
-            <p className="mt-2 text-sm text-[#9198A1]">
+            <p className="text-xs text-[#656C76]">
               Three deterministic steps from survey instantiation to on-chain distribution.
             </p>
           </div>
@@ -177,7 +185,11 @@ function Home() {
                 role: "Smart Contract",
               },
             ].map((step) => (
-              <div key={step.num} className="group relative rounded border border-[#3D444D] bg-[#0D1117] p-8 hover:border-[#656C76] transition-colors">
+              <div key={step.num} className="group relative overflow-hidden rounded border border-[#3D444D] bg-[#0D1117] p-8 hover:border-[#656C76] transition-colors">
+                {/* Decorative corner */}
+                <div className="absolute right-0 top-0 h-10 w-10 opacity-10 transition-opacity group-hover:opacity-20"
+                     style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#151B23] text-ok-green">
                     {step.icon}
@@ -204,17 +216,20 @@ function Home() {
       {/* ── 4. FEATURES GRID ──────────────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-8 py-24">
         <div className="mb-12 max-w-2xl">
-          <h2 className="text-2xl font-medium tracking-tight text-[#F0F6F6] sm:text-3xl">
-            Built for Distributed Ledgers
+          <h2 className="font-mono text-sm text-[#F0F6F6] flex items-center gap-2 mb-2">
+            <ShieldCheck className="h-4 w-4 text-ok-green" />
+            [ Infrastructure ]
           </h2>
-          <p className="mt-2 text-sm text-[#9198A1]">
+          <p className="text-xs text-[#656C76]">
             Architected specifically around verifiable identity and zero-trust distribution.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Card 1 */}
-          <div className="rounded border border-[#3D444D] bg-[#151B23] p-8 md:col-span-2 md:row-span-1">
+          <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8 md:col-span-2 md:row-span-1">
+            <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
                 <ShieldCheck className="h-5 w-5 text-ok-green" />
@@ -231,7 +246,9 @@ function Home() {
           </div>
 
           {/* Card 2 */}
-          <div className="rounded border border-[#3D444D] bg-[#151B23] p-8">
+          <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8">
+            <div className="absolute right-0 top-0 h-10 w-10 opacity-10"
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #A371F7 50%)' }} />
             <div className="mb-5 flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
               <BarChart3 className="h-4 w-4 text-ok-purple" />
             </div>
@@ -244,7 +261,9 @@ function Home() {
           </div>
 
           {/* Card 3 */}
-          <div className="rounded border border-[#3D444D] bg-[#151B23] p-8">
+          <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8">
+            <div className="absolute right-0 top-0 h-10 w-10 opacity-10"
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
             <div className="mb-5 flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
               <Lock className="h-4 w-4 text-ok-green" />
             </div>
@@ -257,7 +276,9 @@ function Home() {
           </div>
 
           {/* Card 4 */}
-          <div className="rounded border border-[#3D444D] bg-[#151B23] p-8 md:col-span-2 md:row-span-1">
+          <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8 md:col-span-2 md:row-span-1">
+            <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
                 <Database className="h-5 w-5 text-ok-green" />
@@ -279,10 +300,11 @@ function Home() {
       <section className="border-t border-[#3D444D] bg-[#151B23]/30">
         <div className="mx-auto max-w-5xl px-8 py-24">
           <div className="mb-12 text-center">
-            <h2 className="text-2xl font-medium tracking-tight text-[#F0F6F6] sm:text-3xl">
-              Yield Multipliers
+            <h2 className="font-mono text-sm text-[#F0F6F6] flex items-center justify-center gap-2 mb-2">
+              <BarChart3 className="h-4 w-4 text-ok-green" />
+              [ Yield Multipliers ]
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-[#9198A1]">
+            <p className="mx-auto mt-2 max-w-xl text-xs text-[#656C76]">
               Reputation scores compound with data quality. Higher tier classifications map directly to larger algorithmic payout shares.
             </p>
           </div>
@@ -323,12 +345,14 @@ function Home() {
               <div
                 key={b.tier}
                 className={cn(
-                  "flex flex-col items-center gap-4 rounded border p-6 text-center transition-all",
+                  "relative overflow-hidden flex flex-col items-center gap-4 rounded border p-6 text-center transition-all",
                   b.active
                     ? "border-ok-green bg-ok-green/5"
                     : "border-[#3D444D] bg-[#0D1117] hover:border-[#656C76]"
                 )}
               >
+                <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
+                     style={{ backgroundImage: b.active ? 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' : 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
                 <Badge tier={b.tier} className="text-sm" />
                 <div>
                   <p className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
@@ -348,22 +372,25 @@ function Home() {
       {/* ── 6. CTA BANNER ──────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-8 py-24">
         <div className="relative overflow-hidden rounded border border-ok-green/30 bg-[#151B23] p-10 sm:p-14 text-center">
-          <h2 className="mb-6 text-2xl font-medium tracking-tight text-[#F0F6F6] sm:text-3xl">
-            Initialize Verified Survey Node
+          <div className="absolute right-0 top-0 h-16 w-16 opacity-10"
+               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+          <h2 className="mb-6 font-mono text-sm text-[#F0F6F6] flex items-center justify-center gap-2 sm:text-base">
+            <Zap className="h-4 w-4 text-ok-green" />
+            [ Initialize Verified Survey Node ]
           </h2>
           <div className="flex flex-wrap justify-center gap-4">
               <Link 
                 to="/create" 
                 className="inline-flex h-10 items-center justify-center gap-2 rounded bg-ok-green px-6 font-mono text-xs font-bold uppercase tracking-wide text-[#0D1117] transition-colors hover:bg-ok-green/90"
               >
-                Create a Survey
+                [ Create Survey ]
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             <Link 
-              to="/dashboard" 
+              to="/explore" 
               className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#3D444D] bg-[#0D1117] px-6 font-mono text-xs font-bold uppercase tracking-wide text-[#F0F6F6] transition-colors hover:border-[#656C76]"
             >
-              Access Public Forms
+              [ Access Public Forms ]
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -399,14 +426,14 @@ function Home() {
             ].map((section) => (
               <div key={section.title}>
                 <h4 className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#656C76]">
-                  {section.title}
+                  [ {section.title} ]
                 </h4>
                 <ul className="space-y-3">
                   {section.links.map((link) => (
                     <li key={link}>
                       <Link
                         to={`/${link.toLowerCase().replace(" ", "-")}`}
-                        className="text-xs text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
+                        className="font-mono text-[11px] text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
                       >
                         {link}
                       </Link>
