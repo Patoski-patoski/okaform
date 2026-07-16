@@ -190,6 +190,17 @@ function WalletButton({
   onClick,
   className,
 }: WalletButtonProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAddress = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (wallet) {
+      navigator.clipboard.writeText(wallet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
   if (connected && wallet) {
     const tier = getBadgeTier(score);
     const badgeConfig = BADGE_CONFIG[tier];
@@ -205,7 +216,13 @@ function WalletButton({
       >
         <span className="flex items-center gap-1.5">
           <Wallet className="h-4 w-4 text-ok-green" />
-          <span className="font-mono text-xs">{truncateAddress(wallet)}</span>
+          <span
+            className="font-mono text-xs cursor-pointer transition-colors hover:text-ok-green"
+            onClick={handleCopyAddress}
+            title="Click to copy"
+          >
+            {copied ? 'Copied!' : truncateAddress(wallet)}
+          </span>
         </span>
 
         {solBalance !== null && (

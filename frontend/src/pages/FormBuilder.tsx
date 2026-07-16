@@ -69,7 +69,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-import { Button, StatusPill, Card } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -262,12 +261,12 @@ function LeftPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-ok-border/50 px-4 py-3 shrink-0">
-        <h3 className="font-display text-xs font-semibold uppercase tracking-wider text-ok-text">
-          Add Element
+      <div className="flex items-center justify-between border-b border-[#3D444D]/50 px-4 py-3 shrink-0">
+        <h3 className="font-mono text-[10px] font-medium uppercase tracking-widest text-[#656C76]">
+          [ Element Picker ]
         </h3>
         {onMobileClose && (
-          <button onClick={onMobileClose} className="text-ok-dim hover:text-ok-text lg:hidden">
+          <button onClick={onMobileClose} className="text-[#656C76] hover:text-[#F0F6F6] lg:hidden">
             <X className="h-4 w-4" />
           </button>
         )}
@@ -276,7 +275,7 @@ function LeftPanel({
       <div className="flex-1 overflow-y-auto p-3 space-y-6">
         {groups.map((group) => (
           <div key={group.title}>
-            <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-ok-dim/60">
+            <p className="mb-2 px-2 font-mono text-[9px] font-bold uppercase tracking-widest text-[#656C76]/60">
               {group.title}
             </p>
             <div className="space-y-0.5">
@@ -287,9 +286,9 @@ function LeftPanel({
                     onAdd(qt.type);
                     onMobileClose?.();
                   }}
-                  className="flex w-full items-center gap-3 rounded-[var(--radius-ok-inner)] px-3 py-2 text-sm text-ok-dim transition-all duration-200 hover:bg-ok-surface/60 hover:text-ok-text group"
+                  className="flex w-full items-center gap-3 rounded px-3 py-2 text-xs text-[#656C76] transition-all duration-200 hover:bg-[#151B23]/50 hover:text-[#F0F6F6] group"
                 >
-                  <qt.icon className={cn("h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity", group.color)} />
+                  <qt.icon className={cn("h-3.5 w-3.5 opacity-60 group-hover:opacity-100 transition-opacity", group.color)} />
                   {qt.label}
                 </button>
               ))}
@@ -872,17 +871,17 @@ function Canvas({
         onChange={(e) => onUpdateTitle(e.target.value)}
         placeholder="Untitled Campaign Survey"
         onPointerDown={(e) => e.stopPropagation()}
-        className="mb-8 w-full border-none bg-transparent font-display text-2xl font-bold text-ok-text placeholder:text-ok-muted/20 focus:outline-none lg:text-3xl"
+        className="mb-8 w-full border-none bg-transparent font-mono text-xl font-medium text-[#F0F6F6] placeholder:text-[#656C76]/20 focus:outline-none lg:text-2xl"
       />
 
       {questions.length === 0 ? (
         <div className="flex flex-1 items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-3 rounded-[var(--radius-ok-outer)] border-2 border-dashed border-ok-border/60 bg-ok-surface/20 px-12 py-16 text-center max-w-sm">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-surface">
-              <Plus className="h-5 w-5 text-ok-dim" />
+          <div className="flex flex-col items-center gap-3 rounded border-2 border-dashed border-[#3D444D]/60 bg-[#151B23]/20 px-12 py-16 text-center max-w-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#151B23]">
+              <Plus className="h-4 w-4 text-[#656C76]" />
             </div>
-            <p className="text-sm font-medium text-ok-text">Build your research pipeline</p>
-            <p className="text-xs text-ok-dim leading-relaxed">
+            <p className="font-mono text-xs font-medium text-[#F0F6F6]">Build your research pipeline</p>
+            <p className="font-mono text-[10px] text-[#656C76] leading-relaxed">
               Select an element or input field from the side construction panel to populate your survey structure.
             </p>
           </div>
@@ -937,8 +936,8 @@ function QuestionSettings({
   if (!question) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <Settings className="mb-3 h-6 w-6 text-ok-muted/30 animate-spin-slow" />
-        <p className="text-xs text-ok-dim">
+        <Settings className="mb-3 h-5 w-5 text-[#656C76]/30" />
+        <p className="font-mono text-[10px] text-[#656C76]">
           Select an active component node to edit field properties.
         </p>
       </div>
@@ -955,9 +954,9 @@ function QuestionSettings({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="border-b border-ok-border/50 px-4 py-3 bg-ok-surface/10">
-        <h3 className="font-display text-xs font-semibold uppercase tracking-wider text-ok-text">
-          Field Configuration
+      <div className="border-b border-[#3D444D]/50 px-4 py-3 bg-[#151B23]/10">
+        <h3 className="font-mono text-[10px] font-medium uppercase tracking-widest text-[#656C76]">
+          [ Field Configuration ]
         </h3>
       </div>
 
@@ -1213,9 +1212,9 @@ function RewardSettingsPanel({
   balanceWarning?: string;
 }) {
   return (
-    <div className="border-t border-ok-border/60 bg-ok-surface/20 p-4 space-y-4">
-      <h4 className="font-display text-xs font-semibold uppercase tracking-wider text-ok-text">
-        Protocol Incentives
+    <div className="border-t border-[#3D444D]/60 bg-[#151B23]/20 p-4 space-y-4">
+      <h4 className="font-mono text-[10px] font-medium uppercase tracking-widest text-[#656C76]">
+        [ Protocol Incentives ]
       </h4>
 
       <div className="space-y-3.5">
@@ -1497,26 +1496,24 @@ export default function FormBuilder() {
   }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate, draftId]);
 
   return (
-    <div className="flex h-screen flex-col bg-ok-bg text-ok-text selection:bg-ok-green/20">
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-ok-border bg-ok-surface px-4">
+    <div className="flex h-screen flex-col bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#3D444D] bg-[#151B23]/50 px-4">
         <div>
-          <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-ok-dim transition-colors hover:text-ok-text">
-            <ArrowLeft className="h-3.5 w-3.5" />
+          <Link to="/dashboard" className="inline-flex items-center gap-1.5 font-mono text-[10px] text-[#656C76] uppercase tracking-wider transition-colors hover:text-[#F0F6F6]">
+            <ArrowLeft className="h-3 w-3" />
             Workspace Dashboard
           </Link>
         </div>
         <div className="flex items-center gap-3">
           {initError && (
-            <span className="text-xs text-ok-danger">{initError}</span>
+            <span className="font-mono text-xs text-ok-danger">{initError}</span>
           )}
-          <StatusPill status="active" className="opacity-70 bg-ok-surface border border-ok-border/80 text-[10px]">
-            Draft Config
-          </StatusPill>
+          <span className="rounded border border-[#3D444D] bg-[#151B23]/40 px-2 py-0.5 font-mono text-[9px] text-[#656C76] uppercase tracking-wider">
+            DRAFT CONFIG
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
             onClick={() => {
               if (!formTitle.trim()) {
                 setInitError('Enter a form title above, then preview your survey.');
@@ -1525,34 +1522,34 @@ export default function FormBuilder() {
               setInitError(null);
               setShowPreview(true);
             }}
+            className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
           >
-            <Eye className="h-3.5 w-3.5" />
-            Simulate Interface
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
+            <Eye className="h-3 w-3" />
+            Simulate
+          </button>
+          <button
             onClick={handleInitialize}
             disabled={initializing}
+            className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#2EA043] hover:shadow-[0_0_15px_rgba(63,185,80,0.2)] disabled:opacity-50"
           >
             {initializing ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
                 Initializing...
               </>
             ) : (
-              'Initialize Campaign'
+              '[ Initialize Campaign ]'
             )}
-          </Button>
+          </button>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="hidden w-[260px] shrink-0 border-r border-ok-border bg-ok-bg lg:block">
+        <div className="hidden w-[260px] shrink-0 border-r border-[#3D444D] bg-[#0D1117] lg:block">
           <LeftPanel onAdd={addQuestion} />
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden bg-ok-surface/10">
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#151B23]/10">
           <Canvas
             questions={questions}
             selectedId={selectedId}
@@ -1567,7 +1564,7 @@ export default function FormBuilder() {
           />
         </div>
 
-        <div className="hidden w-[300px] shrink-0 border-l border-ok-border bg-ok-bg lg:flex lg:flex-col">
+        <div className="hidden w-[300px] shrink-0 border-l border-[#3D444D] bg-[#0D1117] lg:flex lg:flex-col">
           <div className="flex-1 overflow-y-auto">
             <QuestionSettings question={selectedQuestion} onUpdate={updateQuestion} />
           </div>
@@ -1578,7 +1575,7 @@ export default function FormBuilder() {
       <div className="fixed bottom-6 right-6 z-30 lg:hidden">
         <button
           onClick={() => setShowMobilePicker(true)}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-ok-green text-ok-bg shadow-lg transition-transform active:scale-95"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-ok-green text-[#0D1117] shadow-lg transition-transform active:scale-95"
         >
           <Plus className="h-5 w-5" />
         </button>
@@ -1587,7 +1584,7 @@ export default function FormBuilder() {
       {showMobilePicker && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobilePicker(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[75vh] rounded-t-[var(--radius-ok-outer)] border-t border-ok-border bg-ok-bg animate-slideUp">
+          <div className="absolute inset-x-0 bottom-0 max-h-[75vh] rounded-t border-t border-[#3D444D] bg-[#0D1117] animate-slideUp">
             <LeftPanel onAdd={addQuestion} onMobileClose={() => setShowMobilePicker(false)} />
           </div>
         </div>
@@ -1624,22 +1621,22 @@ function PreviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg shadow-2xl">
+      <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded border border-[#3D444D] bg-[#0D1117] shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ok-border bg-ok-surface/90 backdrop-blur-md px-5 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#3D444D] bg-[#151B23]/90 backdrop-blur-md px-5 py-3">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="h-4 w-4 text-ok-green" />
-            <span className="font-display text-sm font-semibold text-ok-text">
-              Form Preview
+            <span className="font-mono text-xs font-medium text-[#F0F6F6]">
+              [ Form Preview ]
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-ok-muted">
+            <span className="font-mono text-[10px] text-[#656C76]">
               {currentIndex + 1} / {questions.length}
             </span>
             <button
               onClick={onClose}
-              className="rounded-[var(--radius-ok-inner)] p-1 text-ok-muted transition-colors hover:bg-ok-surface hover:text-ok-text"
+              className="rounded p-1 text-[#9198A1] transition-colors hover:bg-[#151B23] hover:text-[#F0F6F6]"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1650,10 +1647,10 @@ function PreviewModal({
         <div className="p-6 space-y-6">
           {/* Title */}
           <div>
-            <h1 className="font-display text-xl font-bold text-ok-text">
+            <h1 className="font-mono text-lg font-medium text-[#F0F6F6]">
               {title || 'Untitled Form'}
             </h1>
-            <p className="mt-1 text-xs text-ok-muted">
+            <p className="mt-1 font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
               {questions.length} question{questions.length !== 1 ? 's' : ''}
               {reward.rewardPool > 0 && (
                 <> &middot; ◎{reward.rewardPool} reward pool</>
@@ -1663,15 +1660,15 @@ function PreviewModal({
 
           {/* Current Question */}
           {current && (
-            <Card padding="md" className="space-y-3">
+            <div className="rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <p className="text-sm font-medium text-ok-text">
+                <p className="text-sm font-medium text-[#F0F6F6]">
                   {current.label}
                   {current.required && (
                     <span className="ml-1 text-ok-danger">*</span>
                   )}
                 </p>
-                <span className="shrink-0 rounded-full border border-ok-border bg-ok-surface px-2 py-0.5 text-[10px] font-medium text-ok-muted">
+                <span className="shrink-0 rounded border border-[#3D444D] bg-[#0D1117] px-2 py-0.5 font-mono text-[9px] text-[#656C76] uppercase">
                   {current.type.replace(/_/g, ' ')}
                 </span>
               </div>
@@ -1680,7 +1677,7 @@ function PreviewModal({
                 <input
                   disabled
                   placeholder="Short text answer..."
-                  className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-sm text-ok-text/50 placeholder:text-ok-muted/30"
+                  className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30"
                 />
               )}
 
@@ -1689,14 +1686,14 @@ function PreviewModal({
                   disabled
                   placeholder="Long text answer..."
                   rows={3}
-                  className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-sm text-ok-text/50 placeholder:text-ok-muted/30 resize-none"
+                  className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30 resize-none"
                 />
               )}
 
               {(current.type === 'multiple_choice' || current.type === 'dropdown') && (
                 <div className="space-y-1.5">
                   {(current.options.length > 0 ? current.options : ['Option 1', 'Option 2', 'Option 3']).map((opt, i) => (
-                    <label key={i} className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/50 px-3 py-2 text-xs text-ok-muted cursor-not-allowed">
+                    <label key={i} className="flex items-center gap-2.5 rounded border border-[#3D444D]/50 px-3 py-2 font-mono text-[10px] text-[#9198A1] cursor-not-allowed">
                       <input type="radio" disabled className="accent-ok-green" />
                       {opt}
                     </label>
@@ -1707,7 +1704,7 @@ function PreviewModal({
               {current.type === 'checkbox' && (
                 <div className="space-y-1.5">
                   {(current.options.length > 0 ? current.options : ['Option A', 'Option B']).map((opt, i) => (
-                    <label key={i} className="flex items-center gap-2.5 rounded-[var(--radius-ok-inner)] border border-ok-border/50 px-3 py-2 text-xs text-ok-muted cursor-not-allowed">
+                    <label key={i} className="flex items-center gap-2.5 rounded border border-[#3D444D]/50 px-3 py-2 font-mono text-[10px] text-[#9198A1] cursor-not-allowed">
                       <input type="checkbox" disabled className="accent-ok-green" />
                       {opt}
                     </label>
@@ -1719,7 +1716,7 @@ function PreviewModal({
                 <input
                   disabled
                   placeholder="0"
-                  className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-sm text-ok-text/50 placeholder:text-ok-muted/30"
+                  className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30"
                 />
               )}
 
@@ -1728,42 +1725,40 @@ function PreviewModal({
                   {Array.from({ length: current.ratingMax || 5 }, (_, i) => (
                     <span
                       key={i}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-ok-border bg-ok-surface text-xs text-ok-muted"
+                      className="flex h-8 w-8 items-center justify-center rounded border border-[#3D444D] bg-[#151B23] font-mono text-[10px] text-[#9198A1]"
                     >
                       {i + 1}
                     </span>
                   ))}
                 </div>
               )}
-            </Card>
+            </div>
           )}
 
           {!current && questions.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <p className="text-sm text-ok-muted">No questions yet</p>
-              <p className="text-xs text-ok-dim">Add questions in the builder to see a preview</p>
+              <p className="font-mono text-xs text-[#9198A1]">No questions yet</p>
+              <p className="font-mono text-[10px] text-[#656C76]">Add questions in the builder to see a preview</p>
             </div>
           )}
 
           {/* Navigation */}
           {questions.length > 1 && (
             <div className="flex items-center justify-between pt-2">
-              <Button
-                variant="secondary"
-                size="sm"
+              <button
                 disabled={currentIndex === 0}
                 onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6] disabled:opacity-30"
               >
                 Previous
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
+              </button>
+              <button
                 disabled={currentIndex === questions.length - 1}
                 onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+                className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#2EA043] disabled:opacity-30"
               >
                 Next
-              </Button>
+              </button>
             </div>
           )}
         </div>

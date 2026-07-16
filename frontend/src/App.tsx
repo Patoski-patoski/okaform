@@ -9,6 +9,7 @@ import SurveyFill from "./pages/SurveyFill";
 import FormBuilder from "./pages/FormBuilder";
 import HowItWorks from "./pages/HowItWorks";
 import Explore from "./pages/Explore";
+import Pricing from "./pages/Pricing";
 
 function DraftRedirect() {
   const navigate = useNavigate();
@@ -38,6 +39,10 @@ export default function App() {
           <Route
             path="/how-it-works"
             element={<HowItWorks />}
+          />
+          <Route
+            path="/pricing"
+            element={<Pricing />}
           />
           <Route
             path="/explore"
