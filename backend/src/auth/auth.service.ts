@@ -6,7 +6,7 @@ import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import * as crypto from 'crypto';
-import { User, UserDocument } from '../common/schemas/user.schema';
+import { User, UserDocument, BadgeTier } from '../common/schemas/user.schema';
 import {
   RefreshToken,
   RefreshTokenDocument,
@@ -77,6 +77,7 @@ export class AuthService {
         wallet,
         siwsNonce: nonce,
         siwsNonceExpiresAt: new Date(Date.now() + NONCE_EXPIRATION_MS),
+        $setOnInsert: { badgeTier: BadgeTier.GHOST },
       },
       { upsert: true, new: true },
     );
@@ -140,6 +141,13 @@ export class AuthService {
     user.siwsNonce = undefined;
     user.siwsNonceExpiresAt = undefined;
     user.lastLoginAt = new Date();
+
+    // Fix legacy badgeTier values from old schema
+    const validBadgeTiers = Object.values(BadgeTier) as string[];
+    if (!validBadgeTiers.includes(user.badgeTier)) {
+      user.badgeTier = BadgeTier.GHOST;
+    }
+
     await user.save();
 
     this.logger.log({

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
+import OkaformLogo from "@/components/OkaformLogo";
 import {
-  Link2,
   Wallet,
   ShieldCheck,
   BarChart3,
@@ -15,6 +15,7 @@ import {
 
 import { Badge, SOLAmount } from "@/components/okaform";
 import { cn } from "@/lib/utils";
+import solanalogo from "@/assets/icons/solana-logo.svg";
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Landing page — Refactored to match the GitHub/Technical aesthetic.
@@ -74,7 +75,7 @@ function Home() {
             <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] shadow-2xl">
               {/* Decorative corner */}
               <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-                   style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+                   style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
 
               <div className="border-b border-[#3D444D]/50 px-6 py-4">
                 <div className="flex items-start justify-between">
@@ -188,7 +189,7 @@ function Home() {
               <div key={step.num} className="group relative overflow-hidden rounded border border-[#3D444D] bg-[#0D1117] p-8 hover:border-[#656C76] transition-colors">
                 {/* Decorative corner */}
                 <div className="absolute right-0 top-0 h-10 w-10 opacity-10 transition-opacity group-hover:opacity-20"
-                     style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+                     style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
 
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#151B23] text-ok-green">
@@ -229,7 +230,7 @@ function Home() {
           {/* Card 1 */}
           <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8 md:col-span-2 md:row-span-1">
             <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
                 <ShieldCheck className="h-5 w-5 text-ok-green" />
@@ -263,7 +264,7 @@ function Home() {
           {/* Card 3 */}
           <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8">
             <div className="absolute right-0 top-0 h-10 w-10 opacity-10"
-                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
             <div className="mb-5 flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
               <Lock className="h-4 w-4 text-ok-green" />
             </div>
@@ -278,7 +279,7 @@ function Home() {
           {/* Card 4 */}
           <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23] p-8 md:col-span-2 md:row-span-1">
             <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117]">
                 <Database className="h-5 w-5 text-ok-green" />
@@ -352,7 +353,7 @@ function Home() {
                 )}
               >
                 <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
-                     style={{ backgroundImage: b.active ? 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' : 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
+                     style={{ backgroundImage: b.active ? 'linear-gradient(225deg, transparent 50%, #14F195 50%)' : 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
                 <Badge tier={b.tier} className="text-sm" />
                 <div>
                   <p className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
@@ -373,7 +374,7 @@ function Home() {
       <section className="mx-auto max-w-5xl px-8 py-24">
         <div className="relative overflow-hidden rounded border border-ok-green/30 bg-[#151B23] p-10 sm:p-14 text-center">
           <div className="absolute right-0 top-0 h-16 w-16 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
           <h2 className="mb-6 font-mono text-sm text-[#F0F6F6] flex items-center justify-center gap-2 sm:text-base">
             <Zap className="h-4 w-4 text-ok-green" />
             [ Initialize Verified Survey Node ]
@@ -405,12 +406,9 @@ function Home() {
             <div>
               <Link
                 to="/"
-                className="mb-4 inline-flex items-center gap-2 text-[#F0F6F6] no-underline transition-colors hover:text-ok-green"
+                className="mb-4 inline-flex items-center text-[#F0F6F6] no-underline transition-colors hover:text-ok-green"
               >
-                <Link2 className="h-5 w-5 text-ok-green" strokeWidth={2.5} />
-                <span className="font-mono text-sm font-bold tracking-tight">
-                  Okaform
-                </span>
+                <OkaformLogo height={44} />
               </Link>
               <p className="mt-3 max-w-xs text-xs leading-relaxed text-[#9198A1]">
                 Solana-native survey consensus protocol. Cryptographically verified respondents.
@@ -447,7 +445,9 @@ function Home() {
           {/* Bottom bar */}
           <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-[#3D444D]/40 pt-8 sm:flex-row">
             <div className="flex items-center gap-2 font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
-              <span className="text-ok-green">◎</span>
+              <span className="text-ok-green">
+                <img src={solanalogo} alt="Solana Logo" className="h-3 w-3" />
+              </span>
               Executing on Solana Mainnet
             </div>
             <p className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">

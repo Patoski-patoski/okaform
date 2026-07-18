@@ -6,7 +6,6 @@ import {
   ChevronDown,
   X,
   ArrowRight,
-  Link2,
   Bot,
   Activity,
   Lock,
@@ -18,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import OkaformLogo from "@/components/OkaformLogo";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Button, Badge, getBadgeTier } from "@/components/okaform";
 import { useWallet } from "@/components/WalletProvider";
@@ -329,12 +329,12 @@ function SurveyCard({ survey }: SurveyCardProps) {
     <Link
       to={isOpen ? `/form/${survey.id}` : "#"}
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40 p-5 transition-all hover:border-ok-green/40 hover:bg-[#151B23]/70 hover:shadow-[0_0_25px_rgba(63,185,80,0.03)]",
+        "group relative flex flex-col justify-between overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40 p-5 transition-all hover:border-ok-green/40 hover:bg-[#151B23]/70 hover:shadow-[0_0_25px_rgba(20,241,149,0.03)]",
         !isOpen && "opacity-35 pointer-events-none"
       )}
     >
       {/* Background Micro-Grid Decorative Line */}
-      <div className="absolute right-0 top-0 h-16 w-16 opacity-[0.02] transition-opacity group-hover:opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(var(--tw-gradient-stops), #3FB950 1px, transparent 1px)', backgroundSize: '4px 4px' }} />
+      <div className="absolute right-0 top-0 h-16 w-16 opacity-[0.02] transition-opacity group-hover:opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(var(--tw-gradient-stops), #14F195 1px, transparent 1px)', backgroundSize: '4px 4px' }} />
 
       {/* Card Header: Node Diagnostic Bar */}
       <div>
@@ -544,10 +544,9 @@ export default function Explore() {
       <nav className="flex h-16 items-center justify-between border-b border-[#3D444D] bg-[#151B23]/40 px-8 backdrop-blur-md">
         <Link
           to="/"
-          className="group flex items-center gap-3 text-sm font-medium text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
+          className="group flex items-center text-sm font-medium text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
         >
-          <Link2 className="h-4 w-4 text-ok-green" />
-          <span className="tracking-tight text-[#F0F6F6]">Okaform</span>
+          <OkaformLogo height={44} />
         </Link>
         <div className="flex items-center gap-6">
           <Link
@@ -785,7 +784,7 @@ export default function Explore() {
           <div className="mt-12 text-center">
             <button
               onClick={() => setVisibleCount((v) => v + 6)}
-              className="font-mono text-xs text-[#9198A1] border border-[#3D444D] bg-[#151B23]/80 px-6 py-2.5 rounded transition-all hover:border-[#656C76] hover:text-[#F0F6F6] hover:shadow-[0_0_15px_rgba(63,185,80,0.02)]"
+              className="font-mono text-xs text-[#9198A1] border border-[#3D444D] bg-[#151B23]/80 px-6 py-2.5 rounded transition-all hover:border-[#656C76] hover:text-[#F0F6F6] hover:shadow-[0_0_15px_rgba(20,241,149,0.02)]"
             >
               [ Read Next Campaign Segment Block ]
             </button>

@@ -11,10 +11,10 @@ import {
   Bot,
   ArrowRight,
   ExternalLink,
-  Link2,
   ChevronLeft,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import OkaformLogo from "@/components/OkaformLogo";
 import { Badge, Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 
@@ -51,11 +51,10 @@ export default function HowItWorks() {
       <nav className="flex h-16 items-center justify-between border-b border-[#3D444D] bg-[#151B23]/50 px-8 backdrop-blur-md">
         <Link
           to="/"
-          className="group flex items-center gap-3 text-sm font-medium text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
+          className="flex items-center gap-1.5 text-sm font-medium text-[#656C76] transition-colors hover:text-[#F0F6F6]"
         >
-          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-          <Link2 className="h-4 w-4 text-ok-green" />
-          <span className="tracking-tight text-[#F0F6F6]">Okaform</span>
+          <ChevronLeft className="h-4 w-4" />
+          <OkaformLogo height={40} />
         </Link>
         <Link
           to="/create"

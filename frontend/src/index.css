@@ -18,7 +18,7 @@
   --color-ok-border-glow: rgba(56, 189, 248, 0.15);
 
   /* Accents */
-  --color-ok-green: #3FB950;
+  --color-ok-green: #14F195;
   --color-ok-purple: #A371F7;
 
   /* Text — GitHub Contrast Hierarchy */
@@ -68,4 +68,15 @@
 
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift), 400px) rotate(var(--rotation)) scale(0.3);
+  }
 }
