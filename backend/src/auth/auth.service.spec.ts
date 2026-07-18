@@ -88,7 +88,9 @@ describe('AuthService', () => {
       expect(result.message).toContain('Nonce:');
       expect(userModel.findOneAndUpdate).toHaveBeenCalledWith(
         { wallet: TEST_WALLET },
-        expect.objectContaining({ wallet: TEST_WALLET }),
+        expect.objectContaining({
+          $set: expect.objectContaining({ wallet: TEST_WALLET }),
+        }),
         { upsert: true, new: true },
       );
     });
@@ -99,9 +101,9 @@ describe('AuthService', () => {
       await service.generateNonce(TEST_WALLET);
 
       const updateCall = userModel.findOneAndUpdate.mock.calls[0];
-      const updateData = updateCall[1] as Record<string, unknown>;
-      expect(updateData.siwsNonce).toBeDefined();
-      expect(updateData.siwsNonceExpiresAt).toBeInstanceOf(Date);
+      const updateData = updateCall[1] as { $set: Record<string, unknown> };
+      expect(updateData.$set.siwsNonce).toBeDefined();
+      expect(updateData.$set.siwsNonceExpiresAt).toBeInstanceOf(Date);
     });
   });
 
