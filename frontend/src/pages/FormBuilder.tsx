@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import React from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
@@ -94,6 +94,7 @@ interface Question {
   id: string;
   type: QuestionType;
   label: string;
+  placeholder: string;
   required: boolean;
   options: string[];
   minWords: number;
@@ -218,6 +219,7 @@ function createQuestion(type: QuestionType): Question {
     id: makeId(),
     type,
     label: "",
+    placeholder: "",
     required: false,
     options:
       ["multiple_choice", "checkbox", "dropdown", "multi_select", "ranking"].includes(type)
@@ -512,7 +514,7 @@ function SortableQuestionCard({
             {question.type === "short_text" && (
               <input
                 type="text"
-                placeholder="Short text response..."
+                placeholder={question.placeholder || "Short text response..."}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
@@ -597,7 +599,7 @@ function SortableQuestionCard({
             {/* Long inputs */}
             {question.type === "long_text" && (
               <textarea
-                placeholder="Paragraph response field..."
+                placeholder={question.placeholder || "Long text response..."}
                 rows={3}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
@@ -982,6 +984,24 @@ function QuestionSettings({
           </div>
         )}
 
+        {/* Placeholder text (short_text / long_text) */}
+        {(question.type === "short_text" || question.type === "long_text") && (
+          <div className="space-y-1.5 border-b border-ok-border/20 pb-4">
+            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Placeholder</label>
+            <input
+              type="text"
+              value={question.placeholder ?? ""}
+              onChange={(e) => onUpdate(question.id, { placeholder: e.target.value })}
+              placeholder="Enter placeholder text..."
+              className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-xs text-ok-text placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+            <p className="text-[10px] leading-relaxed text-ok-dim">
+              Shown inside the input before the respondent types.
+            </p>
+          </div>
+        )}
+
         {/* Word count limits */}
         {isLong && (
           <div className="space-y-4 border-b border-ok-border/20 pb-4">
@@ -1339,19 +1359,18 @@ export default function FormBuilder() {
   const [showMobilePicker, setShowMobilePicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [initializing, setInitializing] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { publicKey } = useWallet();
   const { connection } = useConnection();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
-  const { draftId } = useParams<{ draftId: string }>();
+  const DRAFT_KEY = "okaform_current_draft";
 
   // Restore draft from localStorage on mount
   useEffect(() => {
-    if (!draftId) return;
-    const saved = localStorage.getItem(`okaform_draft_${draftId}`);
+    const saved = localStorage.getItem(DRAFT_KEY);
     if (!saved) return;
     try {
       const parsed = JSON.parse(saved);
@@ -1362,16 +1381,15 @@ export default function FormBuilder() {
         setSelectedId(parsed.selectedId);
       }
     } catch {
-      localStorage.removeItem(`okaform_draft_${draftId}`);
+      localStorage.removeItem(DRAFT_KEY);
     }
-  }, [draftId]);
+  }, []);
 
   // Auto-save draft to localStorage on changes
   useEffect(() => {
-    if (!draftId) return;
     const draft = { formTitle, questions, reward, selectedId };
-    localStorage.setItem(`okaform_draft_${draftId}`, JSON.stringify(draft));
-  }, [formTitle, questions, reward, selectedId, draftId]);
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [formTitle, questions, reward, selectedId]);
 
   const rewardInLamports = reward.rewardPool * LAMPORTS_PER_SOL;
   const insufficientBalance =
@@ -1400,6 +1418,13 @@ export default function FormBuilder() {
     const interval = setInterval(fetchBalance, 10000);
     return () => clearInterval(interval);
   }, [publicKey, connection]);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const selectedQuestion = useMemo(
     () => questions.find((q) => q.id === selectedId),
@@ -1441,23 +1466,22 @@ export default function FormBuilder() {
 
   const handleInitialize = useCallback(async () => {
     if (!formTitle.trim()) {
-      setInitError('Please enter a form title before initializing.');
+      setToast('Please enter a form title before initializing.');
       return;
     }
     if (questions.length === 0) {
-      setInitError('Please add at least one question before initializing.');
+      setToast('Please add at least one question before initializing.');
       return;
     }
     if (!isAuthenticated) {
-      setInitError('Please connect your wallet and sign in first.');
+      setToast('Please connect your wallet and sign in first.');
       return;
     }
     if (insufficientBalance) {
-      setInitError('Insufficient wallet balance to cover the Escrow Reservoir Pool.');
+      setToast('Insufficient wallet balance to cover the Escrow Reservoir Pool.');
       return;
     }
 
-    setInitError(null);
     setInitializing(true);
 
     try {
@@ -1467,6 +1491,7 @@ export default function FormBuilder() {
           id: q.id,
           type: q.type,
           label: q.label,
+          placeholder: q.placeholder ?? "",
           required: q.required,
           options: q.options,
           minWords: q.minWords,
@@ -1486,14 +1511,27 @@ export default function FormBuilder() {
         minSolBalance: reward.minSolBalance,
       });
 
-      if (draftId) localStorage.removeItem(`okaform_draft_${draftId}`);
+      // Save created form to localStorage for Dashboard to pick up
+      const newForm = {
+        id: `s${Date.now()}`,
+        title: formTitle.trim(),
+        status: "active" as const,
+        responses: 0,
+        maxResponses: reward.maxResponses,
+        rewardPool: reward.rewardPool,
+        rewardType: reward.rewardType,
+        createdAt: "Just now",
+      };
+      localStorage.setItem("okaform_created_form", JSON.stringify(newForm));
+
+      localStorage.removeItem(DRAFT_KEY);
       navigate('/dashboard');
     } catch (err) {
-      setInitError(err instanceof Error ? err.message : 'Failed to initialize campaign');
+      setToast(err instanceof Error ? err.message : 'Failed to initialize campaign');
     } finally {
       setInitializing(false);
     }
-  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate, draftId]);
+  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate]);
 
   return (
     <div className="flex h-screen flex-col bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
@@ -1505,9 +1543,6 @@ export default function FormBuilder() {
           </Link>
         </div>
         <div className="flex items-center gap-3">
-          {initError && (
-            <span className="font-mono text-xs text-ok-danger">{initError}</span>
-          )}
           <span className="rounded border border-[#3D444D] bg-[#151B23]/40 px-2 py-0.5 font-mono text-[9px] text-[#656C76] uppercase tracking-wider">
             DRAFT CONFIG
           </span>
@@ -1516,10 +1551,9 @@ export default function FormBuilder() {
           <button
             onClick={() => {
               if (!formTitle.trim()) {
-                setInitError('Enter a form title above, then preview your survey.');
+                setToast('Enter a form title above, then preview your survey.');
                 return;
               }
-              setInitError(null);
               setShowPreview(true);
             }}
             className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
@@ -1530,7 +1564,7 @@ export default function FormBuilder() {
           <button
             onClick={handleInitialize}
             disabled={initializing}
-            className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#2EA043] hover:shadow-[0_0_15px_rgba(63,185,80,0.2)] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)] disabled:opacity-50"
           >
             {initializing ? (
               <>
@@ -1543,6 +1577,13 @@ export default function FormBuilder() {
           </button>
         </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed right-4 top-16 z-50 animate-fadeIn rounded border border-ok-danger/30 bg-ok-bg px-4 py-2.5 font-mono text-xs text-ok-danger shadow-lg">
+          {toast}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <div className="hidden w-[260px] shrink-0 border-r border-[#3D444D] bg-[#0D1117] lg:block">
@@ -1676,7 +1717,7 @@ function PreviewModal({
               {current.type === 'short_text' && (
                 <input
                   disabled
-                  placeholder="Short text answer..."
+                  placeholder={current.placeholder || "Short text answer..."}
                   className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30"
                 />
               )}
@@ -1684,7 +1725,7 @@ function PreviewModal({
               {current.type === 'long_text' && (
                 <textarea
                   disabled
-                  placeholder="Long text answer..."
+                  placeholder={current.placeholder || "Long text answer..."}
                   rows={3}
                   className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30 resize-none"
                 />
@@ -1755,7 +1796,7 @@ function PreviewModal({
               <button
                 disabled={currentIndex === questions.length - 1}
                 onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
-                className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#2EA043] disabled:opacity-30"
+                className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] disabled:opacity-30"
               >
                 Next
               </button>

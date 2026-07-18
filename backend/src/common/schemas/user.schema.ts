@@ -4,11 +4,11 @@ import { HydratedDocument } from 'mongoose';
 export type UserDocument = HydratedDocument<User>;
 
 export enum BadgeTier {
-  GREY = 'Ghost',
-  BRONZE = 'Bronze',
-  SILVER = 'Silver',
-  GOLD = 'Oracle',
-  PLATINUM = 'Platinum',
+  GHOST = 'Ghost',
+  CIPHER = 'Cipher',
+  SENTINEL = 'Sentinel',
+  ORACLE = 'Oracle',
+  SOVEREIGN = 'Sovereign',
 }
 
 @Schema({ timestamps: true })
@@ -25,7 +25,11 @@ export class User {
   @Prop({ default: 0 })
   surveysCompleted!: number;
 
-  @Prop({ type: String, enum: BadgeTier, default: BadgeTier.GREY })
+  @Prop({
+    type: String,
+    enum: Object.values(BadgeTier),
+    default: BadgeTier.GHOST,
+  })
   badgeTier!: BadgeTier;
 
   @Prop({ type: Date, default: null })

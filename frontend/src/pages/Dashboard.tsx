@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
+import OkaformLogo from "@/components/OkaformLogo";
 import {
-  Link2,
   Home,
   FileText,
   PlusCircle,
@@ -38,6 +38,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import HomeView from "@/components/Dashboard/HomeView";
+import AnalyticsView from "@/components/Dashboard/AnalyticsView";
+import SettingsView from "@/components/Dashboard/SettingsView";
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Creator dashboard — technical/infrastructure aesthetic.
@@ -78,7 +81,7 @@ interface DistributionRow {
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
-const SURVEYS: Survey[] = [
+const INITIAL_SURVEYS: Survey[] = [
   {
     id: "s1",
     title: "Jupiter Community Pulse",
@@ -185,16 +188,26 @@ function Sidebar({
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-[#3D444D] bg-[#0D1117]">
       {/* Logo */}
-      <Link to="/" className="flex h-16 items-center gap-2.5 border-b border-[#3D444D]/50 px-6 no-underline">
-        <Link2 className="h-5 w-5 text-ok-green" strokeWidth={2.5} />
-        <span className="font-display text-xl font-bold tracking-tight text-[#F0F6F6]">
-          Okaform
-        </span>
+      <Link to="/" className="flex h-16 items-center border-b border-[#3D444D]/50 px-6 no-underline">
+        <OkaformLogo height={48} />
       </Link>
 
       {/* Nav items */}
       <nav className="flex-1 space-y-1.5 px-4 py-6">
         {SIDEBAR_NAV.map((item) => {
+          if (item.id === "create") {
+            return (
+              <Link
+                key={item.id}
+                to="/create"
+                className="group flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-[#656C76] transition-all duration-200 hover:bg-[#151B23]/50 hover:text-[#F0F6F6] hover:shadow-[inset_2px_0_0_0_var(--color-ok-border)]"
+              >
+                <item.icon className="h-4 w-4 text-[#656C76] transition-colors group-hover:text-[#9198A1]" />
+                {item.label}
+              </Link>
+            );
+          }
+
           const active = activeNav === item.id;
           return (
             <button
@@ -296,7 +309,7 @@ function StatsRow() {
       <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40 p-6 lg:col-span-2">
         {/* Decorative corner */}
         <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-             style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+             style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
 
         <div className="flex items-start justify-between">
           <div>
@@ -327,7 +340,7 @@ function StatsRow() {
         
         {/* Progress */}
         <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-[#3D444D]">
-          <div className="h-full w-[46.8%] rounded-full bg-ok-green shadow-[0_0_10px_rgba(63,185,80,0.5)]" />
+          <div className="h-full w-[46.8%] rounded-full bg-ok-green shadow-[0_0_10px_rgba(20,241,149,0.5)]" />
         </div>
 
         <div className="mt-4 flex items-center justify-between font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
@@ -356,7 +369,7 @@ function StatsRow() {
 
         <div className="relative flex-1 overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4">
           <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
               Lifetime Surveys
@@ -375,9 +388,11 @@ function StatsRow() {
 // ─── Surveys table ─────────────────────────────────────────────────────────────
 
 function SurveysTable({
+  surveys,
   onSelect,
   onCloseRequest,
 }: {
+  surveys: Survey[];
   onSelect: (id: string) => void;
   onCloseRequest: (id: string) => void;
 }) {
@@ -414,7 +429,7 @@ function SurveysTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#3D444D]/40">
-            {SURVEYS.map((survey) => (
+            {surveys.map((survey) => (
               <tr
                 key={survey.id}
                 className="group transition-all duration-200 hover:bg-[#151B23]/40 hover:shadow-[inset_2px_0_0_0_var(--color-ok-green)]"
@@ -494,7 +509,7 @@ function CopyableAddress({ address }: { address: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="min-w-0 flex-1 truncate font-mono text-xs text-[#9198A1] cursor-pointer transition-colors hover:text-[#F0F6F6]"
+      className="min-w-0 flex-1 truncate text-left font-mono text-xs text-[#9198A1] cursor-pointer transition-colors hover:text-[#F0F6F6]"
       title="Click to copy"
     >
       {copied ? 'Copied!' : truncateAddress(address)}
@@ -607,7 +622,7 @@ function AnalyticsTab() {
         ].map((m) => (
           <div key={m.label} className="relative overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4">
             <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
-                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
                 {m.label}
@@ -899,15 +914,32 @@ export default function Dashboard() {
   const [view, setView] = useState<View>("surveys");
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [closeTarget, setCloseTarget] = useState<Survey | null>(null);
+  const [surveys] = useState<Survey[]>(() => {
+    // Load any newly created forms from localStorage
+    const created = localStorage.getItem("okaform_created_form");
+    if (created) {
+      try {
+        const form = JSON.parse(created);
+        localStorage.removeItem("okaform_created_form");
+        return [form, ...INITIAL_SURVEYS];
+      } catch {
+        return [...INITIAL_SURVEYS];
+      }
+    }
+    return [...INITIAL_SURVEYS];
+  });
 
   const selectedSurvey = useMemo(
-    () => SURVEYS.find((s) => s.id === selectedSurveyId) ?? null,
-    [selectedSurveyId]
+    () => surveys.find((s) => s.id === selectedSurveyId) ?? null,
+    [surveys, selectedSurveyId]
   );
 
   const handleNavChange = (id: string) => {
     setActiveNav(id);
     if (id === "surveys") {
+      setView("surveys");
+      setSelectedSurveyId(null);
+    } else if (id === "home") {
       setView("surveys");
       setSelectedSurveyId(null);
     }
@@ -932,13 +964,20 @@ export default function Dashboard() {
 
       {/* Main content */}
       <main className="ml-[240px] min-h-screen p-6 lg:p-8">
-        {view === "surveys" ? (
+        {activeNav === "home" ? (
+          <HomeView />
+        ) : activeNav === "analytics" ? (
+          <AnalyticsView />
+        ) : activeNav === "settings" ? (
+          <SettingsView />
+        ) : view === "surveys" ? (
           <div className="space-y-6">
             <StatsRow />
             <SurveysTable
+              surveys={surveys}
               onSelect={handleSelectSurvey}
               onCloseRequest={(id) => {
-                const survey = SURVEYS.find((s) => s.id === id);
+                const survey = surveys.find((s) => s.id === id);
                 if (survey) setCloseTarget(survey);
               }}
             />

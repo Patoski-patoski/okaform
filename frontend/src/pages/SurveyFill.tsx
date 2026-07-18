@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback } from "react";
-import { Link2, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import OkaformLogo from "@/components/OkaformLogo";
 import { useWallet } from "@/components/WalletProvider";
 import {
   WalletGate,
@@ -138,11 +139,11 @@ export default function SurveyFill() {
 
       <div className="mx-auto max-w-[680px] px-6 pt-10 pb-2">
         <Link
-          to="/"
+          to="/explore"
           className="inline-flex items-center gap-1.5 text-xs text-ok-muted/60 transition-colors hover:text-ok-text"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
-          Back to Okaform
+          Back to Explore
         </Link>
       </div>
 
@@ -153,10 +154,7 @@ export default function SurveyFill() {
           <div className="space-y-6">
             <div className="space-y-4 pb-2">
               <div className="flex items-center gap-2.5">
-                <Link2 className="h-4 w-4 text-ok-green" strokeWidth={2.5} />
-                <span className="text-xs font-medium text-ok-muted/60">
-                  Okaform
-                </span>
+                <OkaformLogo variant="wordmark" height={32} />
               </div>
 
               <h1 className="font-display text-3xl font-semibold tracking-tight text-ok-text sm:text-4xl">

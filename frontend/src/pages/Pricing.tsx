@@ -166,7 +166,7 @@ function FeeCalculator() {
     <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40">
       {/* Decorative corner */}
       <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-           style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+           style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
 
       <div className="p-6 md:p-8">
         <div className="mb-6 flex items-center gap-2 border-b border-[#3D444D]/50 pb-4">
@@ -310,7 +310,7 @@ export default function Pricing() {
         <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40">
           {/* Decorative corner */}
           <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' }} />
+               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
 
           <div className="border-l-[3px] border-l-ok-green p-6 md:p-10">
             <div className="mb-4 flex items-center gap-2">
@@ -342,13 +342,13 @@ export default function Pricing() {
                 className={cn(
                   "group relative flex flex-col justify-between overflow-hidden rounded border bg-[#151B23]/40 transition-all",
                   isMostPopular
-                    ? "border-ok-green/40 shadow-[0_0_30px_rgba(63,185,80,0.04)] bg-[#151B23]/80"
+                    ? "border-ok-green/40 shadow-[0_0_30px_rgba(20,241,149,0.04)] bg-[#151B23]/80"
                     : "border-[#3D444D] hover:border-[#656C76]/60"
                 )}
               >
                 {/* Decorative corner */}
                 <div className="absolute right-0 top-0 h-10 w-10 opacity-10 transition-opacity group-hover:opacity-20"
-                     style={{ backgroundImage: isMostPopular ? 'linear-gradient(225deg, transparent 50%, #3FB950 50%)' : 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
+                     style={{ backgroundImage: isMostPopular ? 'linear-gradient(225deg, transparent 50%, #14F195 50%)' : 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
 
                 <div className="p-6">
                   {/* Tier header */}
@@ -425,7 +425,7 @@ export default function Pricing() {
                       className={cn(
                         "w-full rounded font-mono text-xs py-2.5 transition-all flex items-center justify-center gap-2",
                         isMostPopular
-                          ? "bg-ok-green text-[#0D1117] font-semibold hover:bg-[#2EA043] hover:shadow-[0_0_15px_rgba(63,185,80,0.2)]"
+                          ? "bg-ok-green text-[#0D1117] font-semibold hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)]"
                           : "border border-[#3D444D] text-[#9198A1] hover:border-[#656C76] hover:text-[#F0F6F6] bg-[#0D1117]/60"
                       )}
                     >
@@ -572,7 +572,7 @@ export default function Pricing() {
         </h2>
         <div className="mt-8 flex flex-col items-center justify-center gap-4">
           <Link to="/create">
-            <button className="rounded bg-ok-green px-6 py-2.5 font-mono text-xs font-semibold text-[#0D1117] transition-all hover:bg-[#2EA043] hover:shadow-[0_0_15px_rgba(63,185,80,0.2)] active:scale-[0.97]">
+            <button className="rounded bg-ok-green px-6 py-2.5 font-mono text-xs font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)] active:scale-[0.97]">
               [ Create Survey → ]
             </button>
           </Link>

@@ -7,6 +7,7 @@ export const CreateFormSchema = Type.Object({
       id: Type.String(),
       type: Type.String(),
       label: Type.String({ minLength: 1 }),
+      placeholder: Type.Optional(Type.String()),
       required: Type.Boolean(),
       options: Type.Array(Type.String()),
       minWords: Type.Number(),

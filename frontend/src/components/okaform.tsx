@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
-  Link2,
   Wallet,
   ChevronDown,
   Gem,
@@ -14,8 +13,9 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
 
 import { cn } from "@/lib/utils";
-import { useWallet } from "./WalletProvider";
+import OkaformLogo from "./OkaformLogo";
 import { useAuth } from "./AuthProvider";
+import { useWallet } from "./WalletProvider";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 
 // ─── Button ────────────────────────────────────────────────────────────────────
@@ -425,15 +425,20 @@ function Navbar({
       )}
     >
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-2 text-ok-text no-underline">
-        <Link2 className="h-5 w-5 text-ok-green" strokeWidth={2.5} />
-        <span className="font-display text-lg font-bold tracking-tight">
-          Okaform
-        </span>
+      <Link to="/" className="flex items-center text-ok-text no-underline">
+        <OkaformLogo height={56} />
       </Link>
 
       {/* Nav Links */}
       <div className="hidden items-center gap-8 md:flex">
+        {isAuthenticated && (
+          <Link
+            to="/dashboard"
+            className="text-sm font-medium text-ok-green transition-colors duration-150 hover:text-ok-green/80"
+          >
+            Dashboard
+          </Link>
+        )}
         {items.map((item) => (
           <Link
             key={item.href}

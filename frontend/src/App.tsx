@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { WalletContextProvider } from "./components/WalletProvider";
 import { AuthProvider } from "./components/AuthProvider";
 import Layout from "./components/Layout";
@@ -11,15 +11,21 @@ import HowItWorks from "./pages/HowItWorks";
 import Explore from "./pages/Explore";
 import Pricing from "./pages/Pricing";
 
-function DraftRedirect() {
-  const navigate = useNavigate();
+// Clean up old UUID-based drafts on app load
+function useCleanupOldDrafts() {
   useEffect(() => {
-    navigate(`/create/${crypto.randomUUID()}`, { replace: true });
-  }, [navigate]);
-  return null;
+    const keys = Object.keys(localStorage);
+    keys.forEach((key) => {
+      if (key.startsWith("okaform_draft_")) {
+        localStorage.removeItem(key);
+      }
+    });
+  }, []);
 }
 
 export default function App() {
+  useCleanupOldDrafts();
+
   return (
     <WalletContextProvider>
       <AuthProvider>
@@ -60,7 +66,7 @@ export default function App() {
             path="/create"
             element={
               <Layout>
-                <DraftRedirect />
+                <FormBuilder />
               </Layout>
             }
           />

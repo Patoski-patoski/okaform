@@ -56,6 +56,9 @@ export class Question {
   @Prop({ required: true })
   label!: string;
 
+  @Prop({ default: '' })
+  placeholder!: string;
+
   @Prop({ default: false })
   required!: boolean;
 

@@ -1,6 +1,11 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { FormsService, CreateFormResult } from './forms.service';
+import {
+  FormsService,
+  CreateFormResult,
+  FormListItem,
+  FormDetail,
+} from './forms.service';
 import { CreateFormSchema } from './dto/create-form.dto';
 import type { CreateFormDto } from './dto/create-form.dto';
 import { TypeBoxValidationPipe } from '../common/pipes/typebox-validation.pipe';
@@ -20,5 +25,17 @@ export class FormsController {
     @CurrentUser() user: UserProfile,
   ): Promise<CreateFormResult> {
     return await this.formsService.createForm(dto, user.wallet);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getForms(@CurrentUser() user: UserProfile): Promise<FormListItem[]> {
+    return await this.formsService.getFormsByCreator(user.wallet);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  async getFormById(@Param('id') id: string): Promise<FormDetail> {
+    return await this.formsService.getFormById(id);
   }
 }
