@@ -30,6 +30,7 @@ export interface FormDetail extends FormListItem {
     label: string;
     required: boolean;
     options: string[];
+    placeholder?: string | null;
   }>;
   minWalletAge: number;
   minSolBalance: number;
@@ -126,6 +127,7 @@ export class FormsService {
         label: q.label,
         required: q.required,
         options: q.options,
+        placeholder: q.placeholder,
       })),
       minWalletAge: form.minWalletAge,
       minSolBalance: form.minSolBalance,

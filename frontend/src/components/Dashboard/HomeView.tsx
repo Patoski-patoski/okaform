@@ -169,10 +169,10 @@ export default function HomeView() {
             SOL DISTRIBUTED
           </p>
           <p className="mt-2 font-mono text-2xl font-bold">
-            <div className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5">
               <img src={solanaLogo} alt="Solana" className="h-5 w-5 text-ok-green" />{" "}
               <span className="text-[#F0F6F6]">{SOL_DISTRIBUTED}</span>
-            </div>
+            </span>
            
           </p>
         </div>

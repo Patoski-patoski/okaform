@@ -53,9 +53,19 @@ export default function SettingsView() {
   };
 
   const handleCopyAddress = () => {
-    navigator.clipboard.writeText(wallet);
-    setCopiedAddress(true);
-    setTimeout(() => setCopiedAddress(false), 1500);
+    if (!navigator?.clipboard?.writeText) {
+      return;
+    }
+
+    navigator.clipboard
+      .writeText(wallet)
+      .then(() => {
+        setCopiedAddress(true);
+        setTimeout(() => setCopiedAddress(false), 1500);
+      })
+      .catch(() => {
+        // Clipboard write failed silently
+      });
   };
 
   return (
