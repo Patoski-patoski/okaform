@@ -343,7 +343,11 @@ interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 function StatusPill({ status, className, children, ...props }: StatusPillProps) {
-  const config = STATUS_CONFIG[status];
+  const config = STATUS_CONFIG[status] ?? {
+    label: status,
+    dotClass: "bg-ok-muted",
+    containerClass: "border-ok-border bg-ok-border/30 text-ok-muted",
+  };
   return (
     <span
       className={cn(

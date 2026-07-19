@@ -25,7 +25,7 @@ const SETTINGS_NAV = [
   { id: "danger" as const, label: "Danger Zone" },
 ] as const;
 
-const AUTHORITY_KEY = "2qJF3VgV2E9rHPs8gmcEiAiWr1SvKQZsP6QFdy1h4Dw3";
+const AUTHORITY_KEY = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V";
 
 // ─── SettingsView component ────────────────────────────────────────────────────
 
@@ -35,6 +35,7 @@ export default function SettingsView() {
 
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [username, setUsername] = useState(user?.username ?? "");
   const [confirmDeleteData, setConfirmDeleteData] = useState(false);
   const [confirmCloseAll, setConfirmCloseAll] = useState(false);
@@ -54,6 +55,8 @@ export default function SettingsView() {
 
   const handleCopyAddress = () => {
     if (!navigator?.clipboard?.writeText) {
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 2000);
       return;
     }
 
@@ -64,7 +67,8 @@ export default function SettingsView() {
         setTimeout(() => setCopiedAddress(false), 1500);
       })
       .catch(() => {
-        // Clipboard write failed silently
+        setCopyError(true);
+        setTimeout(() => setCopyError(false), 2000);
       });
   };
 
@@ -112,12 +116,14 @@ export default function SettingsView() {
                     onClick={handleCopyAddress}
                     className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-transparent px-3 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
                   >
-                    {copiedAddress ? (
+                    {copyError ? (
+                      <AlertTriangle className="h-3 w-3 text-ok-danger" />
+                    ) : copiedAddress ? (
                       <Check className="h-3 w-3 text-ok-green" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
-                    {copiedAddress ? "Copied" : "Copy"}
+                    {copyError ? "Failed" : copiedAddress ? "Copied" : "Copy"}
                   </button>
                 </div>
               </div>

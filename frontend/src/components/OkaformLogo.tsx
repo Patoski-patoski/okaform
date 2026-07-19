@@ -10,16 +10,12 @@ interface OkaformLogoProps {
 
 const COLORS = {
   dark: {
-    bg:      '#0D1F1A',
     text:    '#F0FDF4',
     accent:  '#14F195',
-    muted:   '#6EE7B7',
   },
   light: {
-    bg:      '#F0FDF4',
     text:    '#0D1F1A',
     accent:  '#059669',
-    muted:   '#065f46',
   },
 } as const;
 
@@ -28,7 +24,7 @@ function WordmarkLogo({
   height,
   className,
 }: {
-  colors: { bg: string; text: string; accent: string; muted: string };
+  colors: { text: string; accent: string };
   height: number;
   className?: string;
 }) {

@@ -9,13 +9,13 @@ skip-lint = false
 okaform_program = "2qJF3VgV2E9rHPs8gmcEiAiWr1SvKQZsP6QFdy1h4Dw3"
 
 [programs.devnet]
-okaform_program = "2qJF3VgV2E9rHPs8gmcEiAiWr1SvKQZsP6QFdy1h4Dw3"
+okaform_program = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

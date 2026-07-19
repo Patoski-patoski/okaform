@@ -1,8 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import {
+  Connection,
+  PublicKey,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+} from '@solana/web3.js';
+import * as anchor from '@coral-xyz/anchor';
 import { InvalidWalletException } from '../common/exceptions/solana/invalid-wallet.exception';
 import { RpcErrorException } from '../common/exceptions/solana/rpc-error.exception';
+import okaformIdl from './idl/okaform.json';
 
 const PAGE_SIZE = 1000;
 const MAX_SIGNATURES = 10000;
@@ -12,11 +20,35 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
+export type RewardType = 'weighted' | 'lottery';
+
+type RewardTypeArg =
+  { weighted: Record<string, never> } | { lottery: Record<string, never> };
+
+function toRewardTypeArg(rewardType: RewardType): RewardTypeArg {
+  if (rewardType === 'weighted') return { weighted: {} };
+  return { lottery: {} };
+}
+
+function toLamportsBn(lamports: number): anchor.BN {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  return new anchor.BN(lamports);
+}
+
+export interface InitializeSurveyResult {
+  surveyId: string;
+  surveyPda: string;
+  escrowVault: string;
+  txSignature: string;
+}
+
 @Injectable()
 export class SolanaService {
   private readonly logger = new Logger(SolanaService.name);
   private readonly connection: Connection;
   private readonly cache = new Map<string, CacheEntry<unknown>>();
+  private readonly program: anchor.Program;
+  private readonly authorityKeypair: Keypair;
 
   constructor(private readonly config: ConfigService) {
     const rpcUrl = this.config.get<string>('SOLANA_RPC_URL');
@@ -24,10 +56,35 @@ export class SolanaService {
       throw new Error('SOLANA_RPC_URL is not defined');
     }
     this.connection = new Connection(rpcUrl, 'confirmed');
+
+    // Load authority keypair from env
+    const keypairStr = this.config.get<string>('BACKEND_KEYPAIR');
+    if (!keypairStr) {
+      throw new Error('BACKEND_KEYPAIR is not defined');
+    }
+    const secretKey = Buffer.from(JSON.parse(keypairStr));
+    this.authorityKeypair = Keypair.fromSecretKey(secretKey);
+
+    // Initialize Anchor program
+    const provider = new anchor.AnchorProvider(
+      this.connection,
+      new anchor.Wallet(this.authorityKeypair),
+      { commitment: 'confirmed' },
+    );
+    anchor.setProvider(provider);
+
+    this.program = new anchor.Program(okaformIdl);
+
     this.logger.log({
       event: 'SOLANA_SERVICE_INIT',
       rpcUrl: rpcUrl.slice(0, 30) + '...',
+      programId: okaformIdl.address,
+      authority: this.authorityKeypair.publicKey.toBase58().slice(0, 8) + '...',
     });
+  }
+
+  getAuthorityPublicKey(): string {
+    return this.authorityKeypair.publicKey.toBase58();
   }
 
   private getFromCache<T>(key: string): T | null {
@@ -50,6 +107,137 @@ export class SolanaService {
     } catch {
       throw new InvalidWalletException(wallet);
     }
+  }
+
+  /**
+   * Derive survey PDA from creator wallet and survey_id bytes.
+   */
+  deriveSurveyPda(
+    creator: PublicKey,
+    surveyId: Uint8Array,
+  ): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('survey'), creator.toBuffer(), surveyId],
+      this.program.programId,
+    );
+  }
+
+  /**
+   * Derive escrow vault PDA from survey PDA.
+   */
+  deriveEscrowVault(surveyPda: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('escrow'), surveyPda.toBuffer()],
+      this.program.programId,
+    );
+  }
+
+  /**
+   * Initialize a survey on-chain. Creates the survey PDA and escrow vault,
+   * then transfers SOL into the escrow.
+   */
+  async initializeSurvey(
+    creatorWallet: string,
+    surveyId: string,
+    rewardPoolSol: number,
+    rewardType: RewardType,
+    maxResponses: number,
+  ): Promise<InitializeSurveyResult> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const rewardPoolLamports = Math.floor(rewardPoolSol * LAMPORTS_PER_SOL);
+
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveEscrowVault(surveyPda);
+
+    this.logger.log({
+      event: 'INITIALIZE_SURVEY_START',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      rewardPool: rewardPoolSol,
+      rewardType,
+      maxResponses,
+    });
+
+    try {
+      const tx = await this.program.methods
+        .initializeSurvey(
+          Buffer.from(surveyIdBytes),
+          toLamportsBn(rewardPoolLamports),
+          toRewardTypeArg(rewardType),
+          maxResponses,
+        )
+        .accounts({
+          creator: creatorPubkey,
+          survey: surveyPda,
+          escrowVault,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      this.logger.log({
+        event: 'INITIALIZE_SURVEY_SUCCESS',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        surveyPda: surveyPda.toBase58(),
+        txSignature: tx,
+      });
+
+      return {
+        surveyId,
+        surveyPda: surveyPda.toBase58(),
+        escrowVault: escrowVault.toBase58(),
+        txSignature: tx,
+      };
+    } catch (error) {
+      this.logger.error({
+        event: 'INITIALIZE_SURVEY_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('initializeSurvey');
+    }
+  }
+
+  /**
+   * Build an unsigned initializeSurvey transaction for the frontend to sign.
+   * Returns the serialized transaction as base64.
+   */
+  async buildInitializeSurveyTx(
+    creatorWallet: string,
+    surveyId: string,
+    rewardPoolSol: number,
+    rewardType: RewardType,
+    maxResponses: number,
+    blockhash: string,
+  ): Promise<string> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const rewardPoolLamports = Math.floor(rewardPoolSol * LAMPORTS_PER_SOL);
+
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveEscrowVault(surveyPda);
+
+    const tx = await this.program.methods
+      .initializeSurvey(
+        Buffer.from(surveyIdBytes),
+        toLamportsBn(rewardPoolLamports),
+        toRewardTypeArg(rewardType),
+        maxResponses,
+      )
+      .accounts({
+        creator: creatorPubkey,
+        survey: surveyPda,
+        escrowVault,
+        systemProgram: SystemProgram.programId,
+      })
+      .transaction();
+
+    tx.feePayer = creatorPubkey;
+    tx.recentBlockhash = blockhash;
+
+    return tx.serialize({ requireAllSignatures: false }).toString('base64');
   }
 
   async getSolBalance(wallet: string): Promise<number> {

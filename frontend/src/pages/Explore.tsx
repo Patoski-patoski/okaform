@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search,
   Users,
@@ -23,6 +23,8 @@ import { Button, Badge, getBadgeTier } from "@/components/okaform";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
 import { cn } from "@/lib/utils";
+import { getExploreForms } from "@/lib/forms";
+import type { ExploreFormItem } from "@/lib/forms";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,141 +45,46 @@ interface SurveyListing {
   numWinners?: number;
   responses: number;
   maxResponses: number;
-  closesAt: Date;
+  closesAt: string | null;
   status: "active" | "ending_soon" | "closed";
   requirements: Requirement[];
   previewQuestion?: string;
 }
 
-// ─── Sample data ───────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const SURVEYS: SurveyListing[] = [
-  {
-    id: "s1",
-    featured: true,
-    protocol: "Jupiter",
-    protocolColor: "#f7931a",
-    title: "Jupiter Q3 Governance Pulse",
-    rewardPool: 50,
-    rewardType: "weighted",
-    responses: 234,
-    maxResponses: 500,
-    closesAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    status: "active",
-    requirements: [
-      { type: "token_hold", label: "JUP holder", symbol: "JUP" },
-    ],
-    previewQuestion: "How would you rate the current governance proposal quality?",
-  },
-  {
-    id: "s2",
-    protocol: "Tensor",
-    protocolColor: "#8b5cf6",
-    title: "Tensor Trader Experience Survey",
-    rewardPool: 30,
-    rewardType: "weighted",
-    responses: 500,
-    maxResponses: 500,
-    closesAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    status: "closed",
-    requirements: [
-      { type: "wallet_age", label: "Wallet age > 30 days" },
-      { type: "min_sol", label: "Min 1 SOL" },
-    ],
-  },
-  {
-    id: "s3",
-    protocol: "Marinade Finance",
-    protocolColor: "#14f195",
-    title: "Marinade Finance Product Feedback",
-    rewardPool: 15,
-    rewardType: "weighted",
-    responses: 89,
-    maxResponses: 200,
-    closesAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-    status: "active",
-    requirements: [
-      { type: "wallet_age", label: "Wallet age > 14 days" },
-    ],
-  },
-  {
-    id: "s4",
-    protocol: "Drift Protocol",
-    protocolColor: "#3b82f6",
-    title: "Drift Protocol UX Research",
-    rewardPool: 45,
-    rewardType: "weighted",
-    responses: 312,
-    maxResponses: 400,
-    closesAt: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-    status: "ending_soon",
-    requirements: [
-      { type: "wallet_age", label: "Wallet age > 7 days" },
-      { type: "min_sol", label: "Min 0.5 SOL" },
-    ],
-  },
-  {
-    id: "s5",
-    protocol: "Orca",
-    protocolColor: "#ff7b9c",
-    title: "Orca DEX Feature Prioritisation",
-    rewardPool: 20,
-    rewardType: "weighted",
-    responses: 45,
-    maxResponses: 150,
-    closesAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    status: "active",
-    requirements: [
-      { type: "token_hold", label: "ORCA holder", symbol: "ORCA" },
-    ],
-  },
-  {
-    id: "s6",
-    protocol: "Kamino",
-    protocolColor: "#a78bfa",
-    title: "Kamino Lending Risk Survey",
-    rewardPool: 25,
-    rewardType: "lottery",
-    numWinners: 5,
-    responses: 178,
-    maxResponses: 300,
-    closesAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-    status: "active",
-    requirements: [
-      { type: "wallet_age", label: "Wallet age > 30 days" },
-      { type: "min_sol", label: "Min 1 SOL" },
-    ],
-  },
-  {
-    id: "s7",
-    protocol: "Solana Mobile",
-    protocolColor: "#999",
-    title: "Solana Mobile Community Survey",
-    rewardPool: 10,
-    rewardType: "weighted",
-    responses: 67,
-    maxResponses: 100,
-    closesAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-    status: "active",
-    requirements: [],
-  },
-  {
-    id: "s8",
-    protocol: "Raydium",
-    protocolColor: "#4ade80",
-    title: "Raydium LP Incentives Feedback",
-    rewardPool: 35,
-    rewardType: "weighted",
-    responses: 290,
-    maxResponses: 350,
-    closesAt: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-    status: "ending_soon",
-    requirements: [
-      { type: "wallet_age", label: "Wallet age > 14 days" },
-      { type: "token_hold", label: "RAY holder", symbol: "RAY" },
-    ],
-  },
+const ORG_COLORS = [
+  '#14f195', '#f7931a', '#8b5cf6', '#3b82f6',
+  '#4ade80', '#ff7b9c', '#a78bfa', '#f472b6',
+  '#06b6d4', '#e879f9', '#fb923c', '#34d399',
 ];
+
+function orgToColor(org: string): string {
+  let hash = 0;
+  for (let i = 0; i < org.length; i++) {
+    hash = org.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ORG_COLORS[Math.abs(hash) % ORG_COLORS.length] ?? '#999';
+}
+
+function deriveStatus(closesAt: string | null): SurveyListing['status'] {
+  if (!closesAt) return 'active';
+  const diff = new Date(closesAt).getTime() - Date.now();
+  if (diff <= 0) return 'closed';
+  if (diff < 24 * 60 * 60 * 1000) return 'ending_soon';
+  return 'active';
+}
+
+function buildRequirements(minWalletAge: number, minSolBalance: number): Requirement[] {
+  const reqs: Requirement[] = [];
+  if (minWalletAge > 0) {
+    reqs.push({ type: 'wallet_age', label: `Wallet age > ${minWalletAge} days` });
+  }
+  if (minSolBalance > 0) {
+    reqs.push({ type: 'min_sol', label: `Min ${minSolBalance} SOL` });
+  }
+  return reqs;
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -186,9 +93,10 @@ type FilterLabel = (typeof filterOptions)[number];
 
 type SortKey = "latest" | "highest_reward" | "most_responses" | "ending_soon";
 
-function formatTimeRemaining(date: Date): string {
+function formatTimeRemaining(date: string | null): string {
+  if (!date) return "Open";
   const now = Date.now();
-  const diff = date.getTime() - now;
+  const diff = new Date(date).getTime() - now;
   if (diff <= 0) return "Closed";
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -486,12 +394,59 @@ function SurveyRow({ survey }: SurveyCardProps) {
 // ─── Main Explore Component ───────────────────────────────────────────────────
 
 export default function Explore() {
+  const [surveys, setSurveys] = useState<SurveyListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterLabel>("All");
   const [sortKey, setSortKey] = useState<SortKey>("latest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleCount, setVisibleCount] = useState(6);
+
+  const fetchData = useCallback(() => {
+    let cancelled = false;
+    setLoading(true);
+    setFetchError(false);
+    getExploreForms()
+      .then((data) => {
+        if (!cancelled) {
+          setSurveys(
+            data.map((f: ExploreFormItem) => ({
+              id: f.id,
+              title: f.title,
+              protocol: f.organization || 'Unknown',
+              protocolColor: orgToColor(f.organization || f.id),
+              rewardPool: f.rewardPool,
+              rewardType: f.rewardType as 'weighted' | 'lottery',
+              numWinners: f.numWinners,
+              responses: f.responses,
+              maxResponses: f.maxResponses,
+              closesAt: f.closesAt,
+              status: deriveStatus(f.closesAt),
+              requirements: buildRequirements(f.minWalletAge, f.minSolBalance),
+              previewQuestion: f.previewQuestion || undefined,
+            }))
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFetchError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) fetchData();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, [fetchData]);
 
   const sortOptions: { label: string; value: SortKey }[] = [
     { label: "Latest Deployment", value: "latest" },
@@ -501,7 +456,7 @@ export default function Explore() {
   ];
 
   const filtered = useMemo(() => {
-    let list = [...SURVEYS];
+    let list = [...surveys];
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -523,15 +478,23 @@ export default function Explore() {
     }
 
     list.sort((a, b) => {
-      if (sortKey === "latest") return b.closesAt.getTime() - a.closesAt.getTime();
+      if (sortKey === "latest") {
+        const aTime = a.closesAt ? new Date(a.closesAt).getTime() : 0;
+        const bTime = b.closesAt ? new Date(b.closesAt).getTime() : 0;
+        return bTime - aTime;
+      }
       if (sortKey === "highest_reward") return b.rewardPool - a.rewardPool;
       if (sortKey === "most_responses") return b.responses - a.responses;
-      if (sortKey === "ending_soon") return a.closesAt.getTime() - b.closesAt.getTime();
+      if (sortKey === "ending_soon") {
+        const aTime = a.closesAt ? new Date(a.closesAt).getTime() : Infinity;
+        const bTime = b.closesAt ? new Date(b.closesAt).getTime() : Infinity;
+        return aTime - bTime;
+      }
       return 0;
     });
 
     return list;
-  }, [search, activeFilter, sortKey]);
+  }, [surveys, search, activeFilter, sortKey]);
 
   const displayed = useMemo(
     () => filtered.slice(0, visibleCount),
@@ -554,6 +517,12 @@ export default function Explore() {
             className="font-mono text-xs text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
           >
             How It Works
+          </Link>
+          <Link
+            to="/dashboard"
+            className="font-mono text-xs text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
+          >
+            Dashboard
           </Link>
           <Link to="/create">
             <Button variant="primary" size="sm">
@@ -581,34 +550,34 @@ export default function Explore() {
         </div>
 
         {/* Technical HUD Telemetry Strip */}
-        <div className="mt-8 grid grid-cols-2 gap-4 rounded border border-[#3D444D]/60 bg-[#151B23]/30 p-4 font-mono sm:grid-cols-4">
-          <div className="border-r border-[#3D444D]/40 last:border-0 pr-4">
-            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Active Escrows</span>
-            <span className="text-sm font-semibold text-[#F0F6F6] flex items-center gap-1.5 mt-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-ok-green animate-pulse" />
-              7 / 8 Nodes Active
-            </span>
+          <div className="mt-8 grid grid-cols-2 gap-4 rounded border border-[#3D444D]/60 bg-[#151B23]/30 p-4 font-mono sm:grid-cols-4">
+            <div className="border-r border-[#3D444D]/40 last:border-0 pr-4">
+              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Active Escrows</span>
+              <span className="text-sm font-semibold text-[#F0F6F6] flex items-center gap-1.5 mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-ok-green animate-pulse" />
+                {!loading ? `${surveys.filter((s) => s.status !== 'closed').length} / ${surveys.length} Nodes Active` : '...'}
+              </span>
+            </div>
+            <div className="sm:border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
+              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Total Pool Value</span>
+              <span className="text-sm font-semibold text-ok-green mt-0.5">
+                {!loading ? `${surveys.reduce((sum, s) => sum + s.rewardPool, 0).toFixed(2)} SOL` : '...'}
+              </span>
+            </div>
+            <div className="border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
+              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Audited Signatures</span>
+              <span className="text-sm font-semibold text-[#F0F6F6] mt-0.5">
+                {!loading ? `${surveys.reduce((sum, s) => sum + s.responses, 0).toLocaleString()} Handshakes` : '...'}
+              </span>
+            </div>
+            <div className="pr-4 pl-4 last:border-0">
+              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Oracle Sync</span>
+              <span className="text-sm font-semibold text-ok-purple flex items-center gap-1.5 mt-0.5">
+                <Activity className="h-3.5 w-3.5 animate-spin" />
+                Mainnet-Beta
+              </span>
+            </div>
           </div>
-          <div className="sm:border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
-            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Total Pool Value</span>
-            <span className="text-sm font-semibold text-ok-green mt-0.5">
-              265.00 SOL
-            </span>
-          </div>
-          <div className="border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
-            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Audited Signatures</span>
-            <span className="text-sm font-semibold text-[#F0F6F6] mt-0.5">
-              1,424 Handshakes
-            </span>
-          </div>
-          <div className="pr-4 pl-4 last:border-0">
-            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Oracle Sync</span>
-            <span className="text-sm font-semibold text-ok-purple flex items-center gap-1.5 mt-0.5">
-              <Activity className="h-3.5 w-3.5 animate-spin" />
-              Mainnet-Beta
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* ─── FILTER STICKY HUD BAR ──────────────────────────────────────────── */}
@@ -727,14 +696,36 @@ export default function Explore() {
 
       {/* ─── MAIN SURVEY CAMPAIGNS DISPLAY ─────────────────────────────────── */}
       <div className="mx-auto max-w-5xl px-8 py-16">
-        {displayed.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-32">
+            <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
+          </div>
+        ) : fetchError ? (
+          <div className="flex flex-col items-center gap-3 py-32 text-center rounded border border-dashed border-ok-danger/30">
+            <ShieldAlert className="h-6 w-6 text-ok-danger" />
+            <h3 className="text-base font-medium text-[#F0F6F6] font-mono">
+              [ CONNECTION ERROR ]
+            </h3>
+            <p className="text-sm text-[#9198A1] max-w-xs">
+              Failed to load campaign data. Check your connection and try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 font-mono text-xs text-ok-green border-b border-transparent hover:border-ok-green transition-colors"
+            >
+              [ Retry ]
+            </button>
+          </div>
+        ) : displayed.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-32 text-center rounded border border-dashed border-[#3D444D]">
             <ShieldAlert className="h-6 w-6 text-[#656C76] animate-pulse" />
             <h3 className="text-base font-medium text-[#F0F6F6] font-mono">
-              [ ZERO MATCHING DATA BLOCKS ]
+              {surveys.length === 0 ? '[ NO CAMPAIGNS DEPLOYED ]' : '[ ZERO MATCHING DATA BLOCKS ]'}
             </h3>
             <p className="text-sm text-[#9198A1] max-w-xs">
-              No database blocks match the active sorting / filter parameters.
+              {surveys.length === 0
+                ? 'No surveys have been deployed yet. Create the first one!'
+                : 'No database blocks match the active sorting / filter parameters.'}
             </p>
             <button
               onClick={() => {

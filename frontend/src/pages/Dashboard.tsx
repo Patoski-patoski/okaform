@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import OkaformLogo from "@/components/OkaformLogo";
 import {
@@ -11,8 +11,6 @@ import {
   ArrowLeft,
   Search,
   ChevronDown,
-  ExternalLink,
-  Download,
   AlertTriangle,
   X,
   CheckCircle2,
@@ -41,6 +39,8 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import HomeView from "@/components/Dashboard/HomeView";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
+import { getForms, getSubmissions, getFormById } from "@/lib/forms";
+import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Creator dashboard — technical/infrastructure aesthetic.
@@ -62,93 +62,6 @@ interface Survey {
   rewardType: "weighted" | "lottery";
   createdAt: string;
 }
-
-interface SurveyResponse {
-  id: string;
-  wallet: string;
-  tier: BadgeTier;
-  submittedAt: string;
-  flagged: boolean;
-  score: number;
-}
-
-interface DistributionRow {
-  wallet: string;
-  tier: BadgeTier;
-  amount: number;
-  txSignature: string;
-}
-
-// ─── Mock data ─────────────────────────────────────────────────────────────────
-
-const INITIAL_SURVEYS: Survey[] = [
-  {
-    id: "s1",
-    title: "Jupiter Community Pulse",
-    status: "active",
-    responses: 234,
-    maxResponses: 500,
-    rewardPool: 50,
-    rewardType: "weighted",
-    createdAt: "2 days ago",
-  },
-  {
-    id: "s2",
-    title: "Tensor Trader Feedback",
-    status: "closed",
-    responses: 500,
-    maxResponses: 500,
-    rewardPool: 30,
-    rewardType: "lottery",
-    createdAt: "5 days ago",
-  },
-  {
-    id: "s3",
-    title: "Drift Protocol UX Survey",
-    status: "closed",
-    responses: 312,
-    maxResponses: 400,
-    rewardPool: 45.5,
-    rewardType: "weighted",
-    createdAt: "12 days ago",
-  },
-];
-
-const MOCK_RESPONSES: SurveyResponse[] = [
-  { id: "r1", wallet: "7xKpT9mQr3nBv2Ys8kLw4jF6hD1cX5eZ", tier: "diamond", submittedAt: "2 hours ago", flagged: false, score: 112 },
-  { id: "r2", wallet: "9Yn2Bv8kLw4jF6hD1cX5eZ7xKpT9mQr3", tier: "gold", submittedAt: "3 hours ago", flagged: false, score: 88 },
-  { id: "r3", wallet: "4Vb1Nf6xNf8kLw4jF6hD1cX5eZ7xKp", tier: "green", submittedAt: "5 hours ago", flagged: false, score: 64 },
-  { id: "r4", wallet: "2Xc5Hd3mQr7xKpT9nBv8kLw4jF6hD1c", tier: "blue", submittedAt: "6 hours ago", flagged: true, score: 31 },
-  { id: "r5", wallet: "8Kw4Jf6hD1cX5eZ7xKpT9mQr3nBv2Ys", tier: "grey", submittedAt: "8 hours ago", flagged: false, score: 12 },
-  { id: "r6", wallet: "5EdZ7xKpT9mQr3nBv2Ys8kLw4jF6hD", tier: "green", submittedAt: "10 hours ago", flagged: false, score: 58 },
-  { id: "r7", wallet: "1ChD1cX5eZ7xKpT9mQr3nBv2Ys8kLw", tier: "diamond", submittedAt: "12 hours ago", flagged: false, score: 105 },
-  { id: "r8", wallet: "6FhD1cX5eZ7xKpT9mQr3nBv2Ys8kLw4", tier: "gold", submittedAt: "1 day ago", flagged: true, score: 79 },
-];
-
-const MOCK_DISTRIBUTION: DistributionRow[] = [
-  { wallet: "7xKpT9mQr3nBv2Ys8kLw4jF6hD1cX5eZ", tier: "diamond", amount: 4.2, txSignature: "5Kj8...mN2x" },
-  { wallet: "9Yn2Bv8kLw4jF6hD1cX5eZ7xKpT9mQr3", tier: "gold", amount: 3.1, txSignature: "8Lp3...qR7w" },
-  { wallet: "4Vb1Nf6xNf8kLw4jF6hD1cX5eZ7xKp", tier: "green", amount: 2.0, txSignature: "2Mn5...tY9u" },
-  { wallet: "2Xc5Hd3mQr7xKpT9nBv8kLw4jF6hD1c", tier: "blue", amount: 1.5, txSignature: "9Qr7...wZ4x" },
-  { wallet: "8Kw4Jf6hD1cX5eZ7xKpT9mQr3nBv2Ys", tier: "grey", amount: 1.0, txSignature: "3St1...yU6v" },
-];
-
-const RESPONSES_PER_DAY = [
-  { day: "Mon", count: 42 },
-  { day: "Tue", count: 67 },
-  { day: "Wed", count: 58 },
-  { day: "Thu", count: 31 },
-  { day: "Fri", count: 24 },
-  { day: "Sat", count: 8 },
-  { day: "Sun", count: 4 },
-];
-
-const MCQ_BREAKDOWN = [
-  { option: "Every proposal", percent: 18 },
-  { option: "Most proposals", percent: 34 },
-  { option: "Only topics I care about", percent: 38 },
-  { option: "Rarely", percent: 10 },
-];
 
 const SIDEBAR_NAV = [
   { id: "home", label: "Home", icon: Home },
@@ -416,26 +329,39 @@ function SurveysTable({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-[#3D444D] bg-[#151B23]/50 text-[10px] text-[#656C76] uppercase tracking-wider">
-              <th className="px-5 py-4 font-medium">Title</th>
-              <th className="px-5 py-4 font-medium">Status</th>
-              <th className="px-5 py-4 font-medium">Responses</th>
-              <th className="px-5 py-4 font-medium">Reward Pool</th>
-              <th className="px-5 py-4 font-medium">Type</th>
-              <th className="px-5 py-4 font-medium">Created</th>
-              <th className="px-5 py-4 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#3D444D]/40">
-            {surveys.map((survey) => (
-              <tr
-                key={survey.id}
-                className="group transition-all duration-200 hover:bg-[#151B23]/40 hover:shadow-[inset_2px_0_0_0_var(--color-ok-green)]"
-              >
-                <td className="whitespace-nowrap px-5 py-4 font-mono text-xs font-medium text-[#F0F6F6]">
-                  {survey.title}
+        {surveys.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="h-10 w-10 text-[#656C76]/30 mb-4" />
+            <p className="font-mono text-sm text-[#9198A1]">No surveys yet</p>
+            <p className="mt-1 text-xs text-[#656C76]">Create your first survey to get started</p>
+            <Link to="/create" className="mt-4">
+              <Button variant="primary" size="sm">
+                <PlusCircle className="h-3.5 w-3.5" />
+                Create Survey
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#3D444D] bg-[#151B23]/50 text-[10px] text-[#656C76] uppercase tracking-wider">
+                <th className="px-5 py-4 font-medium">Title</th>
+                <th className="px-5 py-4 font-medium">Status</th>
+                <th className="px-5 py-4 font-medium">Responses</th>
+                <th className="px-5 py-4 font-medium">Reward Pool</th>
+                <th className="px-5 py-4 font-medium">Type</th>
+                <th className="px-5 py-4 font-medium">Created</th>
+                <th className="px-5 py-4 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#3D444D]/40">
+              {surveys.map((survey) => (
+                <tr
+                  key={survey.id}
+                  className="group transition-all duration-200 hover:bg-[#151B23]/40 hover:shadow-[inset_2px_0_0_0_var(--color-ok-green)]"
+                >
+                  <td className="whitespace-nowrap px-5 py-4 font-mono text-xs font-medium text-[#F0F6F6]">
+                    {survey.title}
                 </td>
                 <td className="px-5 py-4">
                   <StatusPill status={survey.status} />
@@ -489,6 +415,7 @@ function SurveysTable({
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
@@ -517,21 +444,131 @@ function CopyableAddress({ address }: { address: string }) {
   );
 }
 
-function ResponsesTab() {
+function ResponsesTab({ formId }: { formId: string }) {
+  const [responses, setResponses] = useState<SubmissionItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [badgeFilter, setBadgeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedResponse, setSelectedResponse] = useState<SubmissionItem | null>(null);
+  const [questions, setQuestions] = useState<FormDetailQuestion[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([getSubmissions(formId), getFormById(formId)])
+      .then(([subs, form]) => {
+        if (!cancelled) {
+          setResponses(subs);
+          setQuestions(form.questions);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setResponses([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [formId]);
 
   const filtered = useMemo(() => {
-    let rows = MOCK_RESPONSES;
+    let rows = responses;
+    const tierFromScore = (score: number): BadgeTier => {
+      if (score >= 100) return "diamond";
+      if (score >= 80) return "gold";
+      if (score >= 60) return "green";
+      if (score >= 30) return "blue";
+      return "grey";
+    };
     if (badgeFilter !== "all") {
-      rows = rows.filter((r) => r.tier === badgeFilter);
+      rows = rows.filter((r) => tierFromScore(r.scoreAtSubmission) === badgeFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      rows = rows.filter((r) => r.wallet.toLowerCase().includes(q));
+      rows = rows.filter((r) => r.respondentWallet.toLowerCase().includes(q));
     }
     return rows;
-  }, [badgeFilter, searchQuery]);
+  }, [responses, badgeFilter, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-[#656C76]" />
+      </div>
+    );
+  }
+
+  if (responses.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <Database className="h-8 w-8 text-[#656C76]/30" />
+        <p className="font-mono text-xs text-[#9198A1]">
+          No responses yet.
+        </p>
+      </div>
+    );
+  }
+
+  const tierFromScore = (score: number): BadgeTier => {
+    if (score >= 100) return "diamond";
+    if (score >= 80) return "gold";
+    if (score >= 60) return "green";
+    if (score >= 30) return "blue";
+    return "grey";
+  };
+
+  const relativeTime = (date: string): string => {
+    const diff = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  if (selectedResponse) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setSelectedResponse(null)}
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] text-[#656C76] uppercase tracking-wider transition-colors hover:text-[#F0F6F6]"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to responses
+        </button>
+
+        <div className="rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <CopyableAddress address={selectedResponse.respondentWallet} />
+            <Badge tier={tierFromScore(selectedResponse.scoreAtSubmission)} />
+            <span className="font-mono text-[10px] text-[#656C76]">
+              {new Date(selectedResponse.submittedAt).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {selectedResponse.answers.map((answer, i) => {
+              const q = questions[i];
+              return (
+                <div key={i}>
+                  <p className="mb-1 font-mono text-xs font-medium text-[#F0F6F6]">
+                    {q?.label ?? `Question ${i + 1}`}
+                  </p>
+                  <div className="rounded border border-[#3D444D]/30 bg-[#0D1117]/40 px-3 py-2 font-mono text-xs text-[#9198A1]">
+                    {typeof answer.value === 'string' || typeof answer.value === 'number'
+                      ? String(answer.value)
+                      : JSON.stringify(answer.value ?? answer)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -583,18 +620,21 @@ function ResponsesTab() {
               key={r.id}
               className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[#151B23]/40"
             >
-              <CopyableAddress address={r.wallet} />
-              <Badge tier={r.tier} />
+              <CopyableAddress address={r.respondentWallet} />
+              <Badge tier={tierFromScore(r.scoreAtSubmission)} />
               <span className="whitespace-nowrap font-mono text-[10px] text-[#656C76]">
-                {r.submittedAt}
+                {relativeTime(r.submittedAt)}
               </span>
-              {r.flagged && (
+              {r.similarityFlag && (
                 <span className="inline-flex items-center gap-1 font-mono text-[10px] text-ok-warning">
                   <AlertTriangle className="h-3 w-3" />
                   Flagged
                 </span>
               )}
-              <button className="rounded border border-[#3D444D] bg-[#0D1117]/60 px-2.5 py-1 font-mono text-[9px] font-medium text-[#9198A1] transition-colors hover:border-ok-green/30 hover:text-[#F0F6F6]">
+              <button
+                onClick={() => setSelectedResponse(r)}
+                className="rounded border border-[#3D444D] bg-[#0D1117]/60 px-2.5 py-1 font-mono text-[9px] font-medium text-[#9198A1] transition-colors hover:border-ok-green/30 hover:text-[#F0F6F6]"
+              >
                 View
               </button>
             </div>
@@ -607,18 +647,49 @@ function ResponsesTab() {
 
 // ─── Analytics tab ─────────────────────────────────────────────────────────────
 
-function AnalyticsTab() {
-  const maxCount = Math.max(...RESPONSES_PER_DAY.map((d) => d.count));
+function AnalyticsTab({ formId }: { formId: string }) {
+  const [responses, setResponses] = useState<SubmissionItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getSubmissions(formId)
+      .then((data) => {
+        if (!cancelled) setResponses(data);
+      })
+      .catch(() => {
+        if (!cancelled) setResponses([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [formId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-[#656C76]" />
+      </div>
+    );
+  }
+
+  const totalResponses = responses.length;
+  const avgScore = totalResponses > 0
+    ? Math.round(responses.reduce((sum, r) => sum + r.scoreAtSubmission, 0) / totalResponses)
+    : 0;
+  const flaggedCount = responses.filter((r) => r.similarityFlag).length;
 
   return (
     <div className="space-y-6">
       {/* Metric cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Responses", value: "234", icon: Activity },
-          { label: "Completion Rate", value: "78%", icon: CheckCircle2 },
-          { label: "Avg Score", value: "62.4", icon: BarChart3 },
-          { label: "Time to Complete", value: "4.2m", icon: Server },
+          { label: "Responses", value: String(totalResponses), icon: Activity },
+          { label: "Avg Score", value: String(avgScore), icon: BarChart3 },
+          { label: "Flagged", value: String(flaggedCount), icon: AlertTriangle },
+          { label: "Completion", value: totalResponses > 0 ? "100%" : "0%", icon: CheckCircle2 },
         ].map((m) => (
           <div key={m.label} className="relative overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4">
             <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
@@ -636,118 +707,27 @@ function AnalyticsTab() {
         ))}
       </div>
 
-      {/* Bar chart — responses per day */}
-      <div className="rounded border border-[#3D444D]/80 bg-[#151B23]/20 p-6">
-        <h3 className="mb-4 font-mono text-sm text-[#F0F6F6] flex items-center gap-2">
-          <Activity className="h-4 w-4 text-ok-green" />
-          [ Responses per Day ]
-        </h3>
-        <div className="flex items-end gap-3 h-40">
-          {RESPONSES_PER_DAY.map((d) => (
-            <div key={d.day} className="flex flex-1 flex-col items-center gap-2">
-              <span className="font-mono text-[10px] text-[#9198A1]">
-                {d.count}
-              </span>
-              <div
-                className="w-full rounded-[2px] bg-ok-green/80 transition-all"
-                style={{ height: `${(d.count / maxCount) * 100}%` }}
-              />
-              <span className="font-mono text-[9px] text-[#656C76] uppercase">{d.day}</span>
-            </div>
-          ))}
+      {totalResponses === 0 && (
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <Database className="h-8 w-8 text-[#656C76]/30" />
+          <p className="font-mono text-xs text-[#9198A1]">
+            No analytics data yet.
+          </p>
         </div>
-      </div>
-
-      {/* MCQ breakdown */}
-      <div className="rounded border border-[#3D444D]/80 bg-[#151B23]/20 p-6">
-        <h3 className="mb-4 font-mono text-sm text-[#F0F6F6]">
-          Q3: How often do you participate in governance voting?
-        </h3>
-        <div className="space-y-3">
-          {MCQ_BREAKDOWN.map((opt) => (
-            <div key={opt.option} className="space-y-1">
-              <div className="flex items-center justify-between font-mono text-xs">
-                <span className="text-[#9198A1]">{opt.option}</span>
-                <span className="text-[#F0F6F6]">{opt.percent}%</span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-[#3D444D]">
-                <div
-                  className="h-full rounded-full bg-ok-green/80"
-                  style={{ width: `${opt.percent}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
 // ─── Distribution tab ──────────────────────────────────────────────────────────
 
-function DistributionTab() {
+function DistributionTab({ formId: _formId }: { formId: string }) {
   return (
-    <div className="space-y-4">
-      {/* Success banner */}
-      <div className="flex items-center justify-between rounded border border-ok-green/20 bg-ok-green/5 px-5 py-3">
-        <div className="flex items-center gap-2.5">
-          <CheckCircle2 className="h-4 w-4 text-ok-green" />
-          <span className="font-mono text-xs font-medium text-ok-green">
-            Distribution Complete
-          </span>
-        </div>
-        <span className="font-mono text-[10px] text-[#9198A1]">
-          tx: 5Kj8mN2x...qR7wY9u
-        </span>
-      </div>
-
-      {/* Export */}
-      <div className="flex justify-end">
-        <Button variant="secondary" size="sm">
-          <Download className="h-3.5 w-3.5" />
-          Export CSV
-        </Button>
-      </div>
-
-      {/* Distribution table */}
-      <div className="overflow-hidden rounded border border-[#3D444D]/80 bg-[#151B23]/20">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-[#3D444D] bg-[#151B23]/50 text-[10px] text-[#656C76] uppercase tracking-wider">
-              <th className="px-5 py-3 font-medium">Wallet</th>
-              <th className="px-5 py-3 font-medium">Badge</th>
-              <th className="px-5 py-3 font-medium">Amount Received</th>
-              <th className="px-5 py-3 font-medium">Tx Signature</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#3D444D]/40">
-            {MOCK_DISTRIBUTION.map((row) => (
-              <tr key={row.txSignature} className="hover:bg-[#151B23]/40">
-                <td className="whitespace-nowrap px-5 py-3">
-                  <CopyableAddress address={row.wallet} />
-                </td>
-                <td className="px-5 py-3">
-                  <Badge tier={row.tier} />
-                </td>
-                <td className="px-5 py-3">
-                  <SOLAmount
-                    amount={row.amount}
-                    unit="sol"
-                    className="text-xs"
-                  />
-                </td>
-                <td className="whitespace-nowrap px-5 py-3">
-                  <span className="inline-flex items-center gap-1 font-mono text-xs text-[#9198A1]">
-                    {row.txSignature}
-                    <ExternalLink className="h-3 w-3" />
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="flex flex-col items-center gap-3 py-16 text-center">
+      <Database className="h-8 w-8 text-[#656C76]/30" />
+      <p className="font-mono text-xs text-[#9198A1]">
+        Distribution history will appear here once rewards are distributed.
+      </p>
     </div>
   );
 }
@@ -899,9 +879,9 @@ function SurveyDetail({
       </div>
 
       {/* Tab content */}
-      {activeTab === "responses" && <ResponsesTab />}
-      {activeTab === "analytics" && <AnalyticsTab />}
-      {activeTab === "distribution" && <DistributionTab />}
+      {activeTab === "responses" && <ResponsesTab formId={survey.id} />}
+      {activeTab === "analytics" && <AnalyticsTab formId={survey.id} />}
+      {activeTab === "distribution" && <DistributionTab formId={survey.id} />}
       {activeTab === "settings" && <SettingsTab />}
     </div>
   );
@@ -914,20 +894,33 @@ export default function Dashboard() {
   const [view, setView] = useState<View>("surveys");
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [closeTarget, setCloseTarget] = useState<Survey | null>(null);
-  const [surveys] = useState<Survey[]>(() => {
-    // Load any newly created forms from localStorage
-    const created = localStorage.getItem("okaform_created_form");
-    if (created) {
+  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchForms = async () => {
       try {
-        const form = JSON.parse(created);
-        localStorage.removeItem("okaform_created_form");
-        return [form, ...INITIAL_SURVEYS];
+        const forms = await getForms();
+        setSurveys(
+          forms.map((f) => ({
+            id: f.id,
+            title: f.title,
+            status: f.status as StatusType,
+            responses: f.responseCount,
+            maxResponses: f.maxResponses,
+            rewardPool: f.rewardPool,
+            rewardType: f.rewardType as "weighted" | "lottery",
+            createdAt: f.createdAt,
+          }))
+        );
       } catch {
-        return [...INITIAL_SURVEYS];
+        setSurveys([]);
+      } finally {
+        setLoading(false);
       }
-    }
-    return [...INITIAL_SURVEYS];
-  });
+    };
+    fetchForms();
+  }, []);
 
   const selectedSurvey = useMemo(
     () => surveys.find((s) => s.id === selectedSurveyId) ?? null,
@@ -964,7 +957,11 @@ export default function Dashboard() {
 
       {/* Main content */}
       <main className="ml-[240px] min-h-screen p-6 lg:p-8">
-        {activeNav === "home" ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
+          </div>
+        ) : activeNav === "home" ? (
           <HomeView />
         ) : activeNav === "analytics" ? (
           <AnalyticsView />

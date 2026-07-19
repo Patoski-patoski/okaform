@@ -11,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { SolanaModule } from './solana/solana.module';
 import { SybilModule } from './sybil/sybil.module';
 import { FormsModule } from './forms/forms.module';
+import { SubmissionsModule } from './submissions/submissions.module';
 
 const logger = new Logger('AppModule');
 
@@ -40,6 +41,7 @@ const logger = new Logger('AppModule');
     UsersModule,
     SybilModule,
     FormsModule,
+    SubmissionsModule,
   ],
   controllers: [AppController],
   providers: [

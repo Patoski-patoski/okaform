@@ -82,8 +82,6 @@ const formatTimeRangeLabel = (range: TimeRange): string => {
       return "Last 90 days";
     case "ALL":
       return "All time";
-    default:
-      return String(range);
   }
 };
 

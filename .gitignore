@@ -4,7 +4,7 @@ package-lock.json
 bun.lockb
 
 # Environment files
-.env
+# .env
 .env.local
 .env.*.local
 
