@@ -27,6 +27,13 @@ export const CreateFormSchema = Type.Object({
   numWinners: Type.Optional(Type.Number({ minimum: 1 })),
   minWalletAge: Type.Optional(Type.Number({ minimum: 0 })),
   minSolBalance: Type.Optional(Type.Number({ minimum: 0 })),
+  surveyId: Type.String(),
+  surveyPda: Type.String(),
+  escrowPda: Type.String(),
+  initTxSignature: Type.String(),
+  organization: Type.Optional(Type.String({ maxLength: 100 })),
+  closesAt: Type.Optional(Type.String()),
+  previewQuestion: Type.Optional(Type.String({ maxLength: 200 })),
 });
 
 export type CreateFormDto = Static<typeof CreateFormSchema>;

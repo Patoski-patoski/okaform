@@ -220,7 +220,7 @@ function createQuestion(type: QuestionType): Question {
     type,
     label: "",
     placeholder: "",
-    required: false,
+    required: true,
     options:
       ["multiple_choice", "checkbox", "dropdown", "multi_select", "ranking"].includes(type)
         ? ["Option 1", "Option 2"]
@@ -1362,7 +1362,8 @@ export default function FormBuilder() {
   const [toast, setToast] = useState<string | null>(null);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { publicKey } = useWallet();
+  const wallet = useWallet();
+  const { publicKey, signTransaction } = wallet;
   const { connection } = useConnection();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
@@ -1473,7 +1474,7 @@ export default function FormBuilder() {
       setToast('Please add at least one question before initializing.');
       return;
     }
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !publicKey || !signTransaction) {
       setToast('Please connect your wallet and sign in first.');
       return;
     }
@@ -1510,19 +1511,6 @@ export default function FormBuilder() {
         minWalletAge: reward.minWalletAge,
         minSolBalance: reward.minSolBalance,
       });
-
-      // Save created form to localStorage for Dashboard to pick up
-      const newForm = {
-        id: `s${Date.now()}`,
-        title: formTitle.trim(),
-        status: "active" as const,
-        responses: 0,
-        maxResponses: reward.maxResponses,
-        rewardPool: reward.rewardPool,
-        rewardType: reward.rewardType,
-        createdAt: "Just now",
-      };
-      localStorage.setItem("okaform_created_form", JSON.stringify(newForm));
 
       localStorage.removeItem(DRAFT_KEY);
       navigate('/dashboard');
@@ -1580,7 +1568,7 @@ export default function FormBuilder() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed right-4 top-16 z-50 animate-fadeIn rounded border border-ok-danger/30 bg-ok-bg px-4 py-2.5 font-mono text-xs text-ok-danger shadow-lg">
+        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 animate-fadeIn rounded border border-ok-danger/30 bg-ok-bg px-4 py-2.5 font-mono text-xs text-ok-danger shadow-lg">
           {toast}
         </div>
       )}

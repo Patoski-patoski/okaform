@@ -1,0 +1,520 @@
+{
+  "address": "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V",
+  "metadata": {
+    "name": "okaform",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "close_survey",
+      "discriminator": [116, 246, 232, 201, 239, 102, 75, 153],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": ["survey"]
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "distribute_rewards",
+      "discriminator": [97, 6, 227, 255, 124, 165, 3, 148],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": ["survey"]
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        },
+        {
+          "name": "amounts",
+          "type": {
+            "vec": "u64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_score_account",
+      "discriminator": [127, 149, 186, 98, 63, 240, 63, 209],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "score_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 99, 111, 114, 101]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_survey",
+      "discriminator": [226, 39, 70, 125, 11, 69, 33, 120],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        },
+        {
+          "name": "reward_pool",
+          "type": "u64"
+        },
+        {
+          "name": "reward_type",
+          "type": {
+            "defined": {
+              "name": "RewardType"
+            }
+          }
+        },
+        {
+          "name": "max_responses",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "register_participant",
+      "discriminator": [248, 112, 38, 215, 226, 230, 249, 40],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": ["survey"]
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "participant",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [112, 97, 114, 116, 105, 99, 105, 112, 97, 110, 116]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              },
+              {
+                "kind": "account",
+                "path": "respondent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "respondent"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "update_score",
+      "discriminator": [188, 226, 238, 41, 14, 241, 105, 215],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "score_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 99, 111, 114, 101]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "wallet",
+          "relations": ["score_account"]
+        }
+      ],
+      "args": [
+        {
+          "name": "delta",
+          "type": "i32"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ParticipantEntry",
+      "discriminator": [212, 156, 59, 227, 2, 97, 82, 90]
+    },
+    {
+      "name": "RespondentScoreAccount",
+      "discriminator": [220, 53, 136, 161, 62, 184, 89, 225]
+    },
+    {
+      "name": "SurveyAccount",
+      "discriminator": [192, 125, 54, 163, 114, 53, 139, 224]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "SurveyNotActive",
+      "msg": "Survey is not active"
+    },
+    {
+      "code": 6001,
+      "name": "SurveyAlreadyClosed",
+      "msg": "Survey is already closed"
+    },
+    {
+      "code": 6002,
+      "name": "MaxResponsesReached",
+      "msg": "Maximum responses reached"
+    },
+    {
+      "code": 6003,
+      "name": "AlreadySubmitted",
+      "msg": "Already submitted"
+    },
+    {
+      "code": 6004,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6005,
+      "name": "InsufficientRewardPool",
+      "msg": "Insufficient reward pool"
+    },
+    {
+      "code": 6006,
+      "name": "ExcessiveRewardPool",
+      "msg": "Excessive reward pool"
+    },
+    {
+      "code": 6007,
+      "name": "NoParticipants",
+      "msg": "No participants to distribute"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidRewardType",
+      "msg": "Invalid reward type"
+    }
+  ],
+  "types": [
+    {
+      "name": "BadgeTier",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Ghost"
+          },
+          {
+            "name": "Cipher"
+          },
+          {
+            "name": "Sentinel"
+          },
+          {
+            "name": "Oracle"
+          },
+          {
+            "name": "Sovereign"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ParticipantEntry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "survey",
+            "type": "pubkey"
+          },
+          {
+            "name": "respondent",
+            "type": "pubkey"
+          },
+          {
+            "name": "has_submitted",
+            "type": "bool"
+          },
+          {
+            "name": "score_weight",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RespondentScoreAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "global_score",
+            "type": "u16"
+          },
+          {
+            "name": "surveys_completed",
+            "type": "u32"
+          },
+          {
+            "name": "badge_tier",
+            "type": {
+              "defined": {
+                "name": "BadgeTier"
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RewardType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Weighted"
+          },
+          {
+            "name": "Lottery"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SurveyAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_pool",
+            "type": "u64"
+          },
+          {
+            "name": "reward_type",
+            "type": {
+              "defined": {
+                "name": "RewardType"
+              }
+            }
+          },
+          {
+            "name": "max_responses",
+            "type": "u32"
+          },
+          {
+            "name": "response_count",
+            "type": "u32"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

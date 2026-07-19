@@ -72,6 +72,19 @@ const TIME_RANGES = ["7D", "30D", "90D", "ALL"] as const;
 
 type TimeRange = typeof TIME_RANGES[number];
 
+const formatTimeRangeLabel = (range: TimeRange): string => {
+  switch (range) {
+    case "7D":
+      return "Last 7 days";
+    case "30D":
+      return "Last 30 days";
+    case "90D":
+      return "Last 90 days";
+    case "ALL":
+      return "All time";
+  }
+};
+
 // ─── AnalyticsView component ───────────────────────────────────────────────────
 
 export default function AnalyticsView() {
@@ -185,7 +198,7 @@ export default function AnalyticsView() {
             RESPONSE VOLUME
           </p>
           <span className="rounded border border-[#3D444D] bg-[#0D1117] px-2 py-0.5 font-mono text-[9px] text-[#656C76]">
-            Last 7 days
+            {formatTimeRangeLabel(timeRange)}
           </span>
         </div>
 

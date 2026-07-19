@@ -74,9 +74,11 @@ export class AuthService {
     await this.userModel.findOneAndUpdate(
       { wallet },
       {
-        wallet,
-        siwsNonce: nonce,
-        siwsNonceExpiresAt: new Date(Date.now() + NONCE_EXPIRATION_MS),
+        $set: {
+          wallet,
+          siwsNonce: nonce,
+          siwsNonceExpiresAt: new Date(Date.now() + NONCE_EXPIRATION_MS),
+        },
         $setOnInsert: { badgeTier: BadgeTier.GHOST },
       },
       { upsert: true, new: true },

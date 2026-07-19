@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
-import { ChevronLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { ChevronLeft, Loader2 } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -14,62 +14,36 @@ import {
 } from "@/components/Survey";
 import { validateAnswers } from "@/utils/survey-validation";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
-import type { Question } from "@/types/survey";
+import type { Question, QuestionType } from "@/types/survey";
+import { getFormById, submitResponse, getSubmissions, type FormDetail } from "@/lib/forms";
+import type { QuestionOption } from "@/types/survey";
 
-// ─── Mock data ─────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const SURVEY_QUESTIONS: Question[] = [
-  {
-    id: "q1",
-    type: "short_text",
-    label: "What is your primary role in the Solana ecosystem?",
-    required: true,
-    placeholder: "e.g. Developer, DAO contributor, Trader...",
-  },
-  {
-    id: "q2",
-    type: "long_text",
-    label: "Describe your experience with Jupiter's governance process.",
-    required: true,
-    minWords: 50,
-    maxWords: 300,
-    placeholder: "Share your thoughts on proposal quality, voting UX, and community engagement...",
-  },
-  {
-    id: "q3",
-    type: "multiple_choice",
-    label: "How often do you participate in governance voting?",
-    required: true,
-    options: [
-      { id: "q3-a", label: "Every proposal" },
-      { id: "q3-b", label: "Most proposals" },
-      { id: "q3-c", label: "Only topics I care about" },
-      { id: "q3-d", label: "Rarely" },
-    ],
-  },
-  {
-    id: "q4",
-    type: "multi_select",
-    label: "Which Jupiter features do you use regularly?",
-    required: false,
-    options: [
-      { id: "q4-a", label: "Swap" },
-      { id: "q4-b", label: "Limit Orders" },
-      { id: "q4-c", label: "DCA (Dollar Cost Average)" },
-      { id: "q4-d", label: "Perps" },
-      { id: "q4-e", label: "Governance voting" },
-    ],
-  },
-  {
-    id: "q5",
-    type: "linear_scale",
-    label: "How likely are you to recommend Jupiter to a fellow Solana user?",
-    required: true,
-    ratingMax: 5,
-    lowLabel: "Not likely",
-    highLabel: "Very likely",
-  },
-];
+function toFrontendQuestion(q: FormDetail['questions'][number]): Question {
+  const options: QuestionOption[] | undefined = q.options?.length
+    ? q.options.map((label, i) => ({ id: `${q.id}-opt-${i}`, label }))
+    : undefined;
+  return {
+    id: q.id,
+    type: q.type as QuestionType,
+    label: q.label,
+    placeholder: q.placeholder || undefined,
+    required: q.required,
+    options,
+    minWords: q.minWords || undefined,
+    maxWords: q.maxWords || undefined,
+    ratingMax: q.ratingMax || undefined,
+    lowLabel: q.lowLabel || undefined,
+    highLabel: q.highLabel || undefined,
+  };
+}
+
+function formatRewardType(rewardType: string): string {
+  if (rewardType === 'weighted') return 'Reputation-Weighted Rewards';
+  if (rewardType === 'lottery') return 'Lottery Draw';
+  return rewardType;
+}
 
 // ─── Progress bar ──────────────────────────────────────────────────────────────
 
@@ -87,14 +61,52 @@ function ProgressBar({ percent }: { percent: number }) {
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SurveyFill() {
+  const { formId } = useParams<{ formId: string }>();
+  const [form, setForm] = useState<FormDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
 
   const wallet = publicKey?.toBase58() ?? "";
   const score = 0; // TODO: fetch from backend
+
+  useEffect(() => {
+    if (!formId) return;
+    let cancelled = false;
+    setLoading(true);
+    setFetchError(false);
+    Promise.all([
+      getFormById(formId),
+      wallet ? getSubmissions(formId).then((subs) =>
+        subs.some((s) => s.respondentWallet === wallet)
+      ) : Promise.resolve(false),
+    ])
+      .then(([data, alreadyDid]) => {
+        if (!cancelled) {
+          setForm(data);
+          setAlreadySubmitted(alreadyDid);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFetchError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [formId, wallet]);
+
+  const surveyQuestions = useMemo(
+    () => form?.questions.map(toFrontendQuestion) ?? [],
+    [form]
+  );
 
   const handleConnect = useCallback(() => {
     setVisible(true);
@@ -113,15 +125,35 @@ export default function SurveyFill() {
     []
   );
 
-  const handleSubmit = useCallback(() => {
-    const validationErrors = validateAnswers(answers, SURVEY_QUESTIONS);
+  const handleSubmit = useCallback(async () => {
+    const validationErrors = validateAnswers(answers, surveyQuestions);
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
-    setSubmitted(true);
-  }, [answers]);
+    if (!formId || !wallet) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await submitResponse(formId, {
+        answers: Object.entries(answers).map(([questionId, value]) => {
+          const q = surveyQuestions.find((q) => q.id === questionId);
+          if (q && (q.type === 'checkbox' || q.type === 'multi_select') && Array.isArray(value) && q.options) {
+            const labelMap = new Map(q.options.map((o) => [o.id, o.label]));
+            return { questionId, value: value.map((v) => labelMap.get(v) ?? v) };
+          }
+          return { questionId, value };
+        }),
+        respondentWallet: wallet,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Submission failed');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [answers, surveyQuestions, formId, wallet]);
 
   const progress = useMemo(() => {
-    const required = SURVEY_QUESTIONS.filter((q) => q.required);
+    const required = surveyQuestions.filter((q) => q.required);
     const answered = required.filter((q) => {
       const a = answers[q.id];
       if (a === undefined || a === "") return false;
@@ -131,7 +163,26 @@ export default function SurveyFill() {
     return required.length === 0
       ? 0
       : Math.round((answered.length / required.length) * 100);
-  }, [answers]);
+  }, [answers, surveyQuestions]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-ok-bg flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-ok-muted" />
+      </div>
+    );
+  }
+
+  if (fetchError || !form) {
+    return (
+      <div className="min-h-screen bg-ok-bg flex flex-col items-center justify-center gap-4 px-6">
+        <p className="text-sm text-ok-muted">Failed to load survey.</p>
+        <Button variant="primary" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-ok-bg">
@@ -148,7 +199,14 @@ export default function SurveyFill() {
       </div>
 
       <main className="mx-auto max-w-[680px] px-6 pb-24">
-        {submitted ? (
+        {alreadySubmitted ? (
+          <div className="flex flex-col items-center gap-4 py-20 text-center">
+            <p className="text-sm text-ok-muted">You have already submitted this survey.</p>
+            <Link to="/explore" className="text-xs text-ok-green border-b border-transparent hover:border-ok-green transition-colors">
+              Back to Explore
+            </Link>
+          </div>
+        ) : submitted ? (
           <SuccessScreen scoreDelta={3} newScore={score + 3} />
         ) : (
           <div className="space-y-6">
@@ -158,10 +216,14 @@ export default function SurveyFill() {
               </div>
 
               <h1 className="font-display text-3xl font-semibold tracking-tight text-ok-text sm:text-4xl">
-                Jupiter Community Pulse
+                {form.title}
               </h1>
 
-              <RewardBanner />
+              <RewardBanner
+                rewardPool={form.rewardPool}
+                rewardType={form.rewardType}
+                maxResponses={form.maxResponses}
+              />
             </div>
 
             <div className="transition-all duration-500 ease-in-out">
@@ -184,7 +246,7 @@ export default function SurveyFill() {
                   : "opacity-0 translate-y-2 pointer-events-none h-0 overflow-hidden"
               )}
             >
-              {SURVEY_QUESTIONS.map((q, i) => (
+              {surveyQuestions.map((q, i) => (
                 <QuestionCard
                   key={q.id}
                   question={q}
@@ -196,13 +258,19 @@ export default function SurveyFill() {
               ))}
 
               <div className="space-y-3 pt-4">
+                {submitError && (
+                  <div className="rounded border border-ok-danger/20 bg-ok-danger/5 px-4 py-2 text-xs text-ok-danger">
+                    {submitError}
+                  </div>
+                )}
                 <Button
                   variant="primary"
                   size="lg"
                   className="w-full"
                   onClick={handleSubmit}
+                  disabled={submitting}
                 >
-                  Submit Response
+                  {submitting ? 'Submitting…' : 'Submit Response'}
                 </Button>
                 <p className="text-center text-[11px] text-ok-muted/50">
                   Submitting signs a message with your wallet. No
@@ -217,9 +285,11 @@ export default function SurveyFill() {
   );
 }
 
-// ─── Reward banner (inline — small enough to keep here) ───────────────────────
+// ─── Reward banner ───────────────────────────────────────────────────────────────
 
-function RewardBanner() {
+function RewardBanner({ rewardPool, rewardType, maxResponses }: { rewardPool: number; rewardType: string; maxResponses: number }) {
+  const solAmount = rewardPool.toFixed(2);
+
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
@@ -228,12 +298,13 @@ function RewardBanner() {
         </div>
         <div>
           <p className="text-xs text-ok-muted">Reward Pool</p>
-          <span className="font-mono text-base font-semibold text-ok-text">50.00 SOL</span>
+          <span className="font-mono text-base font-semibold text-ok-text">{solAmount} SOL</span>
+          <p className="text-[10px] text-ok-muted/50">Max {maxResponses} responses</p>
         </div>
       </div>
       <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-ok-green/25 bg-ok-green/10 px-3 py-1 text-xs font-medium text-ok-green sm:self-auto">
         <span className="h-1.5 w-1.5 rounded-full bg-ok-green" />
-        Reputation-Weighted Rewards
+        {formatRewardType(rewardType)}
       </span>
     </div>
   );

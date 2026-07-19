@@ -75,8 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tryRestore = async () => {
       try {
         const profile = await getMe();
+        if (profile.wallet !== wallet) {
+          throw new Error('wallet mismatch');
+        }
         setUser(profile);
       } catch {
+        setAccessToken(null);
         if (wallet && signMessage) {
           await login();
         }
@@ -86,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     void tryRestore();
-  }, [connected, wallet]);
+  }, [connected, wallet, signMessage, login]);
 
   return (
     <AuthContext.Provider

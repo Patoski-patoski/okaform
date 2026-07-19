@@ -92,6 +92,23 @@ export class Question {
 
 export const QuestionSchema = SchemaFactory.createForClass(Question);
 
+@Schema({ _id: false })
+export class OnChainData {
+  @Prop({ required: true })
+  surveyId!: string;
+
+  @Prop({ required: true })
+  surveyPda!: string;
+
+  @Prop({ required: true })
+  escrowVault!: string;
+
+  @Prop({ required: true })
+  txSignature!: string;
+}
+
+export const OnChainDataSchema = SchemaFactory.createForClass(OnChainData);
+
 @Schema({ timestamps: true })
 export class Form {
   @Prop({ type: Date })
@@ -129,6 +146,18 @@ export class Form {
 
   @Prop({ type: String, enum: ['draft', 'active', 'closed'], default: 'draft' })
   status!: FormStatus;
+
+  @Prop({ default: '' })
+  organization!: string;
+
+  @Prop({ type: Date, default: null })
+  closesAt?: Date;
+
+  @Prop({ default: '' })
+  previewQuestion!: string;
+
+  @Prop({ type: OnChainDataSchema, default: null })
+  onChain?: OnChainData;
 }
 
 export const FormSchema = SchemaFactory.createForClass(Form);
