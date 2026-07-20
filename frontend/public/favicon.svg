@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="Okaform favicon">
+  <title>Okaform</title>
+  <rect width="32" height="32" rx="7" fill="#0D1F1A"/>
+  <rect x="3" y="8" width="12" height="16" rx="5" stroke="#14F195" stroke-width="3" fill="none"/>
+  <rect x="14" y="8" width="12" height="16" rx="5" stroke="#14F195" stroke-width="3" fill="none"/>
+  <rect x="12" y="7" width="4" height="18" fill="#0D1F1A"/>
+  <rect x="12" y="11" width="4" height="10" rx="2" fill="#14F195"/>
+</svg>
