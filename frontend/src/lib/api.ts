@@ -1,5 +1,4 @@
-const API_BASE =
-  import.meta.env.VITE_API_URL ?? "https://okaform.onrender.com ";
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 let accessToken: string | null = null;
 

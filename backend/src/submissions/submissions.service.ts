@@ -2,6 +2,11 @@ import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { SurveyResponse } from '../common/schemas/response.schema';
+import { Form } from '../common/schemas/form.schema';
+import { SurveyLifecycleService } from '../forms/survey-lifecycle.service';
+import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
+import { FormClosedException } from '../common/exceptions/form/form-closed.exception';
+import { FormFullException } from '../common/exceptions/form/form-full.exception';
 
 export interface SubmissionItem {
   id: string;
@@ -19,6 +24,9 @@ export class SubmissionsService {
   constructor(
     @InjectModel(SurveyResponse.name)
     private responseModel: Model<SurveyResponse>,
+    @InjectModel(Form.name)
+    private formModel: Model<Form>,
+    private readonly surveyLifecycleService: SurveyLifecycleService,
   ) {}
 
   async createSubmission(
@@ -26,6 +34,26 @@ export class SubmissionsService {
     respondentWallet: string,
     answers: Record<string, unknown>[],
   ): Promise<SubmissionItem> {
+    // Guard 1: Form must exist
+    const form = await this.formModel.findById(formId).lean().exec();
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    // Guard 2: Form must still be active
+    if (form.status !== 'active') {
+      throw new FormClosedException(formId);
+    }
+
+    // Guard 3: Form must not be at capacity
+    const responseCount = await this.responseModel
+      .countDocuments({ formId })
+      .exec();
+    if (responseCount >= form.maxResponses) {
+      throw new FormFullException(formId, form.maxResponses);
+    }
+
+    // Guard 4: No duplicate submissions
     const existing = await this.responseModel
       .findOne({ formId, respondentWallet })
       .exec();
@@ -51,13 +79,16 @@ export class SubmissionsService {
       respondentWallet: respondentWallet.slice(0, 8) + '...',
     });
 
+    // Fire-and-forget: check if survey should be auto-closed and rewards distributed
+    void this.surveyLifecycleService.checkAndCloseIfFull(formId);
+
     return {
       id: String(saved._id),
       respondentWallet: saved.respondentWallet,
       scoreAtSubmission: saved.scoreAtSubmission,
       similarityFlag: saved.similarityFlag,
       submittedAt: saved.submittedAt,
-      answers: saved.answers ?? [],
+      answers: saved.answers,
     };
   }
 

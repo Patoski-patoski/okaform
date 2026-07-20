@@ -147,6 +147,9 @@ export class Form {
   @Prop({ type: String, enum: ['draft', 'active', 'closed'], default: 'draft' })
   status!: FormStatus;
 
+  @Prop({ default: 0 })
+  responseCount!: number;
+
   @Prop({ default: '' })
   organization!: string;
 

@@ -4,6 +4,7 @@ import {
   Connection,
   PublicKey,
   Keypair,
+  Transaction,
   LAMPORTS_PER_SOL,
   SystemProgram,
 } from '@solana/web3.js';
@@ -202,16 +203,17 @@ export class SolanaService {
    * Close a survey on-chain. Sets is_active = false.
    * Called automatically when max responses is reached.
    */
-  async closeSurvey(
+  async buildCloseSurveyTx(
     creatorWallet: string,
     surveyId: string,
-  ): Promise<{ txSignature: string }> {
+    blockhash: string,
+  ): Promise<string> {
     const creatorPubkey = this.validateWallet(creatorWallet);
     const surveyIdBytes = Buffer.from(surveyId, 'utf8');
     const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
 
     this.logger.log({
-      event: 'CLOSE_SURVEY_START',
+      event: 'BUILD_CLOSE_SURVEY_TX',
       creator: creatorWallet.slice(0, 8) + '...',
       surveyId: surveyId.slice(0, 16) + '...',
     });
@@ -220,27 +222,151 @@ export class SolanaService {
       const tx = await this.program.methods
         .closeSurvey(Buffer.from(surveyIdBytes))
         .accounts({
-          creator: creatorPubkey,
+          signer: creatorPubkey,
           survey: surveyPda,
         })
-        .rpc();
+        .transaction();
 
-      this.logger.log({
-        event: 'CLOSE_SURVEY_SUCCESS',
-        creator: creatorWallet.slice(0, 8) + '...',
-        surveyId: surveyId.slice(0, 16) + '...',
-        txSignature: tx,
-      });
+      tx.feePayer = creatorPubkey;
+      tx.recentBlockhash = blockhash;
 
-      return { txSignature: tx };
+      return tx.serialize({ requireAllSignatures: false }).toString('base64');
     } catch (error) {
       this.logger.error({
-        event: 'CLOSE_SURVEY_FAILED',
+        event: 'BUILD_CLOSE_SURVEY_TX_FAILED',
         creator: creatorWallet.slice(0, 8) + '...',
         surveyId: surveyId.slice(0, 16) + '...',
         error: error instanceof Error ? error.message : String(error),
       });
-      throw new RpcErrorException('closeSurvey');
+      throw new RpcErrorException('buildCloseSurveyTx');
+    }
+  }
+
+  /**
+   * Distribute rewards to participants on-chain.
+   * Transfers SOL from escrow vault to participant wallets.
+   */
+  async distributeRewards(
+    creatorWallet: string,
+    surveyId: string,
+    participantWallets: string[],
+    amounts: number[],
+  ): Promise<{ txSignature: string; distributed: number }> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveEscrowVault(surveyPda);
+
+    this.logger.log({
+      event: 'DISTRIBUTE_REWARDS_START',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      participants: participantWallets.length,
+    });
+
+    try {
+      const participantAccounts = participantWallets.map((wallet) => ({
+        pubkey: new PublicKey(wallet),
+        isSigner: false,
+        isWritable: true,
+      }));
+
+      const tx = await this.program.methods
+        .distributeRewards(
+          Buffer.from(surveyIdBytes),
+          amounts.map((a) => new anchor.BN(a)), // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
+        )
+        .accounts({
+          creator: creatorPubkey,
+          survey: surveyPda,
+          escrowVault,
+          systemProgram: SystemProgram.programId,
+        })
+        .remainingAccounts(participantAccounts)
+        .rpc();
+
+      const totalDistributed = amounts.reduce((sum, a) => sum + a, 0);
+
+      this.logger.log({
+        event: 'DISTRIBUTE_REWARDS_SUCCESS',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        txSignature: tx,
+        distributed: totalDistributed / LAMPORTS_PER_SOL,
+      });
+
+      return { txSignature: tx, distributed: totalDistributed };
+    } catch (error) {
+      this.logger.error({
+        event: 'DISTRIBUTE_REWARDS_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('distributeRewards');
+    }
+  }
+
+  /**
+   * Build an unsigned distributeRewards transaction for the frontend to sign.
+   * Returns the serialized transaction as base64.
+   */
+  async buildDistributeRewardsTx(
+    creatorWallet: string,
+    surveyId: string,
+    participantWallets: string[],
+    amounts: number[],
+    blockhash: string,
+  ): Promise<string> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveEscrowVault(surveyPda);
+
+    this.logger.log({
+      event: 'BUILD_DISTRIBUTE_TX',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      participants: participantWallets.length,
+    });
+
+    try {
+      const participantAccounts = participantWallets.map((wallet) => ({
+        pubkey: new PublicKey(wallet),
+        isSigner: false,
+        isWritable: true,
+      }));
+
+      // Build instruction manually to avoid Anchor SDK remainingAccounts issues
+      // eslint-disable-next-line @typescript-eslint/await-thenable
+      const distributeIx = await this.program.instruction['distributeRewards'](
+        Buffer.from(surveyIdBytes),
+        amounts.map((a) => new anchor.BN(a)), // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
+        {
+          accounts: {
+            creator: creatorPubkey,
+            survey: surveyPda,
+            escrowVault,
+            systemProgram: SystemProgram.programId,
+          },
+          remainingAccounts: participantAccounts,
+        },
+      );
+
+      const tx = new Transaction();
+      tx.add(distributeIx);
+      tx.feePayer = creatorPubkey;
+      tx.recentBlockhash = blockhash;
+
+      return tx.serialize({ requireAllSignatures: false }).toString('base64');
+    } catch (error) {
+      this.logger.error({
+        event: 'BUILD_DISTRIBUTE_TX_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('buildDistributeRewardsTx');
     }
   }
 

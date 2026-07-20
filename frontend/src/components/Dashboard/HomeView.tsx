@@ -50,31 +50,30 @@ const ACTIVITY_FEED = [
   },
 ];
 
-const ACTIVE_SURVEYS = [
-  {
-    id: "s1",
-    title: "Jupiter Community Pulse",
-    status: "active" as const,
-    responses: 234,
-    maxResponses: 500,
-    rewardPool: 50,
-  },
-];
-
-const SURVEY_COUNT = 3;
-const TOTAL_RESPONSES = 1046;
-const SOL_DISTRIBUTED = 125.5;
+interface SurveySummary {
+  id: string;
+  title: string;
+  status: string;
+  responses: number;
+  maxResponses: number;
+  rewardPool: number;
+}
 
 // ─── HomeView component ────────────────────────────────────────────────────────
 
-export default function HomeView() {
+export default function HomeView({ surveys }: { surveys: SurveySummary[] }) {
   const { publicKey } = useWallet();
   const { user } = useAuth();
 
   const wallet = publicKey?.toBase58();
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
-  const surveysCompleted = user?.surveysCompleted ?? SURVEY_COUNT;
+  const surveysCompleted = surveys.length;
+  const activeSurveys = surveys.filter((s) => s.status === "active");
+  const totalResponses = surveys.reduce((sum, s) => sum + s.responses, 0);
+  const solDistributed = surveys
+    .filter((s) => s.status === "closed")
+    .reduce((sum, s) => sum + s.rewardPool, 0);
 
   const tierNames: Record<string, string> = {
     grey: "Ghost",
@@ -143,7 +142,7 @@ export default function HomeView() {
             ACTIVE NOW
           </p>
           <p className="mt-2 font-mono text-2xl font-bold text-ok-green">
-            {ACTIVE_SURVEYS.length}
+            {activeSurveys.length}
           </p>
         </div>
 
@@ -156,7 +155,7 @@ export default function HomeView() {
             RESPONSES COLLECTED
           </p>
           <p className="mt-2 font-mono text-2xl font-bold text-[#F0F6F6]">
-            {TOTAL_RESPONSES.toLocaleString()}
+            {totalResponses.toLocaleString()}
           </p>
         </div>
 
@@ -171,7 +170,7 @@ export default function HomeView() {
           <p className="mt-2 font-mono text-2xl font-bold">
             <span className="inline-flex items-center gap-1.5">
               <img src={solanaLogo} alt="Solana" className="h-5 w-5 text-ok-green" />{" "}
-              <span className="text-[#F0F6F6]">{SOL_DISTRIBUTED}</span>
+              <span className="text-[#F0F6F6]">{solDistributed}</span>
             </span>
            
           </p>
@@ -221,9 +220,9 @@ export default function HomeView() {
           </Link>
         </div>
 
-        {ACTIVE_SURVEYS.length > 0 ? (
+        {activeSurveys.length > 0 ? (
           <div className="space-y-3">
-            {ACTIVE_SURVEYS.map((survey) => (
+            {activeSurveys.map((survey) => (
               <div
                 key={survey.id}
                 className="flex flex-col gap-4 rounded border border-[#3D444D] bg-[#151B23] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"

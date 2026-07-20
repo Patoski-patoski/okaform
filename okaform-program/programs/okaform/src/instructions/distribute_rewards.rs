@@ -37,7 +37,6 @@ pub fn process_distribute_rewards(
     let survey: &Account<'_, SurveyAccount> = &ctx.accounts.survey;
 
     require!(!survey.is_active, OkaformError::SurveyNotActive);
-    require_gt!(survey.response_count, 0, OkaformError::NoParticipants);
 
     let participants = ctx.remaining_accounts;
 
