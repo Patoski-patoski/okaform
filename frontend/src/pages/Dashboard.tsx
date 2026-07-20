@@ -30,7 +30,7 @@ import {
   truncateAddress,
   getBadgeTier,
 } from "@/components/okaform";
-import type { BadgeTier, StatusType } from "@/components/okaform";
+import type { StatusType } from "@/components/okaform";
 import { buttonVariants } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
@@ -473,15 +473,8 @@ function ResponsesTab({ formId }: { formId: string }) {
 
   const filtered = useMemo(() => {
     let rows = responses;
-    const tierFromScore = (score: number): BadgeTier => {
-      if (score >= 100) return "diamond";
-      if (score >= 80) return "gold";
-      if (score >= 60) return "green";
-      if (score >= 30) return "blue";
-      return "grey";
-    };
     if (badgeFilter !== "all") {
-      rows = rows.filter((r) => tierFromScore(r.scoreAtSubmission) === badgeFilter);
+      rows = rows.filter((r) => getBadgeTier(r.scoreAtSubmission) === badgeFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -509,14 +502,6 @@ function ResponsesTab({ formId }: { formId: string }) {
     );
   }
 
-  const tierFromScore = (score: number): BadgeTier => {
-    if (score >= 100) return "diamond";
-    if (score >= 80) return "gold";
-    if (score >= 60) return "green";
-    if (score >= 30) return "blue";
-    return "grey";
-  };
-
   const relativeTime = (date: string): string => {
     const diff = Date.now() - new Date(date).getTime();
     const mins = Math.floor(diff / 60000);
@@ -542,7 +527,7 @@ function ResponsesTab({ formId }: { formId: string }) {
         <div className="rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-5">
           <div className="mb-4 flex items-center gap-3">
             <CopyableAddress address={selectedResponse.respondentWallet} />
-            <Badge tier={tierFromScore(selectedResponse.scoreAtSubmission)} />
+            <Badge tier={getBadgeTier(selectedResponse.scoreAtSubmission)} />
             <span className="font-mono text-[10px] text-[#656C76]">
               {new Date(selectedResponse.submittedAt).toLocaleString()}
             </span>
@@ -621,7 +606,7 @@ function ResponsesTab({ formId }: { formId: string }) {
               className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-[#151B23]/40"
             >
               <CopyableAddress address={r.respondentWallet} />
-              <Badge tier={tierFromScore(r.scoreAtSubmission)} />
+              <Badge tier={getBadgeTier(r.scoreAtSubmission)} />
               <span className="whitespace-nowrap font-mono text-[10px] text-[#656C76]">
                 {relativeTime(r.submittedAt)}
               </span>

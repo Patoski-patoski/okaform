@@ -185,7 +185,7 @@ describe('FormsService', () => {
 
       const dto = {
         surveyId: 'survey_abc123',
-        rewardPool: 10_000_000_000,
+        rewardPoolSol: 10,
         rewardType: 'weighted' as const,
         maxResponses: 100,
         creator: 'wallet123',
@@ -197,7 +197,7 @@ describe('FormsService', () => {
       expect(buildSpy).toHaveBeenCalledWith(
         'wallet123',
         'survey_abc123',
-        10_000_000_000,
+        10,
         'weighted',
         100,
         'blockhash123',

@@ -143,7 +143,7 @@ export class FormsService {
     const tx = await this.solanaService.buildInitializeSurveyTx(
       dto.creator,
       dto.surveyId,
-      dto.rewardPool,
+      dto.rewardPoolSol,
       dto.rewardType,
       dto.maxResponses,
       dto.blockhash,

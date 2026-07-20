@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SubmissionsController } from './submissions.controller';
-import { SubmissionsService } from './submissions.service';
+import { SubmissionsService, SubmissionItem } from './submissions.service';
 
 describe('SubmissionsController', () => {
   let controller: SubmissionsController;
@@ -25,13 +25,14 @@ describe('SubmissionsController', () => {
 
   describe('getSubmissions', () => {
     it('should return submissions for a form', async () => {
-      const mockData = [
+      const mockData: SubmissionItem[] = [
         {
           id: 'sub123',
           respondentWallet: 'wallet123',
           scoreAtSubmission: 0,
           similarityFlag: false,
           submittedAt: new Date('2025-01-01'),
+          answers: [],
         },
       ];
       submissionsService.getSubmissionsByForm.mockResolvedValue(mockData);

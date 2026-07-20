@@ -82,17 +82,10 @@ export default function SurveyFill() {
     let cancelled = false;
     setLoading(true);
     setFetchError(false);
-    Promise.all([
-      getFormById(formId),
-      wallet ? getSubmissions(formId).then((subs) =>
-        subs.some((s) => s.respondentWallet === wallet)
-      ) : Promise.resolve(false),
-    ])
-      .then(([data, alreadyDid]) => {
-        if (!cancelled) {
-          setForm(data);
-          setAlreadySubmitted(alreadyDid);
-        }
+
+    getFormById(formId)
+      .then((data) => {
+        if (!cancelled) setForm(data);
       })
       .catch(() => {
         if (!cancelled) setFetchError(true);
@@ -100,6 +93,19 @@ export default function SurveyFill() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    if (wallet) {
+      getSubmissions(formId)
+        .then((subs) => {
+          if (!cancelled) {
+            setAlreadySubmitted(subs.some((s) => s.respondentWallet === wallet));
+          }
+        })
+        .catch(() => {
+          /* submissions check requires auth — silently skip */
+        });
+    }
+
     return () => { cancelled = true; };
   }, [formId, wallet]);
 
