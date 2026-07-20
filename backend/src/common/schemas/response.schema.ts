@@ -22,6 +22,18 @@ export class SurveyResponse {
 
   @Prop({ default: null })
   submittedAt!: Date;
+
+  @Prop({ default: false })
+  distributed!: boolean;
+
+  @Prop({ default: 0 })
+  distributedAmount!: number;
+
+  @Prop({ type: Date, default: null })
+  distributedAt?: Date | null;
+
+  @Prop({ type: String, default: null })
+  txSignature?: string | null;
 }
 
 export const ResponseSchema = SchemaFactory.createForClass(SurveyResponse);

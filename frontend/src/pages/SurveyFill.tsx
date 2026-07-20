@@ -140,14 +140,10 @@ export default function SurveyFill() {
     setSubmitError(null);
     try {
       await submitResponse(formId, {
-        answers: Object.entries(answers).map(([questionId, value]) => {
-          const q = surveyQuestions.find((q) => q.id === questionId);
-          if (q && (q.type === 'checkbox' || q.type === 'multi_select') && Array.isArray(value) && q.options) {
-            const labelMap = new Map(q.options.map((o) => [o.id, o.label]));
-            return { questionId, value: value.map((v) => labelMap.get(v) ?? v) };
-          }
-          return { questionId, value };
-        }),
+        answers: Object.entries(answers).map(([questionId, value]) => ({
+          questionId,
+          value,
+        })),
         respondentWallet: wallet,
       });
       setSubmitted(true);

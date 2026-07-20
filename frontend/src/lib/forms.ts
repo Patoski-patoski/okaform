@@ -23,6 +23,7 @@ export interface CreateFormPayload {
   numWinners?: number;
   minWalletAge?: number;
   minSolBalance?: number;
+  closesAt?: string;
 }
 
 export interface OnChainData {
@@ -81,6 +82,7 @@ export async function getFormById(formId: string): Promise<FormDetail> {
 export interface ExploreFormItem {
   id: string;
   title: string;
+  status: "active" | "closed" | "draft";
   organization: string;
   rewardPool: number;
   rewardType: string;
@@ -109,6 +111,50 @@ export async function getForms(): Promise<FormListItem[]> {
 
 export async function getExploreForms(): Promise<ExploreFormItem[]> {
   return api<ExploreFormItem[]>("/forms/explore");
+}
+
+export async function buildCloseTx(
+  formId: string,
+  blockhash: string,
+): Promise<{ tx: string }> {
+  return api<{ tx: string }>(`/forms/${formId}/close`, {
+    method: "POST",
+    body: JSON.stringify({ blockhash }),
+  });
+}
+
+export async function confirmClose(formId: string): Promise<void> {
+  return api<void>(`/forms/${formId}/confirm-close`, {
+    method: "POST",
+  });
+}
+
+export interface BuildDistributeTxResult {
+  tx: string;
+  participantWallets: string[];
+  amounts: number[];
+}
+
+export async function buildDistributeTx(
+  formId: string,
+  blockhash: string,
+): Promise<BuildDistributeTxResult> {
+  return api<BuildDistributeTxResult>(`/forms/${formId}/build-distribute-tx`, {
+    method: "POST",
+    body: JSON.stringify({ blockhash }),
+  });
+}
+
+export async function confirmDistribute(
+  formId: string,
+  participantWallets: string[],
+  amounts: number[],
+  txSignature: string,
+): Promise<void> {
+  return api<void>(`/forms/${formId}/confirm-distribute`, {
+    method: "POST",
+    body: JSON.stringify({ participantWallets, amounts, txSignature }),
+  });
 }
 
 export interface SubmitResponsePayload {

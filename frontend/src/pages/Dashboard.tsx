@@ -20,6 +20,7 @@ import {
   Server,
   Activity,
   Database,
+  Gift,
 } from "lucide-react";
 
 import {
@@ -36,10 +37,12 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { Transaction } from "@solana/web3.js";
 import HomeView from "@/components/Dashboard/HomeView";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
-import { getForms, getSubmissions, getFormById } from "@/lib/forms";
+import { getForms, getSubmissions, getFormById, buildCloseTx, confirmClose, buildDistributeTx, confirmDistribute } from "@/lib/forms";
 import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -215,7 +218,19 @@ function Sidebar({
 
 // ─── Stats row ─────────────────────────────────────────────────────────────────
 
-function StatsRow() {
+function StatsRow({
+  totalResponses,
+  totalMaxResponses,
+  totalSolDistributed,
+  lifetimeSurveys,
+}: {
+  totalResponses: number;
+  totalMaxResponses: number;
+  lifetimeSurveys: number;
+  totalSolDistributed: number;
+}) {
+  const totalPercent = totalMaxResponses > 0 ? Math.round((totalResponses / totalMaxResponses) * 100) : 0;
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Hero Stat: The Pulse (Spans 2 columns) */}
@@ -235,15 +250,17 @@ function StatsRow() {
                 SYS // LIVE
               </span>
             </div>
-            <p className="mt-4 font-mono text-xs text-[#656C76] uppercase tracking-wider">
-              Active Responses
-            </p>
-            <div className="mt-1 flex items-baseline gap-3">
-              <p className="font-mono text-4xl font-bold tracking-tight text-[#F0F6F6]">
-                234
+              <p className="mt-4 font-mono text-xs text-[#656C76] uppercase tracking-wider">
+                Active Responses
               </p>
-              <p className="font-mono text-sm text-[#656C76]">/ 500 cap</p>
-            </div>
+              <div className="mt-1 flex items-baseline gap-3">
+                <p className="font-mono text-4xl font-bold tracking-tight text-[#F0F6F6]">
+                  {totalResponses}
+                </p>
+                {totalMaxResponses > 0 && (
+                  <p className="font-mono text-sm text-[#656C76]">/ {totalMaxResponses} cap</p>
+                )}
+              </div>
           </div>
           
           <div className="flex h-10 w-10 items-center justify-center rounded border border-ok-green/20 bg-ok-green/10">
@@ -253,12 +270,15 @@ function StatsRow() {
         
         {/* Progress */}
         <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-[#3D444D]">
-          <div className="h-full w-[46.8%] rounded-full bg-ok-green shadow-[0_0_10px_rgba(20,241,149,0.5)]" />
+          <div
+            className="h-full rounded-full bg-ok-green shadow-[0_0_10px_rgba(20,241,149,0.5)]"
+            style={{ width: `${totalPercent}%` }}
+          />
         </div>
 
         <div className="mt-4 flex items-center justify-between font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
           <span>Data Vectors Ingested</span>
-          <span className="text-ok-green">46.8%</span>
+          <span className="text-ok-green">{totalPercent}%</span>
         </div>
       </div>
 
@@ -274,7 +294,7 @@ function StatsRow() {
             <Database className="h-3.5 w-3.5 text-[#656C76]" />
           </div>
           <SOLAmount
-            amount={125.5}
+            amount={totalSolDistributed}
             unit="sol"
             className="mt-2 font-mono text-2xl font-semibold text-[#F0F6F6]"
           />
@@ -290,7 +310,7 @@ function StatsRow() {
             <Server className="h-3.5 w-3.5 text-[#656C76]" />
           </div>
           <p className="mt-2 font-mono text-2xl font-semibold text-[#F0F6F6]">
-            3
+            {lifetimeSurveys}
           </p>
         </div>
       </div>
@@ -304,10 +324,14 @@ function SurveysTable({
   surveys,
   onSelect,
   onCloseRequest,
+  onDistributeRequest,
+  isDistributing,
 }: {
   surveys: Survey[];
   onSelect: (id: string) => void;
   onCloseRequest: (id: string) => void;
+  onDistributeRequest: (id: string) => void;
+  isDistributing: boolean;
 }) {
   return (
     <div className="relative overflow-hidden rounded border border-[#3D444D]/80 bg-[#151B23]/20">
@@ -407,6 +431,20 @@ function SurveysTable({
                       >
                         <XCircle className="h-3 w-3" />
                         Close
+                      </button>
+                    )}
+                    {survey.status === "closed" && (
+                      <button
+                        onClick={() => onDistributeRequest(survey.id)}
+                        disabled={isDistributing}
+                        className="inline-flex items-center gap-1.5 rounded border border-ok-green/20 bg-ok-green/5 px-2.5 py-1.5 font-mono text-[10px] font-medium text-ok-green transition-colors hover:bg-ok-green/15 hover:border-ok-green/30 disabled:opacity-50"
+                      >
+                        {isDistributing ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Gift className="h-3 w-3" />
+                        )}
+                        Distribute
                       </button>
                     )}
                   </div>
@@ -736,10 +774,12 @@ function SettingsTab() {
 
 function CloseModal({
   survey,
+  isClosing,
   onConfirm,
   onCancel,
 }: {
   survey: Survey;
+  isClosing: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -782,6 +822,7 @@ function CloseModal({
             size="md"
             className="flex-1"
             onClick={onCancel}
+            disabled={isClosing}
           >
             Cancel
           </Button>
@@ -790,8 +831,16 @@ function CloseModal({
             size="md"
             className="flex-1"
             onClick={onConfirm}
+            disabled={isClosing}
           >
-            Close and Distribute
+            {isClosing ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Closing...
+              </span>
+            ) : (
+              "Close and Distribute"
+            )}
           </Button>
         </div>
       </div>
@@ -875,10 +924,14 @@ function SurveyDetail({
 // ─── Main dashboard ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const [activeNav, setActiveNav] = useState("surveys");
   const [view, setView] = useState<View>("surveys");
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [closeTarget, setCloseTarget] = useState<Survey | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isDistributing, setIsDistributing] = useState(false);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -933,6 +986,63 @@ export default function Dashboard() {
     setSelectedSurveyId(null);
   };
 
+  const handleConfirmClose = async () => {
+    if (!closeTarget || !publicKey || !signTransaction) return;
+    setIsClosing(true);
+    try {
+      const { blockhash } = await connection.getLatestBlockhash();
+
+      const { tx: txBase64 } = await buildCloseTx(closeTarget.id, blockhash);
+
+      const tx = Transaction.from(
+        Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0)),
+      );
+
+      tx.feePayer = publicKey;
+      tx.recentBlockhash = blockhash;
+
+      const signed = await signTransaction(tx);
+      await connection.sendRawTransaction(signed.serialize());
+
+      await confirmClose(closeTarget.id);
+
+      setSurveys((prev) =>
+        prev.map((s) => (s.id === closeTarget.id ? { ...s, status: "closed" } : s))
+      );
+      setCloseTarget(null);
+    } catch (err) {
+      console.error("Failed to close survey:", err);
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
+  const handleDistribute = async (surveyId: string) => {
+    if (!publicKey || !signTransaction) return;
+    setIsDistributing(true);
+    try {
+      const { blockhash } = await connection.getLatestBlockhash();
+
+      const result = await buildDistributeTx(surveyId, blockhash);
+
+      const tx = Transaction.from(
+        Uint8Array.from(atob(result.tx), (c) => c.charCodeAt(0)),
+      );
+
+      tx.feePayer = publicKey;
+      tx.recentBlockhash = blockhash;
+
+      const signed = await signTransaction(tx);
+      const txSignature = await connection.sendRawTransaction(signed.serialize());
+
+      await confirmDistribute(surveyId, result.participantWallets, result.amounts, txSignature);
+    } catch (err) {
+      console.error("Failed to distribute rewards:", err);
+    } finally {
+      setIsDistributing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0D1117]">
       <Sidebar
@@ -947,14 +1057,21 @@ export default function Dashboard() {
             <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
           </div>
         ) : activeNav === "home" ? (
-          <HomeView />
+          <HomeView surveys={surveys} />
         ) : activeNav === "analytics" ? (
           <AnalyticsView />
         ) : activeNav === "settings" ? (
           <SettingsView />
         ) : view === "surveys" ? (
           <div className="space-y-6">
-            <StatsRow />
+            <StatsRow
+              totalResponses={surveys.reduce((sum, s) => sum + s.responses, 0)}
+              totalMaxResponses={surveys.reduce((sum, s) => sum + s.maxResponses, 0)}
+              lifetimeSurveys={surveys.length}
+              totalSolDistributed={surveys
+                .filter((s) => s.status === "closed")
+                .reduce((sum, s) => sum + s.rewardPool, 0)}
+            />
             <SurveysTable
               surveys={surveys}
               onSelect={handleSelectSurvey}
@@ -962,6 +1079,8 @@ export default function Dashboard() {
                 const survey = surveys.find((s) => s.id === id);
                 if (survey) setCloseTarget(survey);
               }}
+              onDistributeRequest={handleDistribute}
+              isDistributing={isDistributing}
             />
           </div>
         ) : (
@@ -975,10 +1094,9 @@ export default function Dashboard() {
       {closeTarget && (
         <CloseModal
           survey={closeTarget}
-          onConfirm={() => {
-            setCloseTarget(null);
-          }}
-          onCancel={() => setCloseTarget(null)}
+          isClosing={isClosing}
+          onConfirm={handleConfirmClose}
+          onCancel={() => !isClosing && setCloseTarget(null)}
         />
       )}
     </div>

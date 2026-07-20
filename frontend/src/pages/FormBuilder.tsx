@@ -114,6 +114,7 @@ interface RewardSettings {
   numWinners: number;
   minWalletAge: number;
   minSolBalance: number;
+  closesAt: string;
 }
 
 interface QuestionTypeItem {
@@ -243,6 +244,7 @@ const INITIAL_REWARD: RewardSettings = {
   numWinners: 10,
   minWalletAge: 30,
   minSolBalance: 1,
+  closesAt: "",
 };
 
 // ─── Left panel — Question type picker ─────────────────────────────────────────
@@ -1314,6 +1316,20 @@ function RewardSettingsPanel({
           </div>
         )}
 
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Closes At (Optional)</label>
+          <input
+            type="datetime-local"
+            value={settings.closesAt || ""}
+            onChange={(e) => onUpdate({ closesAt: e.target.value })}
+            className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          <p className="text-[10px] text-ok-dim">
+            Leave empty for no deadline. Survey closes automatically when this time is reached.
+          </p>
+        </div>
+
         <div className="space-y-2.5 pt-3 border-t border-ok-border/20">
           <p className="text-[10px] font-bold uppercase tracking-widest text-ok-dim/60">
             Sybil Mitigation Engines
@@ -1470,8 +1486,8 @@ export default function FormBuilder() {
       setToast('Please enter a form title before initializing.');
       return;
     }
-    if (questions.length === 0) {
-      setToast('Please add at least one question before initializing.');
+    if (questions.length < 2) {
+      setToast('Please add at least 2 questions before initializing.');
       return;
     }
     if (!isAuthenticated || !publicKey || !signTransaction) {
@@ -1510,6 +1526,7 @@ export default function FormBuilder() {
         numWinners: reward.numWinners,
         minWalletAge: reward.minWalletAge,
         minSolBalance: reward.minSolBalance,
+        closesAt: reward.closesAt || undefined,
       });
 
       localStorage.removeItem(DRAFT_KEY);

@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import OkaformLogo from "@/components/OkaformLogo";
@@ -109,7 +110,7 @@ function StatusPill({ status }: { status: SurveyListing["status"] }) {
   const config = {
     active: { dot: "bg-ok-green", text: "text-ok-green border-ok-green/20 bg-ok-green/5", label: "Active" },
     ending_soon: { dot: "bg-ok-warning", text: "text-ok-warning border-ok-warning/20 bg-ok-warning/5", label: "Ending" },
-    closed: { dot: "bg-[#656C76]", text: "text-[#656C76] border-[#3D444D] bg-transparent", label: "Closed" },
+    closed: { dot: "bg-[#656C76]", text: "text-[#656C76] border-[#3D444D] bg-transparent", label: "Ended" },
   }[status];
 
   return (
@@ -132,9 +133,9 @@ function ProtocolLogo({ name, color }: { name: string; color: string }) {
 }
 
 function WalletBadge() {
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading, login, logout } = useAuth();
   const [copied, setCopied] = useState(false);
 
   if (isLoading) {
@@ -194,6 +195,14 @@ function WalletBadge() {
       </button>
       <span className="h-4 w-px bg-[#3D444D]" />
       <Badge tier={tier} className="text-xs" />
+      <span className="h-4 w-px bg-[#3D444D]" />
+      <button
+        onClick={() => { logout(); disconnect(); }}
+        className="flex items-center gap-1 font-mono text-xs text-[#9198A1] transition-colors hover:text-ok-danger cursor-pointer"
+        title="Disconnect"
+      >
+        <LogOut className="h-3 w-3" />
+      </button>
     </div>
   );
 }
@@ -237,10 +246,20 @@ function SurveyCard({ survey }: SurveyCardProps) {
     <Link
       to={isOpen ? `/form/${survey.id}` : "#"}
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40 p-5 transition-all hover:border-ok-green/40 hover:bg-[#151B23]/70 hover:shadow-[0_0_25px_rgba(20,241,149,0.03)]",
-        !isOpen && "opacity-35 pointer-events-none"
+        "group relative flex flex-col justify-between overflow-hidden rounded border bg-[#151B23]/40 p-5 transition-all duration-300",
+        isOpen
+          ? "border-[#3D444D] hover:border-ok-green/40 hover:bg-[#151B23]/70 hover:shadow-[0_0_25px_rgba(20,241,149,0.03)]"
+          : "border-[#3D444D]/30 opacity-40 pointer-events-none grayscale"
       )}
     >
+      {/* Concluded overlay stamp */}
+      {!isOpen && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <span className="rotate-[-30deg] font-mono text-[48px] font-bold tracking-[0.3em] text-[#656C76]/10 select-none">
+            ENDED
+          </span>
+        </div>
+      )}
       {/* Background Micro-Grid Decorative Line */}
       <div className="absolute right-0 top-0 h-16 w-16 opacity-[0.02] transition-opacity group-hover:opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(var(--tw-gradient-stops), #14F195 1px, transparent 1px)', backgroundSize: '4px 4px' }} />
 
@@ -316,6 +335,20 @@ function SurveyCard({ survey }: SurveyCardProps) {
           </div>
           <span className="text-[#F0F6F6]">
             {survey.responses} / {survey.maxResponses}
+          </span>
+        </div>
+
+        {/* Closes At */}
+        <div className="flex items-center justify-between font-mono text-[11px]">
+          <div className="flex items-center gap-1.5 text-[#9198A1]">
+            <Lock className="h-3.5 w-3.5 text-[#656C76]" />
+            <span>Closes:</span>
+          </div>
+          <span className={cn(
+            "text-[10px]",
+            survey.status === "ending_soon" ? "text-ok-warning" : survey.status === "closed" ? "text-[#656C76]" : "text-[#F0F6F6]"
+          )}>
+            {formatTimeRemaining(survey.closesAt)}
           </span>
         </div>
         
@@ -423,7 +456,7 @@ export default function Explore() {
               responses: f.responses,
               maxResponses: f.maxResponses,
               closesAt: f.closesAt,
-              status: deriveStatus(f.closesAt),
+              status: f.status === 'closed' ? 'closed' : deriveStatus(f.closesAt),
               requirements: buildRequirements(f.minWalletAge, f.minSolBalance),
               previewQuestion: f.previewQuestion || undefined,
             }))
@@ -529,6 +562,7 @@ export default function Explore() {
               Create Survey
             </Button>
           </Link>
+          <WalletBadge />
         </div>
       </nav>
 
@@ -543,9 +577,6 @@ export default function Explore() {
             <p className="max-w-xl text-sm leading-relaxed text-[#9198A1]">
               Cryptographically audited community parameters directly tied to the Solana account ledger.
             </p>
-          </div>
-          <div className="shrink-0">
-            <WalletBadge />
           </div>
         </div>
 

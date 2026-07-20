@@ -12,10 +12,9 @@
       "discriminator": [116, 246, 232, 201, 239, 102, 75, 153],
       "accounts": [
         {
-          "name": "creator",
+          "name": "signer",
           "writable": true,
-          "signer": true,
-          "relations": ["survey"]
+          "signer": true
         },
         {
           "name": "survey",
@@ -28,7 +27,8 @@
               },
               {
                 "kind": "account",
-                "path": "creator"
+                "path": "survey.creator",
+                "account": "SurveyAccount"
               },
               {
                 "kind": "arg",

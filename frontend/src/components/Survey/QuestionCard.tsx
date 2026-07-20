@@ -116,12 +116,12 @@ export function QuestionCard({
       {question.type === "multiple_choice" && question.options && (
         <div className="space-y-2 pl-7">
           {question.options.map((opt) => {
-            const selected = answer === opt.id;
+            const selected = answer === opt.label;
             return (
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => onChange(question.id, opt.id)}
+                onClick={() => onChange(question.id, opt.label)}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-[var(--radius-ok)] border px-4 py-3 text-left text-sm transition-all",
                   selected
@@ -152,7 +152,7 @@ export function QuestionCard({
       {question.type === "checkbox" && question.options && (
         <div className="space-y-2 pl-7">
           {question.options.map((opt) => {
-            const selected = Array.isArray(answer) && answer.includes(opt.id);
+            const selected = Array.isArray(answer) && answer.includes(opt.label);
             return (
               <button
                 key={opt.id}
@@ -160,8 +160,8 @@ export function QuestionCard({
                 onClick={() => {
                   const current = Array.isArray(answer) ? answer : [];
                   const next = selected
-                    ? current.filter((v) => v !== opt.id)
-                    : [...current, opt.id];
+                    ? current.filter((v) => v !== opt.label)
+                    : [...current, opt.label];
                   onChange(question.id, next);
                 }}
                 className={cn(
@@ -208,12 +208,12 @@ export function QuestionCard({
           {/* Selected chips */}
           {Array.isArray(answer) && answer.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {answer.map((selectedId) => {
-                const opt = question.options!.find((o) => o.id === selectedId);
+              {answer.map((selectedLabel) => {
+                const opt = question.options!.find((o) => o.label === selectedLabel);
                 if (!opt) return null;
                 return (
                   <span
-                    key={selectedId}
+                    key={selectedLabel}
                     className="inline-flex items-center gap-1.5 rounded-full border border-ok-green/30 bg-ok-green/10 px-3 py-1 text-xs font-medium text-ok-green"
                   >
                     {opt.label}
@@ -221,7 +221,7 @@ export function QuestionCard({
                       type="button"
                       onClick={() => {
                         const current = Array.isArray(answer) ? answer : [];
-                        onChange(question.id, current.filter((v) => v !== selectedId));
+                        onChange(question.id, current.filter((v) => v !== selectedLabel));
                       }}
                       className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-ok-green/20"
                     >
@@ -236,7 +236,7 @@ export function QuestionCard({
           {/* Available options */}
           <div className="flex flex-wrap gap-2">
             {question.options.map((opt) => {
-              const selected = Array.isArray(answer) && answer.includes(opt.id);
+              const selected = Array.isArray(answer) && answer.includes(opt.label);
               return (
                 <button
                   key={opt.id}
@@ -244,8 +244,8 @@ export function QuestionCard({
                   onClick={() => {
                     const current = Array.isArray(answer) ? answer : [];
                     const next = selected
-                      ? current.filter((v) => v !== opt.id)
-                      : [...current, opt.id];
+                      ? current.filter((v) => v !== opt.label)
+                      : [...current, opt.label];
                     onChange(question.id, next);
                   }}
                   className={cn(

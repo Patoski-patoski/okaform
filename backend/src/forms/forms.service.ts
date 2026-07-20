@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { Form } from '../common/schemas/form.schema';
@@ -7,6 +12,7 @@ import type { CreateFormDto } from './dto/create-form.dto';
 import type { BuildInitTxDto } from './dto/build-init-tx.dto';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { SolanaService } from '../solana/solana.service';
+import { SurveyLifecycleService } from './survey-lifecycle.service';
 
 export interface CreateFormResult {
   id: string;
@@ -56,6 +62,7 @@ export interface FormDetail extends FormListItem {
 export interface ExploreFormItem {
   id: string;
   title: string;
+  status: 'active' | 'closed' | 'draft';
   organization: string;
   rewardPool: number;
   rewardType: string;
@@ -78,6 +85,7 @@ export class FormsService {
     @InjectModel(SurveyResponse.name)
     private responseModel: Model<SurveyResponse>,
     private readonly solanaService: SolanaService,
+    private readonly surveyLifecycleService: SurveyLifecycleService,
   ) {}
 
   async createForm(
@@ -182,6 +190,7 @@ export class FormsService {
     return forms.map((form) => ({
       id: String(form._id),
       title: form.title,
+      status: form.status,
       organization: form.organization,
       rewardPool: form.rewardPool,
       rewardType: form.rewardType,
@@ -283,5 +292,145 @@ export class FormsService {
       minWalletAge: form.minWalletAge,
       minSolBalance: form.minSolBalance,
     };
+  }
+
+  /**
+   * Build an unsigned close transaction for the frontend to sign.
+   * Only the form creator can call this.
+   */
+  async buildCloseTx(
+    formId: string,
+    callerWallet: string,
+    blockhash: string,
+  ): Promise<{ tx: string }> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'BUILD_CLOSE_TX_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can close this survey.',
+      );
+    }
+
+    if (form.status !== 'active') {
+      throw new ConflictException(`Survey is already ${form.status}.`);
+    }
+
+    const tx = await this.surveyLifecycleService.buildCloseTx(
+      formId,
+      callerWallet,
+      blockhash,
+    );
+
+    return { tx };
+  }
+
+  /**
+   * Confirm a close after the on-chain transaction has been sent.
+   * Updates DB and distributes rewards.
+   */
+  async confirmClose(formId: string, callerWallet: string): Promise<void> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'CONFIRM_CLOSE_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can close this survey.',
+      );
+    }
+
+    if (form.status !== 'active') {
+      throw new ConflictException(`Survey is already ${form.status}.`);
+    }
+
+    await this.surveyLifecycleService.confirmClose(formId, callerWallet);
+  }
+
+  /**
+   * Build an unsigned distribute-rewards transaction for the frontend to sign.
+   */
+  async buildDistributeTx(
+    formId: string,
+    callerWallet: string,
+    blockhash: string,
+  ): Promise<{
+    tx: string;
+    participantWallets: string[];
+    amounts: number[];
+  }> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'BUILD_DISTRIBUTE_TX_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can distribute rewards.',
+      );
+    }
+
+    return this.surveyLifecycleService.buildDistributeTx(
+      formId,
+      callerWallet,
+      blockhash,
+    );
+  }
+
+  /**
+   * Confirm distribution after the on-chain transaction has been sent.
+   */
+  async confirmDistribute(
+    formId: string,
+    callerWallet: string,
+    participantWallets: string[],
+    amounts: number[],
+    txSignature: string,
+  ): Promise<void> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'CONFIRM_DISTRIBUTE_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can confirm distribution.',
+      );
+    }
+
+    await this.surveyLifecycleService.confirmDistribute(
+      formId,
+      callerWallet,
+      participantWallets,
+      amounts,
+      txSignature,
+    );
   }
 }

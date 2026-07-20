@@ -10,7 +10,9 @@ function isOriginAllowed(
   const allowedOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : []),
+    ...(process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
+      : []),
   ];
 
   if (!origin) {
@@ -28,7 +30,7 @@ function isOriginAllowed(
   if (isAllowed) {
     callback(null, true);
   } else {
-    callback(new Error('Not allowed by CORS'));
+    callback(new Error('Not allowed by CORS'), false);
   }
 }
 

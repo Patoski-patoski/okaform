@@ -5,6 +5,7 @@ import { Form } from '../common/schemas/form.schema';
 import { SurveyResponse } from '../common/schemas/response.schema';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { SolanaService } from '../solana/solana.service';
+import { SurveyLifecycleService } from './survey-lifecycle.service';
 
 describe('FormsService', () => {
   let service: FormsService;
@@ -76,6 +77,13 @@ describe('FormsService', () => {
             aggregate: jest.fn().mockReturnValue({
               exec: jest.fn().mockResolvedValue([]),
             }),
+          },
+        },
+        {
+          provide: SurveyLifecycleService,
+          useValue: {
+            buildCloseTx: jest.fn(),
+            confirmClose: jest.fn(),
           },
         },
       ],
