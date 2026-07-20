@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FormsController } from './forms.controller';
 import { FormsService } from './forms.service';
+import { SurveyLifecycleService } from './survey-lifecycle.service';
 import { Form, FormSchema } from '../common/schemas/form.schema';
 import {
   SurveyResponse,
   ResponseSchema,
 } from '../common/schemas/response.schema';
 import { SolanaModule } from '../solana/solana.module';
-import { SubmissionsModule } from '../submissions/submissions.module';
 
 @Module({
   imports: [
@@ -17,10 +17,9 @@ import { SubmissionsModule } from '../submissions/submissions.module';
       { name: SurveyResponse.name, schema: ResponseSchema },
     ]),
     SolanaModule,
-    SubmissionsModule,
   ],
   controllers: [FormsController],
-  providers: [FormsService],
-  exports: [FormsService],
+  providers: [FormsService, SurveyLifecycleService],
+  exports: [FormsService, SurveyLifecycleService],
 })
 export class FormsModule {}

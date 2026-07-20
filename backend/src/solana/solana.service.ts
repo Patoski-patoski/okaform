@@ -71,9 +71,7 @@ export class SolanaService {
       new anchor.Wallet(this.authorityKeypair),
       { commitment: 'confirmed' },
     );
-    anchor.setProvider(provider);
-
-    this.program = new anchor.Program(okaformIdl);
+    this.program = new anchor.Program(okaformIdl, provider);
 
     this.logger.log({
       event: 'SOLANA_SERVICE_INIT',
@@ -197,6 +195,52 @@ export class SolanaService {
         error: error instanceof Error ? error.message : String(error),
       });
       throw new RpcErrorException('initializeSurvey');
+    }
+  }
+
+  /**
+   * Close a survey on-chain. Sets is_active = false.
+   * Called automatically when max responses is reached.
+   */
+  async closeSurvey(
+    creatorWallet: string,
+    surveyId: string,
+  ): Promise<{ txSignature: string }> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+
+    this.logger.log({
+      event: 'CLOSE_SURVEY_START',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+    });
+
+    try {
+      const tx = await this.program.methods
+        .closeSurvey(Buffer.from(surveyIdBytes))
+        .accounts({
+          creator: creatorPubkey,
+          survey: surveyPda,
+        })
+        .rpc();
+
+      this.logger.log({
+        event: 'CLOSE_SURVEY_SUCCESS',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        txSignature: tx,
+      });
+
+      return { txSignature: tx };
+    } catch (error) {
+      this.logger.error({
+        event: 'CLOSE_SURVEY_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('closeSurvey');
     }
   }
 
