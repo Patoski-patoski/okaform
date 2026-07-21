@@ -188,9 +188,32 @@ export class SurveyLifecycleService {
       throw new Error('Only the form creator can confirm distribution');
     }
 
+    if (form.rewardDistributed) {
+      this.logger.warn({
+        event: 'DISTRIBUTE_ALREADY_DISTRIBUTED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new Error(
+        'Rewards have already been fully distributed for this survey',
+      );
+    }
+
+    if (participantWallets.length !== amounts.length) {
+      this.logger.warn({
+        event: 'CONFIRM_DISTRIBUTE_ARRAY_MISMATCH',
+        formId,
+        wallets: participantWallets.length,
+        amounts: amounts.length,
+      });
+      throw new Error(
+        `Participant wallets (${participantWallets.length}) and amounts (${amounts.length}) must have the same length`,
+      );
+    }
+
     // Validate: fetch undistributed responses and ensure provided wallets are a subset
     const undistributed = await this.responseModel
-      .find({ formId, distributed: false })
+      .find({ formId, distributed: { $ne: true } })
       .lean()
       .exec();
 
@@ -242,6 +265,7 @@ export class SurveyLifecycleService {
 
     await this.responseModel.bulkWrite(bulkOps);
 
+    // Mark form as distributed after successful distribution
     form.rewardDistributed = true;
     await form.save();
 
@@ -251,6 +275,7 @@ export class SurveyLifecycleService {
       txSignature,
       distributed: amounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
       participants: participantWallets.length,
+      fullyDistributed: participantWallets.length === undistributed.length,
     });
   }
 
