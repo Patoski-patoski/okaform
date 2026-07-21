@@ -53,6 +53,7 @@ export interface FormListItem {
   createdAt: string;
   closesAt: string | null;
   previewQuestion: string;
+  rewardDistributed: boolean;
 }
 
 export interface FormDetailQuestion {
@@ -70,6 +71,7 @@ export interface FormDetailQuestion {
 }
 
 export interface FormDetail extends FormListItem {
+  creator: string;
   questions: FormDetailQuestion[];
   minWalletAge: number;
   minSolBalance: number;

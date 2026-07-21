@@ -1,4 +1,9 @@
-import { Injectable, Logger, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ConflictException,
+  HttpStatus,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { SurveyResponse } from '../common/schemas/response.schema';
@@ -7,6 +12,7 @@ import { SurveyLifecycleService } from '../forms/survey-lifecycle.service';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { FormClosedException } from '../common/exceptions/form/form-closed.exception';
 import { FormFullException } from '../common/exceptions/form/form-full.exception';
+import { OkaformException } from '../common/exceptions/base.exception';
 
 export interface SubmissionItem {
   id: string;
@@ -40,7 +46,27 @@ export class SubmissionsService {
       throw new FormNotFoundException(formId);
     }
 
-    // Guard 2: Form must still be active
+    // Guard 2: Creator cannot respond to their own survey
+    if (respondentWallet === form.creator) {
+      this.logger.warn({
+        event: 'CREATOR_SUBMISSION_BLOCKED',
+        formId,
+        wallet: respondentWallet.slice(0, 8) + '...',
+      });
+      throw new OkaformException(
+        {
+          code: 'CREATOR_CANNOT_RESPOND',
+          detail: 'You cannot submit a response to your own survey.',
+          context: {
+            formId,
+            respondentWallet: respondentWallet.slice(0, 8) + '...',
+          },
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Guard 3: Form must still be active
     if (form.status !== 'active') {
       throw new FormClosedException(formId);
     }
@@ -80,7 +106,16 @@ export class SubmissionsService {
     });
 
     // Fire-and-forget: check if survey should be auto-closed and rewards distributed
-    void this.surveyLifecycleService.checkAndCloseIfFull(formId);
+    // Attach .catch() to prevent unhandled promise rejections
+    void this.surveyLifecycleService
+      .checkAndCloseIfFull(formId)
+      .catch((error) => {
+        this.logger.error({
+          event: 'AUTO_CLOSE_BACKGROUND_FAILED',
+          formId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
 
     return {
       id: String(saved._id),

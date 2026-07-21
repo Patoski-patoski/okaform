@@ -20,4 +20,6 @@ pub enum OkaformError {
     NoParticipants,
     #[msg("Invalid reward type")]
     InvalidRewardType,
+    #[msg("Survey creator cannot be a respondent on their own survey")]
+    CreatorCannotBeRespondent,
 }

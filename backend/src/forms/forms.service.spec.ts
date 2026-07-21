@@ -163,6 +163,7 @@ describe('FormsService', () => {
         createdAt: expect.any(Date),
         closesAt: null,
         previewQuestion: '',
+        rewardDistributed: false,
       });
       expect(formModel.find).toHaveBeenCalledWith({
         creator: 'wallet123',
@@ -227,6 +228,7 @@ describe('FormsService', () => {
       expect(result).toEqual({
         id: 'form123',
         title: 'Test Survey',
+        creator: 'wallet123',
         status: 'active',
         organization: '',
         rewardPool: 10,
@@ -236,13 +238,20 @@ describe('FormsService', () => {
         createdAt: expect.any(Date),
         closesAt: null,
         previewQuestion: '',
+        rewardDistributed: false,
         questions: [
           {
             id: 'q1',
             type: 'short_text',
             label: 'What is your name?',
+            placeholder: undefined,
             required: true,
             options: [],
+            minWords: undefined,
+            maxWords: undefined,
+            ratingMax: undefined,
+            lowLabel: undefined,
+            highLabel: undefined,
           },
         ],
         minWalletAge: 0,

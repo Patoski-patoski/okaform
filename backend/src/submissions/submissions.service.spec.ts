@@ -51,7 +51,7 @@ describe('SubmissionsService', () => {
     };
 
     surveyLifecycleService = {
-      checkAndCloseIfFull: jest.fn(),
+      checkAndCloseIfFull: jest.fn().mockResolvedValue(false),
     } as unknown as jest.Mocked<SurveyLifecycleService>;
 
     const module: TestingModule = await Test.createTestingModule({

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, ShieldX, ArrowRight } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
@@ -182,6 +182,34 @@ export default function SurveyFill() {
         <Button variant="primary" onClick={() => window.location.reload()}>
           Retry
         </Button>
+      </div>
+    );
+  }
+
+  const isCreator =
+    publicKey !== null &&
+    publicKey.toBase58() === form.creator;
+
+  if (isCreator) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ok-bg px-4">
+        <div className="w-full max-w-md rounded border border-ok-danger/20 bg-ok-surface p-8 text-center">
+          <ShieldX className="mx-auto mb-4 h-10 w-10 text-ok-danger/60" />
+          <h2 className="mb-2 font-display text-lg font-semibold text-ok-text">
+            You created this survey
+          </h2>
+          <p className="mb-6 text-sm text-ok-muted">
+            Survey creators cannot submit responses to their own surveys.
+            This protects the integrity of your community data.
+          </p>
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-2 rounded bg-ok-green/10 px-4 py-2 font-mono text-sm text-ok-green hover:bg-ok-green/20 transition-colors"
+          >
+            Go to Dashboard
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     );
   }
