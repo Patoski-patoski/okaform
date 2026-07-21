@@ -43,9 +43,9 @@ export class SurveyLifecycleService {
     }
 
     // Count actual responses from the responses collection — the only source of truth.
-    // The denormalized form.responseCount field is never updated and must not be used here.
+    // Use the string formId (MongoDB _id as string) to match how submissions store it.
     const responseCount = await this.responseModel
-      .countDocuments({ formId: form._id })
+      .countDocuments({ formId: formId })
       .exec();
     const maxResponses = form.maxResponses;
 
@@ -174,6 +174,7 @@ export class SurveyLifecycleService {
   /**
    * Confirm distribution after the on-chain transaction has been sent.
    * Marks responses as distributed in the database.
+   * Validates that the provided wallets and amounts match the undistributed responses.
    */
   async confirmDistribute(
     formId: string,
@@ -185,6 +186,43 @@ export class SurveyLifecycleService {
     const form = await this.formModel.findById(formId).exec();
     if (!form || form.creator !== callerWallet) {
       throw new Error('Only the form creator can confirm distribution');
+    }
+
+    // Validate: fetch undistributed responses and ensure provided wallets are a subset
+    const undistributed = await this.responseModel
+      .find({ formId, distributed: false })
+      .lean()
+      .exec();
+
+    const undistributedWallets = new Set(
+      undistributed.map((r) => r.respondentWallet),
+    );
+
+    // Validate all provided wallets are actually undistributed respondents
+    for (const wallet of participantWallets) {
+      if (!undistributedWallets.has(wallet)) {
+        this.logger.warn({
+          event: 'CONFIRM_DISTRIBUTE_INVALID_WALLET',
+          formId,
+          wallet: wallet.slice(0, 8) + '...',
+        });
+        throw new Error(
+          `Wallet ${wallet.slice(0, 8)}... is not an undistributed respondent`,
+        );
+      }
+    }
+
+    // Validate amounts sum doesn't exceed what's in escrow (rough check)
+    const totalAmount = amounts.reduce((s, a) => s + a, 0);
+    const escrowLamports = form.rewardPool * LAMPORTS_PER_SOL;
+    if (totalAmount > escrowLamports) {
+      this.logger.warn({
+        event: 'CONFIRM_DISTRIBUTE_EXCEEDS_ESCROW',
+        formId,
+        totalAmount,
+        escrowLamports,
+      });
+      throw new Error('Total distribution amount exceeds escrow balance');
     }
 
     const now = new Date();
@@ -203,6 +241,9 @@ export class SurveyLifecycleService {
     }));
 
     await this.responseModel.bulkWrite(bulkOps);
+
+    form.rewardDistributed = true;
+    await form.save();
 
     this.logger.log({
       event: 'DISTRIBUTE_CONFIRMED',

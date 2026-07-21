@@ -73,6 +73,11 @@ pub fn process_register_participant(
 ) -> Result<()> {
     
     let survey: &mut Account<'_, SurveyAccount> = &mut ctx.accounts.survey;
+
+    require!(
+        ctx.accounts.respondent.key() != survey.creator,
+        OkaformError::CreatorCannotBeRespondent
+    );
      
     require!(survey.is_active, OkaformError::SurveyNotActive);
     require!(

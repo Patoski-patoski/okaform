@@ -159,6 +159,9 @@ export class Form {
   @Prop({ default: '' })
   previewQuestion!: string;
 
+  @Prop({ default: false })
+  rewardDistributed!: boolean;
+
   @Prop({ type: OnChainDataSchema, default: null })
   onChain?: OnChainData;
 }

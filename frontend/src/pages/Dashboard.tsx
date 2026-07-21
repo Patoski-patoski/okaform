@@ -64,6 +64,7 @@ interface Survey {
   rewardPool: number;
   rewardType: "weighted" | "lottery";
   createdAt: string;
+  rewardDistributed: boolean;
 }
 
 const SIDEBAR_NAV = [
@@ -433,7 +434,7 @@ function SurveysTable({
                         Close
                       </button>
                     )}
-                    {survey.status === "closed" && (
+                    {survey.status === "closed" && !survey.rewardDistributed && (
                       <button
                         onClick={() => onDistributeRequest(survey.id)}
                         disabled={isDistributing}
@@ -446,6 +447,12 @@ function SurveysTable({
                         )}
                         Distribute
                       </button>
+                    )}
+                    {survey.status === "closed" && survey.rewardDistributed && (
+                      <span className="inline-flex items-center gap-1.5 rounded border border-[#3D444D]/50 bg-[#151B23]/30 px-2.5 py-1.5 font-mono text-[10px] text-[#656C76]">
+                        <CheckCircle2 className="h-3 w-3 text-ok-green/60" />
+                        Distributed
+                      </span>
                     )}
                   </div>
                 </td>
@@ -949,6 +956,7 @@ export default function Dashboard() {
             rewardPool: f.rewardPool,
             rewardType: f.rewardType as "weighted" | "lottery",
             createdAt: f.createdAt,
+            rewardDistributed: f.rewardDistributed,
           }))
         );
       } catch {
@@ -1035,7 +1043,14 @@ export default function Dashboard() {
       const signed = await signTransaction(tx);
       const txSignature = await connection.sendRawTransaction(signed.serialize());
 
+      // Wait for transaction confirmation before marking as distributed
+      await connection.confirmTransaction(txSignature, 'confirmed');
+
       await confirmDistribute(surveyId, result.participantWallets, result.amounts, txSignature);
+
+      setSurveys((prev) =>
+        prev.map((s) => (s.id === surveyId ? { ...s, rewardDistributed: true } : s))
+      );
     } catch (err) {
       console.error("Failed to distribute rewards:", err);
     } finally {

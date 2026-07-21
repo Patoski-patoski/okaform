@@ -39,9 +39,11 @@ export interface FormListItem {
   createdAt: Date;
   closesAt: string | null;
   previewQuestion: string;
+  rewardDistributed: boolean;
 }
 
 export interface FormDetail extends FormListItem {
+  creator: string;
   questions: Array<{
     id: string;
     type: string;
@@ -245,6 +247,7 @@ export class FormsService {
       createdAt: form.createdAt ?? new Date(),
       closesAt: form.closesAt?.toISOString() ?? null,
       previewQuestion: form.previewQuestion,
+      rewardDistributed: form.rewardDistributed ?? false,
     }));
   }
 
@@ -267,6 +270,7 @@ export class FormsService {
     return {
       id: String(form._id),
       title: form.title,
+      creator: form.creator,
       status: form.status,
       organization: form.organization,
       rewardPool: form.rewardPool,
@@ -276,6 +280,7 @@ export class FormsService {
       createdAt: form.createdAt ?? new Date(),
       closesAt: form.closesAt?.toISOString() ?? null,
       previewQuestion: form.previewQuestion,
+      rewardDistributed: form.rewardDistributed ?? false,
       questions: form.questions.map((q) => ({
         id: q.id,
         type: q.type,
