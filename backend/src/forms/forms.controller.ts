@@ -7,6 +7,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -28,10 +29,15 @@ import { TypeBoxValidationPipe } from '../common/pipes/typebox-validation.pipe';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { UserProfile } from '../common/decorators/current-user.decorator';
+import { DistributionService } from '../distribution/distribution.service';
+import type { DistributionRecord } from '../distribution/distribution.schema';
 
 @Controller('forms')
 export class FormsController {
-  constructor(private readonly formsService: FormsService) {}
+  constructor(
+    private readonly formsService: FormsService,
+    private readonly distributionService: DistributionService,
+  ) {}
 
   @Post('build-init-tx')
   @UseGuards(JwtAuthGuard)
@@ -122,5 +128,21 @@ export class FormsController {
   @Get(':id')
   async getFormById(@Param('id') id: string): Promise<FormDetail> {
     return await this.formsService.getFormById(id);
+  }
+
+  @Get(':formId/distribution')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async getDistribution(
+    @Param('formId') formId: string,
+    @CurrentUser() user: UserProfile,
+  ): Promise<DistributionRecord[]> {
+    const form = await this.formsService.getFormById(formId);
+    if (form.creator !== user.wallet) {
+      throw new ForbiddenException(
+        'Only the form creator can view distribution records.',
+      );
+    }
+    return await this.distributionService.getDistributionByForm(formId);
   }
 }

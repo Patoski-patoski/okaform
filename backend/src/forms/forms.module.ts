@@ -9,6 +9,7 @@ import {
   ResponseSchema,
 } from '../common/schemas/response.schema';
 import { SolanaModule } from '../solana/solana.module';
+import { DistributionModule } from '../distribution/distribution.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { SolanaModule } from '../solana/solana.module';
       { name: SurveyResponse.name, schema: ResponseSchema },
     ]),
     SolanaModule,
+    DistributionModule,
   ],
   controllers: [FormsController],
   providers: [FormsService, SurveyLifecycleService],

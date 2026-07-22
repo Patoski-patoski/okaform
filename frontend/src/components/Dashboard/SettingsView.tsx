@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Copy,
   Check,
   AlertTriangle,
   LogOut,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/okaform";
 import { truncateAddress, getBadgeTier } from "@/components/okaform";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
+import { getUserEarnings } from "@/lib/distribution";
+import type { DistributionRecord } from "@/types/distribution";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,11 +43,23 @@ export default function SettingsView() {
   const [username, setUsername] = useState(user?.username ?? "");
   const [confirmDeleteData, setConfirmDeleteData] = useState(false);
   const [confirmCloseAll, setConfirmCloseAll] = useState(false);
+  const [earningsRecords, setEarningsRecords] = useState<DistributionRecord[]>([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+  const [earningsLimit, setEarningsLimit] = useState(10);
 
   const wallet = publicKey?.toBase58() ?? "";
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
   const surveysCompleted = user?.surveysCompleted ?? 0;
+
+  useEffect(() => {
+    if (!wallet) return;
+    setEarningsLoading(true);
+    getUserEarnings(wallet)
+      .then((data) => setEarningsRecords(data))
+      .catch(() => {})
+      .finally(() => setEarningsLoading(false));
+  }, [wallet]);
 
   const tierNames: Record<string, string> = {
     grey: "Ghost",
@@ -159,6 +175,78 @@ export default function SettingsView() {
                 <button className="mt-2 font-mono text-[10px] text-ok-green transition-colors hover:text-[#10C97A]">
                   View your on-chain score →
                 </button>
+              </div>
+
+              {/* Earnings History */}
+              <div className="border-t border-[#3D444D]/30 pt-5">
+                <label className="mb-3 block font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
+                  EARNINGS HISTORY
+                </label>
+                {earningsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-ok-dim" />
+                  </div>
+                ) : earningsRecords.length === 0 ? (
+                  <p className="text-xs text-[#656C76]">
+                    No earnings yet. Complete surveys to start earning SOL.
+                  </p>
+                ) : (
+                  <div>
+                    {earningsRecords.slice(0, earningsLimit).map((record) => (
+                      <div
+                        key={record.txSignature + record.recipientWallet}
+                        className="flex items-start justify-between border-b border-[#3D444D]/20 py-3 last:border-b-0"
+                      >
+                        <div className="space-y-0.5">
+                          <p className="font-mono text-xs font-medium text-[#F0F6F6]">
+                            {record.formId}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              tier={
+                                record.badgeTier.toLowerCase() as
+                                  | "grey"
+                                  | "blue"
+                                  | "green"
+                                  | "gold"
+                                  | "diamond"
+                              }
+                              className="scale-90 origin-left"
+                            />
+                            <span className="font-mono text-[10px] text-[#656C76]">
+                              {formatRelativeTime(
+                                new Date(record.distributedAt),
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono text-sm font-bold text-ok-green">
+                            ◎{" "}
+                            {(record.amountLamports / 1e9).toFixed(4)}
+                          </p>
+                          <a
+                            href={record.explorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-end gap-1 font-mono text-[10px] text-[#656C76] hover:text-ok-green transition-colors"
+                          >
+                            View tx
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                    {earningsRecords.length > earningsLimit && (
+                      <button
+                        onClick={() => setEarningsLimit((prev) => prev + 10)}
+                        className="mt-3 w-full rounded border border-[#3D444D]/50 bg-transparent px-3 py-2 font-mono text-[10px] text-[#656C76] hover:text-[#F0F6F6] transition-colors"
+                      >
+                        Load more ({earningsRecords.length - earningsLimit} remaining)
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Save Button */}

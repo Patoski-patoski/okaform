@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { DistributionService } from '../distribution/distribution.service';
 import {
   jest,
   describe,
@@ -32,6 +33,12 @@ describe('UsersController', () => {
             getProfileByWallet: jest.fn(),
             setUsername: jest.fn(),
             getSurveyHistory: jest.fn(),
+          },
+        },
+        {
+          provide: DistributionService,
+          useValue: {
+            getEarningsByWallet: jest.fn(),
           },
         },
       ],

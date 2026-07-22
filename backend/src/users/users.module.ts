@@ -7,6 +7,7 @@ import {
   SurveyResponse,
   ResponseSchema,
 } from '../common/schemas/response.schema';
+import { DistributionModule } from '../distribution/distribution.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import {
       { name: User.name, schema: UserSchema },
       { name: SurveyResponse.name, schema: ResponseSchema },
     ]),
+    DistributionModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],
