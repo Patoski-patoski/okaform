@@ -20,7 +20,7 @@ export class DistributionRecord {
   @Prop({ required: true })
   badgeTier!: string;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   txSignature!: string;
 
   @Prop({ required: true })
@@ -36,4 +36,7 @@ export class DistributionRecord {
 export const DistributionRecordSchema =
   SchemaFactory.createForClass(DistributionRecord);
 
-DistributionRecordSchema.index({ formId: 1, recipientWallet: 1 });
+DistributionRecordSchema.index(
+  { formId: 1, recipientWallet: 1, txSignature: 1 },
+  { unique: true },
+);

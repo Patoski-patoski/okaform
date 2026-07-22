@@ -84,7 +84,7 @@ function Home() {
                       Jupiter Community Pulse
                     </h3>
                     <p className="mt-1 font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
-                      Q2 2025 Governance Feedback
+                      Q2 {new Date().getFullYear()} Governance Feedback
                     </p>
                   </div>
                   <span className="rounded border border-ok-green/20 bg-ok-green/10 px-2 py-0.5 font-mono text-[9px] text-ok-green uppercase tracking-wider">

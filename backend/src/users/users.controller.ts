@@ -7,6 +7,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -64,7 +65,11 @@ export class UsersController {
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async getEarnings(
     @Param('wallet') wallet: string,
+    @CurrentUser() user: UserProfile,
   ): Promise<DistributionRecord[]> {
+    if (user.wallet !== wallet) {
+      throw new ForbiddenException('You can only view your own earnings.');
+    }
     return await this.distributionService.getEarningsByWallet(wallet);
   }
 }

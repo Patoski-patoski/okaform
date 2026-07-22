@@ -168,6 +168,36 @@ function Sidebar({
         })}
       </nav>
 
+      {/* External Navigation */}
+      <div className="border-t border-[#3D444D]/50 px-4 py-3">
+        <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[#656C76]">
+          Navigation
+        </p>
+        <div className="space-y-1">
+          <Link
+            to="/"
+            className="flex items-center gap-2 rounded px-3 py-1.5 font-mono text-[11px] text-[#656C76] transition-colors hover:bg-[#151B23]/50 hover:text-[#F0F6F6]"
+          >
+            <Home className="h-3 w-3" />
+            Site Home
+          </Link>
+          <Link
+            to="/explore"
+            className="flex items-center gap-2 rounded px-3 py-1.5 font-mono text-[11px] text-[#656C76] transition-colors hover:bg-[#151B23]/50 hover:text-[#F0F6F6]"
+          >
+            <Search className="h-3 w-3" />
+            Explore Surveys
+          </Link>
+          <Link
+            to="/pricing"
+            className="flex items-center gap-2 rounded px-3 py-1.5 font-mono text-[11px] text-[#656C76] transition-colors hover:bg-[#151B23]/50 hover:text-[#F0F6F6]"
+          >
+            <BarChart3 className="h-3 w-3" />
+            Pricing
+          </Link>
+        </div>
+      </div>
+
       {/* Wallet / Reputation */}
       <div className="border-t border-[#3D444D]/50 p-4">
         {!connected ? (

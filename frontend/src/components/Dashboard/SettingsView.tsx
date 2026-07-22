@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/okaform";
 import { truncateAddress, getBadgeTier } from "@/components/okaform";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
 import { getUserEarnings } from "@/lib/distribution";
@@ -30,16 +30,6 @@ const SETTINGS_NAV = [
 ] as const;
 
 const AUTHORITY_KEY = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V";
-
-function formatRelativeTime(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (days > 0) return `${days}${days === 1 ? " day ago" : " days ago"}`;
-  if (hours > 0) return `${hours}${hours === 1 ? " hour ago" : " hours ago"}`;
-  return `${mins}${mins === 1 ? " minute ago" : " minutes ago"}`;
-}
 
 // ─── SettingsView component ────────────────────────────────────────────────────
 

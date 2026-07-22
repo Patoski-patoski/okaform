@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { WalletContextProvider } from "./components/WalletProvider";
-import { AuthProvider } from "./components/AuthProvider";
+import { AuthProvider, useAuth } from "./components/AuthProvider";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
@@ -10,6 +10,7 @@ import FormBuilder from "./pages/FormBuilder";
 import HowItWorks from "./pages/HowItWorks";
 import Explore from "./pages/Explore";
 import Pricing from "./pages/Pricing";
+import { Loader2 } from "lucide-react";
 
 // Clean up old UUID-based drafts on app load
 function useCleanupOldDrafts() {
@@ -23,6 +24,28 @@ function useCleanupOldDrafts() {
   }, []);
 }
 
+function IndexRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#0D1117]">
+        <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return (
+    <Layout>
+      <Home />
+    </Layout>
+  );
+}
+
 export default function App() {
   useCleanupOldDrafts();
 
@@ -30,18 +53,8 @@ export default function App() {
     <WalletContextProvider>
       <AuthProvider>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <Layout>
-                <Home />
-              </Layout>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={<Dashboard />}
-          />
+          <Route path="/" element={<IndexRoute />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route
             path="/how-it-works"
             element={<HowItWorks />}

@@ -11,16 +11,7 @@ import {
   Check,
 } from "lucide-react";
 import { Badge } from "@/components/okaform";
-
-function formatRelativeTime(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (days > 0) return `${days}${days === 1 ? " day ago" : " days ago"}`;
-  if (hours > 0) return `${hours}${hours === 1 ? " hour ago" : " hours ago"}`;
-  return `${mins}${mins === 1 ? " minute ago" : " minutes ago"}`;
-}
+import { formatRelativeTime } from "@/lib/utils";
 
 function exportCSV(records: DistributionRecord[], formId: string) {
   const headers = [
