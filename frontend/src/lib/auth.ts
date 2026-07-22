@@ -45,3 +45,12 @@ export async function logout(): Promise<void> {
     method: "POST",
   });
 }
+
+export async function setUsername(
+  username: string,
+): Promise<{ wallet: string; username: string }> {
+  return api<{ wallet: string; username: string }>("/users/username", {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}

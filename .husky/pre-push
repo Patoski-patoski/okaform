@@ -1,2 +1,2 @@
 cd backend && bun run format && bun run lint && bun run test
-cd frontend && bun run format && bun run lint
+cd ../frontend && bun run lint

@@ -135,7 +135,7 @@ function ProtocolLogo({ name, color }: { name: string; color: string }) {
 function WalletBadge() {
   const { connected, publicKey, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
-  const { isAuthenticated, isLoading, login, logout } = useAuth();
+  const { isAuthenticated, isLoading, login, logout, user } = useAuth();
   const [copied, setCopied] = useState(false);
 
   if (isLoading) {
@@ -171,7 +171,6 @@ function WalletBadge() {
   }
 
   const wallet = publicKey?.toBase58() ?? "";
-  const { user } = useAuth();
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
   const truncated = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;

@@ -19,6 +19,9 @@ export class User {
   @Prop({ default: null })
   username?: string;
 
+  @Prop({ type: Date, default: null })
+  usernameUpdatedAt?: Date | null;
+
   @Prop({ default: 0 })
   globalScore!: number;
 
