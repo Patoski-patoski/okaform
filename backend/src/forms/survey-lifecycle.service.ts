@@ -4,6 +4,10 @@ import type { Model } from 'mongoose';
 import { Form } from '../common/schemas/form.schema';
 import { SurveyResponse } from '../common/schemas/response.schema';
 import { SolanaService } from '../solana/solana.service';
+import {
+  DistributionService,
+  badgeTierFromScore,
+} from '../distribution/distribution.service';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
@@ -20,6 +24,7 @@ export class SurveyLifecycleService {
     @InjectModel(SurveyResponse.name)
     private responseModel: Model<SurveyResponse>,
     private readonly solanaService: SolanaService,
+    private readonly distributionService: DistributionService,
   ) {}
 
   /**
@@ -265,9 +270,35 @@ export class SurveyLifecycleService {
 
     await this.responseModel.bulkWrite(bulkOps);
 
-    // Mark form as distributed after successful distribution
-    form.rewardDistributed = true;
-    await form.save();
+    const scoreMap = new Map(
+      undistributed.map((r) => [r.respondentWallet, r.scoreAtSubmission || 0]),
+    );
+
+    const distributionRecords = participantWallets.map((wallet, i) => ({
+      formId,
+      surveyPda: form.onChain?.surveyPda ?? '',
+      recipientWallet: wallet,
+      amountLamports: amounts[i],
+      badgeTier: badgeTierFromScore(scoreMap.get(wallet) ?? 0),
+      txSignature,
+      rewardType: form.rewardType,
+    }));
+
+    void this.distributionService.saveDistributionRecords(distributionRecords);
+
+    this.logger.log({
+      event: 'DISTRIBUTION_RECORDS_SAVED',
+      formId,
+      count: distributionRecords.length,
+      txSignature,
+    });
+
+    // Only mark fully distributed when all undistributed responses have been distributed
+    const fullyDistributed = participantWallets.length === undistributed.length;
+    if (fullyDistributed) {
+      form.rewardDistributed = true;
+      await form.save();
+    }
 
     this.logger.log({
       event: 'DISTRIBUTE_CONFIRMED',
@@ -275,7 +306,7 @@ export class SurveyLifecycleService {
       txSignature,
       distributed: amounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
       participants: participantWallets.length,
-      fullyDistributed: participantWallets.length === undistributed.length,
+      fullyDistributed,
     });
   }
 

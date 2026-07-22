@@ -21,6 +21,7 @@ import {
   Activity,
   Database,
   Gift,
+  Menu,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ import { Transaction } from "@solana/web3.js";
 import HomeView from "@/components/Dashboard/HomeView";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
+import DistributionTab from "@/components/DistributionTab";
 import { getForms, getSubmissions, getFormById, buildCloseTx, confirmClose, buildDistributeTx, confirmDistribute } from "@/lib/forms";
 import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
 
@@ -80,9 +82,13 @@ const SIDEBAR_NAV = [
 function Sidebar({
   activeNav,
   onNavChange,
+  open,
+  onToggle,
 }: {
   activeNav: string;
   onNavChange: (id: string) => void;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const { connected, publicKey, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
@@ -103,11 +109,24 @@ function Sidebar({
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-[#3D444D] bg-[#0D1117]">
-      {/* Logo */}
-      <Link to="/" className="flex h-16 items-center border-b border-[#3D444D]/50 px-6 no-underline">
-        <OkaformLogo height={48} />
-      </Link>
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-[#3D444D] bg-[#0D1117] transition-transform duration-200",
+        open ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
+      {/* Logo + close */}
+      <div className="flex h-16 items-center justify-between border-b border-[#3D444D]/50 px-4">
+        <Link to="/" className="no-underline">
+          <OkaformLogo height={48} />
+        </Link>
+        <button
+          onClick={onToggle}
+          className="rounded p-1 text-[#656C76] hover:text-[#F0F6F6] transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Nav items */}
       <nav className="flex-1 space-y-1.5 px-4 py-6">
@@ -749,19 +768,6 @@ function AnalyticsTab({ formId }: { formId: string }) {
   );
 }
 
-// ─── Distribution tab ──────────────────────────────────────────────────────────
-
-function DistributionTab({ formId: _formId }: { formId: string }) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <Database className="h-8 w-8 text-[#656C76]/30" />
-      <p className="font-mono text-xs text-[#9198A1]">
-        Distribution history will appear here once rewards are distributed.
-      </p>
-    </div>
-  );
-}
-
 // ─── Settings tab (placeholder) ────────────────────────────────────────────────
 
 function SettingsTab() {
@@ -941,6 +947,7 @@ export default function Dashboard() {
   const [isDistributing, setIsDistributing] = useState(false);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const fetchForms = async () => {
@@ -1060,19 +1067,34 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0D1117]">
+      {/* Sidebar toggle when closed */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="fixed left-4 top-4 z-50 rounded border border-[#3D444D] bg-[#0D1117] p-2 text-[#656C76] hover:text-[#F0F6F6] transition-colors"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
+
       <Sidebar
         activeNav={activeNav}
         onNavChange={handleNavChange}
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen(false)}
       />
 
       {/* Main content */}
-      <main className="ml-[240px] min-h-screen p-6 lg:p-8">
+      <main className={cn(
+        "min-h-screen p-6 transition-all duration-200 lg:p-8",
+        sidebarOpen ? "ml-[240px]" : "ml-0",
+      )}>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
           </div>
         ) : activeNav === "home" ? (
-          <HomeView surveys={surveys} />
+          <HomeView surveys={surveys} onNavChange={handleNavChange} />
         ) : activeNav === "analytics" ? (
           <AnalyticsView />
         ) : activeNav === "settings" ? (

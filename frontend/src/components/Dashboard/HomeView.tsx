@@ -61,7 +61,13 @@ interface SurveySummary {
 
 // ─── HomeView component ────────────────────────────────────────────────────────
 
-export default function HomeView({ surveys }: { surveys: SurveySummary[] }) {
+export default function HomeView({
+  surveys,
+  onNavChange,
+}: {
+  surveys: SurveySummary[];
+  onNavChange?: (id: string) => void;
+}) {
   const { publicKey } = useWallet();
   const { user } = useAuth();
 
@@ -102,12 +108,12 @@ export default function HomeView({ surveys }: { surveys: SurveySummary[] }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            to="/dashboard"
+          <button
+            onClick={() => onNavChange?.("settings")}
             className="inline-flex items-center gap-2 rounded border border-[#3D444D] bg-transparent px-4 py-2 font-mono text-xs text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
           >
             View Profile
-          </Link>
+          </button>
           <Link
             to="/create"
             className="inline-flex items-center gap-2 rounded bg-ok-green px-4 py-2 font-mono text-xs font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)]"

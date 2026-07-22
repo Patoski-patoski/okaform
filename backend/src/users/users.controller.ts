@@ -20,10 +20,15 @@ import { TypeBoxValidationPipe } from '../common/pipes/typebox-validation.pipe';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { UserProfile } from '../common/decorators/current-user.decorator';
+import { DistributionService } from '../distribution/distribution.service';
+import type { DistributionRecord } from '../distribution/distribution.schema';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly distributionService: DistributionService,
+  ) {}
 
   @Get(':wallet')
   @Throttle({ default: { limit: 30, ttl: 60000 } })
@@ -52,5 +57,14 @@ export class UsersController {
     @Param('wallet') wallet: string,
   ): Promise<SurveyHistoryItem[]> {
     return await this.usersService.getSurveyHistory(wallet);
+  }
+
+  @Get(':wallet/earnings')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async getEarnings(
+    @Param('wallet') wallet: string,
+  ): Promise<DistributionRecord[]> {
+    return await this.distributionService.getEarningsByWallet(wallet);
   }
 }
