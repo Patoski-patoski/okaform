@@ -7,8 +7,10 @@ import {
   ResponseDocument,
 } from '../common/schemas/response.schema';
 import { OkaformException } from '../common/exceptions/base.exception';
-import { UsernameAlreadySetException } from '../common/exceptions/auth/username-already-set.exception';
+import { UsernameCooldownException } from '../common/exceptions/auth/username-cooldown.exception';
 import { HttpStatus } from '@nestjs/common';
+
+const USERNAME_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface UserProfileResponse {
   wallet: string;
@@ -71,7 +73,7 @@ export class UsersService {
   async setUsername(
     wallet: string,
     username: string,
-  ): Promise<{ wallet: string; username: string }> {
+  ): Promise<{ wallet: string; username: string; cooldownDays?: number }> {
     const user = await this.userModel.findOne({ wallet });
     if (!user) {
       throw new NotFoundException(
@@ -79,16 +81,21 @@ export class UsersService {
       );
     }
 
-    if (user.username) {
-      throw new UsernameAlreadySetException(wallet);
+    if (user.username && user.usernameUpdatedAt) {
+      const elapsed = Date.now() - user.usernameUpdatedAt.getTime();
+      if (elapsed < USERNAME_COOLDOWN_MS) {
+        const daysLeft = Math.ceil((USERNAME_COOLDOWN_MS - elapsed) / 86400000);
+        throw new UsernameCooldownException(daysLeft);
+      }
     }
 
     const existing = await this.userModel.findOne({ username });
-    if (existing) {
+    if (existing && existing.wallet !== wallet) {
       throw new UsernameTakenException(username);
     }
 
     user.username = username;
+    user.usernameUpdatedAt = new Date();
     await user.save();
 
     this.logger.log({

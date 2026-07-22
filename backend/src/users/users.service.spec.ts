@@ -17,7 +17,7 @@ import {
   ResponseDocument,
 } from '../common/schemas/response.schema';
 import { UsernameTakenException } from './users.service';
-import { UsernameAlreadySetException } from '../common/exceptions/auth/username-already-set.exception';
+import { UsernameCooldownException } from '../common/exceptions/auth/username-cooldown.exception';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -27,10 +27,10 @@ describe('UsersService', () => {
   const mockUser: Partial<UserDocument> = {
     wallet: 'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
     username: 'testuser',
+    usernameUpdatedAt: new Date('2026-06-01'),
     globalScore: 75,
     surveysCompleted: 12,
     badgeTier: 'Oracle' as any,
-    // createdAt: new Date('2026-01-01'),
   };
 
   beforeEach(async () => {
@@ -128,25 +128,50 @@ describe('UsersService', () => {
       expect(userWithoutUsername.save).toHaveBeenCalled();
     });
 
-    it('should throw UsernameAlreadySetException if user already has username', async () => {
-      const userWithUsername = {
+    it('should throw UsernameCooldownException if username set recently', async () => {
+      const userWithRecentUsername = {
         ...mockUser,
         username: 'existingname',
+        usernameUpdatedAt: new Date(), // just now — cooldown not expired
+        save: jest.fn(),
       };
-      userModel.findOne.mockResolvedValue(userWithUsername as UserDocument);
+      userModel.findOne.mockResolvedValue(
+        userWithRecentUsername as UserDocument,
+      );
 
       await expect(
         service.setUsername(
           'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
           'newname',
         ),
-      ).rejects.toThrow(UsernameAlreadySetException);
+      ).rejects.toThrow(UsernameCooldownException);
+    });
+
+    it('should allow username change after cooldown period', async () => {
+      const userWithOldUsername = {
+        ...mockUser,
+        username: 'oldname',
+        usernameUpdatedAt: new Date('2025-01-01'), // over a year ago — cooldown expired
+        save: jest.fn(),
+      };
+      userModel.findOne
+        .mockResolvedValueOnce(userWithOldUsername as UserDocument) // find user
+        .mockResolvedValueOnce(null); // new username not taken
+
+      const result = await service.setUsername(
+        'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
+        'newname',
+      );
+
+      expect(result.username).toBe('newname');
+      expect(userWithOldUsername.save).toHaveBeenCalled();
     });
 
     it('should throw UsernameTakenException if username is taken by another user', async () => {
       const userWithoutUsername = {
         ...mockUser,
         username: null,
+        usernameUpdatedAt: null,
         save: jest.fn(),
       };
       const existingUser = {

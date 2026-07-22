@@ -12,6 +12,7 @@ import { truncateAddress, getBadgeTier } from "@/components/okaform";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
+import { setUsername as setUsernameApi } from "@/lib/auth";
 import { getUserEarnings } from "@/lib/distribution";
 import type { DistributionRecord } from "@/types/distribution";
 
@@ -46,6 +47,9 @@ export default function SettingsView() {
   const [earningsRecords, setEarningsRecords] = useState<DistributionRecord[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(false);
   const [earningsLimit, setEarningsLimit] = useState(10);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const wallet = publicKey?.toBase58() ?? "";
   const score = user?.globalScore ?? 0;
@@ -60,6 +64,23 @@ export default function SettingsView() {
       .catch(() => {})
       .finally(() => setEarningsLoading(false));
   }, [wallet]);
+
+  const handleSaveUsername = async () => {
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      await setUsernameApi(username);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save username";
+      setSaveError(message);
+      setTimeout(() => setSaveError(null), 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const tierNames: Record<string, string> = {
     grey: "Ghost",
@@ -250,9 +271,26 @@ export default function SettingsView() {
               </div>
 
               {/* Save Button */}
-              <div className="flex justify-end border-t border-[#3D444D]/30 pt-4">
-                <button className="rounded bg-ok-green px-4 py-2 font-mono text-xs font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)]">
-                  Save Changes
+              <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-4">
+                <div className="flex-1">
+                  {saveError && (
+                    <p className="font-mono text-[10px] text-ok-danger">{saveError}</p>
+                  )}
+                  {saveSuccess && (
+                    <p className="font-mono text-[10px] text-ok-green">Username saved</p>
+                  )}
+                </div>
+                <button
+                  onClick={handleSaveUsername}
+                  disabled={saving || !username.trim()}
+                  className="inline-flex items-center gap-1.5 rounded bg-ok-green px-4 py-2 font-mono text-xs font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {saving ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : saveSuccess ? (
+                    <Check className="h-3 w-3" />
+                  ) : null}
+                  {saving ? "Saving..." : saveSuccess ? "Saved" : "Save Changes"}
                 </button>
               </div>
             </div>

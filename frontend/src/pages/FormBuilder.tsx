@@ -1536,7 +1536,7 @@ export default function FormBuilder() {
     } finally {
       setInitializing(false);
     }
-  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate]);
+  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, publicKey, signTransaction, navigate]);
 
   return (
     <div className="flex h-screen flex-col bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
