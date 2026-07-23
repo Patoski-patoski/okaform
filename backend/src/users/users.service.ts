@@ -92,15 +92,10 @@ export class UsersService {
     }
 
     const existing = await this.userModel.findOne({
-      username: {
-        $regex: new RegExp(
-          `^${normalizedUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-          'i',
-        ),
-      },
+      username: normalizedUsername,
     });
     if (existing && existing.wallet !== wallet) {
-      throw new UsernameTakenException(normalizedUsername);
+      throw new UsernameTakenException(username);
     }
 
     user.username = normalizedUsername;
