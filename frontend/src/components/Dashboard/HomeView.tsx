@@ -10,8 +10,8 @@ import {
 } from "lucide-react";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
-import { truncateAddress, getBadgeTier } from "@/components/okaform";
-import { cn } from "@/lib/utils";
+import { getBadgeTier } from "@/components/okaform";
+import { cn, displayName } from "@/lib/utils";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 
 
@@ -104,7 +104,7 @@ export default function HomeView({
             Good morning, {greeting}{tierEmoji}
           </h1>
           <p className="mt-1 font-mono text-xs text-[#9198A1]">
-            {wallet ? truncateAddress(wallet) : "Not connected"} · Global Score: {score} · {surveysCompleted} surveys completed
+            {wallet ? displayName(user, wallet) : "Not connected"} · Global Score: {score} · {surveysCompleted} surveys completed
           </p>
         </div>
         <div className="flex items-center gap-3">

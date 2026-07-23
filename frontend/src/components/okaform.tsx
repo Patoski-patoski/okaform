@@ -176,6 +176,7 @@ function truncateAddress(address: string): string {
 interface WalletButtonProps {
   connected?: boolean;
   wallet?: string;
+  username?: string | null;
   score?: number;
   balance?: number | null;
   onClick?: () => void;
@@ -185,12 +186,17 @@ interface WalletButtonProps {
 function WalletButton({
   connected = false,
   wallet,
+  username,
   score = 0,
   balance,
   onClick,
   className,
 }: WalletButtonProps) {
   const [copied, setCopied] = useState(false);
+
+  const label = connected && wallet
+    ? username ?? truncateAddress(wallet)
+    : undefined;
 
   const handleCopyAddress = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -221,7 +227,7 @@ function WalletButton({
             onClick={handleCopyAddress}
             title="Click to copy"
           >
-            {copied ? 'Copied!' : truncateAddress(wallet)}
+            {copied ? 'Copied!' : label}
           </span>
         </span>
 
@@ -472,6 +478,7 @@ function Navbar({
         <WalletButton
           connected={connected && isAuthenticated}
           wallet={connected && isAuthenticated ? wallet : undefined}
+          username={connected && isAuthenticated ? user?.username : undefined}
           score={displayScore}
           balance={connected && isAuthenticated ? balance : null}
           onClick={handleWalletClick}

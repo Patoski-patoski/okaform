@@ -180,7 +180,7 @@ describe('UsersService', () => {
       };
       userModel.findOne
         .mockResolvedValueOnce(userWithoutUsername as UserDocument) // find user
-        .mockResolvedValueOnce(existingUser as UserDocument); // username taken
+        .mockResolvedValueOnce(existingUser as UserDocument); // username taken (case-insensitive match)
 
       await expect(
         service.setUsername(
@@ -196,6 +196,29 @@ describe('UsersService', () => {
       await expect(
         service.setUsername('UNKNOWN_WALLET', 'newname'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject username that differs only by case from an existing one', async () => {
+      const userWithoutUsername = {
+        ...mockUser,
+        username: null,
+        usernameUpdatedAt: null,
+        save: jest.fn(),
+      };
+      const existingUser = {
+        wallet: 'DIFFERENT_WALLET',
+        username: 'Patoski',
+      };
+      userModel.findOne
+        .mockResolvedValueOnce(userWithoutUsername as UserDocument) // find user
+        .mockResolvedValueOnce(existingUser as UserDocument); // "patoski" matches "Patoski"
+
+      await expect(
+        service.setUsername(
+          'ABC123DEF456GHI789JKL012MNO345PQR678STU901',
+          'patoski',
+        ),
+      ).rejects.toThrow(UsernameTakenException);
     });
   });
 

@@ -23,6 +23,7 @@ interface AuthContextValue {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (updates: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,6 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
     setAccessToken(null);
     setUser(null);
+  }, []);
+
+  const updateUser = useCallback((updates: Partial<UserProfile>) => {
+    setUser((prev) => (prev ? { ...prev, ...updates } : prev));
   }, []);
 
   const login = useCallback(async () => {
@@ -100,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
+        updateUser,
       }}
     >
       {children}

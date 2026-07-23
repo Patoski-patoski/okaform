@@ -242,7 +242,7 @@ function Sidebar({
               >
                 <Wallet className="h-4 w-4 text-[#9198A1]" />
                 <span className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
-                  {copied ? 'Copied!' : truncateAddress(wallet ?? '')}
+                  {copied ? 'Copied!' : (user?.username ?? truncateAddress(wallet ?? ''))}
                 </span>
               </button>
               <button
