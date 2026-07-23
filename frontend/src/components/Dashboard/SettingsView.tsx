@@ -70,8 +70,9 @@ export default function SettingsView() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      await setUsernameApi(username);
-      updateUser({ username });
+      const normalizedUsername = username.trim().toLowerCase();
+      await setUsernameApi(normalizedUsername);
+      updateUser({ username: normalizedUsername });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
