@@ -46,3 +46,12 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.index(
+  { username: 1 },
+  {
+    unique: true,
+    sparse: true,
+    collation: { locale: 'en', strength: 2 },
+  },
+);

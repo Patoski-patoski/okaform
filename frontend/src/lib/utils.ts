@@ -14,3 +14,12 @@ export function formatRelativeTime(date: Date): string {
   if (hours > 0) return `${hours}${hours === 1 ? " hour ago" : " hours ago"}`;
   return `${mins}${mins === 1 ? " minute ago" : " minutes ago"}`;
 }
+
+export function displayName(
+  user: { username?: string | null } | null,
+  wallet: string,
+): string {
+  if (user?.username) return user.username;
+  if (wallet.length <= 12) return wallet;
+  return `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+}

@@ -23,7 +23,7 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Button, Badge, getBadgeTier } from "@/components/okaform";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
-import { cn } from "@/lib/utils";
+import { cn, displayName } from "@/lib/utils";
 import { getExploreForms } from "@/lib/forms";
 import type { ExploreFormItem } from "@/lib/forms";
 
@@ -173,7 +173,7 @@ function WalletBadge() {
   const wallet = publicKey?.toBase58() ?? "";
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
-  const truncated = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+  const label = displayName(user, wallet);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -190,7 +190,7 @@ function WalletBadge() {
         title="Click to copy"
       >
         <span className="h-2 w-2 rounded-full bg-ok-green" />
-        <span className="font-mono text-xs text-[#F0F6F6]">{copied ? 'Copied!' : truncated}</span>
+        <span className="font-mono text-xs text-[#F0F6F6]">{copied ? 'Copied!' : label}</span>
       </button>
       <span className="h-4 w-px bg-[#3D444D]" />
       <Badge tier={tier} className="text-xs" />

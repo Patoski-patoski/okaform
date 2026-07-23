@@ -36,7 +36,7 @@ const AUTHORITY_KEY = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V";
 
 export default function SettingsView() {
   const { publicKey, disconnect } = useWallet();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [copiedAddress, setCopiedAddress] = useState(false);
@@ -71,6 +71,7 @@ export default function SettingsView() {
     setSaveSuccess(false);
     try {
       await setUsernameApi(username);
+      updateUser({ username });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {

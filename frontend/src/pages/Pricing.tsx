@@ -1,7 +1,5 @@
 import { useState } from "react";
 import {
-  ChevronLeft,
-  Link2,
   ArrowRight,
   CheckCircle,
   ChevronDown,
@@ -270,25 +268,7 @@ export default function Pricing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
-      {/* ─── NAV ──────────────────────────────────────────────────────── */}
-      <nav className="flex h-16 items-center justify-between border-b border-[#3D444D] bg-[#151B23]/50 px-8 backdrop-blur-md">
-        <Link
-          to="/"
-          className="group flex items-center gap-3 text-sm font-medium text-[#9198A1] transition-colors hover:text-[#F0F6F6]"
-        >
-          <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-          <Link2 className="h-4 w-4 text-ok-green" />
-          <span className="tracking-tight text-[#F0F6F6]">Okaform</span>
-        </Link>
-        <Link
-          to="/create"
-          className="font-mono text-xs font-medium text-[#F0F6F6] transition-colors hover:text-ok-green"
-        >
-          [ Create Survey ]
-        </Link>
-      </nav>
-
+    <div className="bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
       {/* ─── PAGE HEADER ──────────────────────────────────────────────── */}
       <section className="mx-auto max-w-4xl px-8 pt-20 pb-16 text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded border border-[#3D444D] bg-[#151B23]/50 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#9198A1]">

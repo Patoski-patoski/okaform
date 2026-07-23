@@ -4,12 +4,14 @@ import { Badge, getBadgeTier } from "@/components/okaform";
 export function EligibilityPass({
   wallet,
   score,
+  username,
 }: {
   wallet: string;
   score: number;
+  username?: string | null;
 }) {
   const tier = getBadgeTier(score);
-  const truncated = `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
+  const label = username ?? `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
 
   return (
     <div className="space-y-3">
@@ -19,7 +21,7 @@ export function EligibilityPass({
           Your wallet is eligible to respond
         </span>
         <span className="ml-auto font-mono text-xs text-ok-muted/60">
-          {truncated}
+          {label}
         </span>
       </div>
 

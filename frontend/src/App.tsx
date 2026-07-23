@@ -61,7 +61,11 @@ export default function App() {
           />
           <Route
             path="/pricing"
-            element={<Pricing />}
+            element={
+              <Layout>
+                <Pricing />
+              </Layout>
+            }
           />
           <Route
             path="/explore"

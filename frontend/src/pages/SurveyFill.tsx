@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import OkaformLogo from "@/components/OkaformLogo";
 import { useWallet } from "@/components/WalletProvider";
+import { useAuth } from "@/components/AuthProvider";
 import {
   WalletGate,
   EligibilityPass,
@@ -73,6 +74,7 @@ export default function SurveyFill() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
+  const { user } = useAuth();
 
   const wallet = publicKey?.toBase58() ?? "";
   const score = 0; // TODO: fetch from backend
@@ -263,7 +265,7 @@ export default function SurveyFill() {
                 </div>
               ) : (
                 <div className="animate-fadeIn" key="eligibility-pass">
-                  <EligibilityPass wallet={wallet} score={score} />
+                  <EligibilityPass wallet={wallet} score={score} username={user?.username} />
                 </div>
               )}
             </div>

@@ -74,6 +74,8 @@ export class UsersService {
     wallet: string,
     username: string,
   ): Promise<{ wallet: string; username: string; cooldownDays?: number }> {
+    const normalizedUsername = username.toLowerCase();
+
     const user = await this.userModel.findOne({ wallet });
     if (!user) {
       throw new NotFoundException(
@@ -89,24 +91,31 @@ export class UsersService {
       }
     }
 
-    const existing = await this.userModel.findOne({ username });
+    const existing = await this.userModel.findOne({
+      username: {
+        $regex: new RegExp(
+          `^${normalizedUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          'i',
+        ),
+      },
+    });
     if (existing && existing.wallet !== wallet) {
-      throw new UsernameTakenException(username);
+      throw new UsernameTakenException(normalizedUsername);
     }
 
-    user.username = username;
+    user.username = normalizedUsername;
     user.usernameUpdatedAt = new Date();
     await user.save();
 
     this.logger.log({
       event: 'USERNAME_SET',
       wallet: wallet.slice(0, 8) + '...',
-      username,
+      username: normalizedUsername,
     });
 
     return {
       wallet: user.wallet ?? wallet,
-      username: user.username ?? username,
+      username: user.username ?? normalizedUsername,
     };
   }
 
