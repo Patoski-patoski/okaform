@@ -5,6 +5,7 @@ import { SubmissionsService } from './submissions.service';
 import { SurveyResponse } from '../common/schemas/response.schema';
 import { Form } from '../common/schemas/form.schema';
 import { SurveyLifecycleService } from '../forms/survey-lifecycle.service';
+import { SybilService } from '../sybil/sybil.service';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { FormClosedException } from '../common/exceptions/form/form-closed.exception';
 import { FormFullException } from '../common/exceptions/form/form-full.exception';
@@ -21,6 +22,7 @@ describe('SubmissionsService', () => {
     findById: jest.Mock;
   };
   let surveyLifecycleService: jest.Mocked<SurveyLifecycleService>;
+  let sybilService: jest.Mocked<SybilService>;
 
   const mockSubmission = {
     _id: 'sub123',
@@ -54,6 +56,10 @@ describe('SubmissionsService', () => {
       checkAndCloseIfFull: jest.fn().mockResolvedValue(false),
     } as unknown as jest.Mocked<SurveyLifecycleService>;
 
+    sybilService = {
+      checkEligibility: jest.fn().mockResolvedValue({ passed: true }),
+    } as unknown as jest.Mocked<SybilService>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SubmissionsService,
@@ -68,6 +74,10 @@ describe('SubmissionsService', () => {
         {
           provide: SurveyLifecycleService,
           useValue: surveyLifecycleService,
+        },
+        {
+          provide: SybilService,
+          useValue: sybilService,
         },
       ],
     }).compile();

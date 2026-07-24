@@ -1,5 +1,5 @@
 {
-  "address": "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V",
+  "address": "FQtMrhPXc6taxXPvMZGjqUDKuDwneBZZX4XdCFFtALWp",
   "metadata": {
     "name": "okaform",
     "version": "0.1.0",
@@ -146,7 +146,7 @@
       "discriminator": [226, 39, 70, 125, 11, 69, 33, 120],
       "accounts": [
         {
-          "name": "creator",
+          "name": "signer",
           "writable": true,
           "signer": true
         },
@@ -161,7 +161,7 @@
               },
               {
                 "kind": "account",
-                "path": "creator"
+                "path": "signer"
               },
               {
                 "kind": "arg",
@@ -376,6 +376,11 @@
       "code": 6008,
       "name": "InvalidRewardType",
       "msg": "Invalid reward type"
+    },
+    {
+      "code": 6009,
+      "name": "CreatorCannotBeRespondent",
+      "msg": "Survey creator cannot be a respondent on their own survey"
     }
   ],
   "types": [

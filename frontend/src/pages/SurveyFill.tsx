@@ -16,7 +16,7 @@ import {
 import { validateAnswers } from "@/utils/survey-validation";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 import type { Question, QuestionType } from "@/types/survey";
-import { getFormById, submitResponse, getSubmissions, type FormDetail } from "@/lib/forms";
+import { getFormById, submitResponse, getSubmissions, checkSybilEligibility, type FormDetail } from "@/lib/forms";
 import type { QuestionOption } from "@/types/survey";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -72,6 +72,7 @@ export default function SurveyFill() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [sybilCheck, setSybilCheck] = useState<{ checked: boolean; passed: boolean; reason?: string }>({ checked: false, passed: false });
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
   const { user } = useAuth();
@@ -110,6 +111,28 @@ export default function SurveyFill() {
 
     return () => { cancelled = true; };
   }, [formId, wallet]);
+
+  useEffect(() => {
+    if (!formId || !wallet || !form) return;
+    let cancelled = false;
+
+    // Check sybil eligibility before showing survey
+    checkSybilEligibility(wallet, form.minWalletAge ?? 0, form.minSolBalance ?? 0)
+      .then((result) => {
+        if (!cancelled) {
+          setSybilCheck({ checked: true, passed: result.passed, reason: result.reason });
+        }
+      })
+      .catch(() => {
+        // If sybil check fails to load, allow the user to try submitting
+        // (backend will enforce the check anyway)
+        if (!cancelled) {
+          setSybilCheck({ checked: true, passed: true });
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [formId, wallet, form]);
 
   const surveyQuestions = useMemo(
     () => form?.questions.map(toFrontendQuestion) ?? [],
@@ -263,6 +286,24 @@ export default function SurveyFill() {
                 <div className="animate-fadeIn" key="wallet-gate">
                   <WalletGate onConnect={handleConnect} />
                 </div>
+              ) : !sybilCheck.checked ? (
+                <div className="animate-fadeIn flex items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] px-4 py-3" key="checking">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#656C76]" />
+                  <span className="text-xs text-[#9198A1]">Checking eligibility...</span>
+                </div>
+              ) : !sybilCheck.passed ? (
+                <div className="animate-fadeIn rounded border border-ok-danger/20 bg-ok-danger/5 p-5" key="eligibility-fail">
+                  <div className="flex items-start gap-3">
+                    <ShieldX className="h-5 w-5 shrink-0 text-ok-danger" />
+                    <div>
+                      <p className="text-sm font-medium text-ok-danger">Eligibility requirements not met</p>
+                      <p className="mt-1 text-xs text-[#9198A1]">{sybilCheck.reason}</p>
+                      <p className="mt-2 text-[10px] text-[#656C76]">
+                        This survey has minimum wallet requirements set by the creator.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="animate-fadeIn" key="eligibility-pass">
                   <EligibilityPass wallet={wallet} score={score} username={user?.username} />
@@ -273,7 +314,7 @@ export default function SurveyFill() {
             <div
               className={cn(
                 "space-y-5 pt-2 transition-all duration-500 ease-in-out",
-                connected
+                connected && sybilCheck.passed
                   ? "opacity-100 translate-y-0 pointer-events-auto"
                   : "opacity-0 translate-y-2 pointer-events-none h-0 overflow-hidden"
               )}

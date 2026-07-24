@@ -22,6 +22,7 @@ import {
   Database,
   Gift,
   Menu,
+  FileEdit,
 } from "lucide-react";
 
 import {
@@ -43,6 +44,7 @@ import { Transaction } from "@solana/web3.js";
 import HomeView from "@/components/Dashboard/HomeView";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
+import DraftsView from "@/components/Dashboard/DraftsView";
 import DistributionTab from "@/components/DistributionTab";
 import { getForms, getSubmissions, getFormById, buildCloseTx, confirmClose, buildDistributeTx, confirmDistribute } from "@/lib/forms";
 import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
@@ -72,6 +74,7 @@ interface Survey {
 const SIDEBAR_NAV = [
   { id: "home", label: "Home", icon: Home },
   { id: "surveys", label: "My Surveys", icon: FileText },
+  { id: "drafts", label: "Drafts", icon: FileEdit },
   { id: "create", label: "Create Survey", icon: PlusCircle },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
@@ -1018,6 +1021,8 @@ export default function Dashboard() {
     } else if (id === "home") {
       setView("surveys");
       setSelectedSurveyId(null);
+    } else if (id === "drafts") {
+      setSelectedSurveyId(null);
     }
   };
 
@@ -1127,6 +1132,8 @@ export default function Dashboard() {
           <HomeView surveys={surveys} onNavChange={handleNavChange} />
         ) : activeNav === "analytics" ? (
           <AnalyticsView />
+        ) : activeNav === "drafts" ? (
+          <DraftsView />
         ) : activeNav === "settings" ? (
           <SettingsView />
         ) : view === "surveys" ? (

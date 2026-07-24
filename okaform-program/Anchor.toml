@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-okaform_program = "2qJF3VgV2E9rHPs8gmcEiAiWr1SvKQZsP6QFdy1h4Dw3"
+okaform_program = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"
 
 [programs.devnet]
 okaform_program = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"

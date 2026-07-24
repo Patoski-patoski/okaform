@@ -8,6 +8,7 @@ import {
 } from '../common/schemas/response.schema';
 import { Form, FormSchema } from '../common/schemas/form.schema';
 import { FormsModule } from '../forms/forms.module';
+import { SybilModule } from '../sybil/sybil.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { FormsModule } from '../forms/forms.module';
       { name: Form.name, schema: FormSchema },
     ]),
     forwardRef(() => FormsModule),
+    SybilModule,
   ],
   controllers: [SubmissionsController],
   providers: [SubmissionsService],

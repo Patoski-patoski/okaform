@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+console.log("API BASE", API_BASE);
 
 let accessToken: string | null = null;
 

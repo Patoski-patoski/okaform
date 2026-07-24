@@ -6,7 +6,7 @@ export const CreateFormSchema = Type.Object({
     Type.Object({
       id: Type.String(),
       type: Type.String(),
-      label: Type.String({ minLength: 1 }),
+      label: Type.String(),
       placeholder: Type.Optional(Type.String()),
       required: Type.Boolean(),
       options: Type.Array(Type.String()),
@@ -19,7 +19,7 @@ export const CreateFormSchema = Type.Object({
       matrixRows: Type.Array(Type.String()),
       matrixColumns: Type.Array(Type.String()),
     }),
-    { minItems: 2 },
+    { minItems: 1 },
   ),
   rewardPool: Type.Number({ minimum: 0 }),
   maxResponses: Type.Number({ minimum: 1 }),

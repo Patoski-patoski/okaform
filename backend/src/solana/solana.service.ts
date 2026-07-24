@@ -167,7 +167,7 @@ export class SolanaService {
           maxResponses,
         )
         .accounts({
-          creator: creatorPubkey,
+          signer: creatorPubkey,
           survey: surveyPda,
           escrowVault,
           systemProgram: SystemProgram.programId,
@@ -332,7 +332,7 @@ export class SolanaService {
         maxResponses,
       )
       .accounts({
-        creator: creatorPubkey,
+        signer: creatorPubkey,
         survey: surveyPda,
         escrowVault,
         systemProgram: SystemProgram.programId,
