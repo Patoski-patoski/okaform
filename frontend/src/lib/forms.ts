@@ -24,6 +24,10 @@ export interface CreateFormPayload {
   minWalletAge?: number;
   minSolBalance?: number;
   closesAt?: string;
+  surveyId: string;
+  surveyPda: string;
+  escrowPda: string;
+  initTxSignature: string;
 }
 
 export interface OnChainData {
@@ -102,6 +106,20 @@ export async function createForm(
   payload: CreateFormPayload,
 ): Promise<CreateFormResult> {
   return api<CreateFormResult>("/forms", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function buildInitTx(payload: {
+  surveyId: string;
+  rewardPoolSol: number;
+  rewardType: "weighted" | "lottery";
+  maxResponses: number;
+  creator: string;
+  blockhash: string;
+}): Promise<{ tx: string }> {
+  return api<{ tx: string }>("/forms/build-init-tx", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -187,4 +205,28 @@ export async function getSubmissions(
   formId: string,
 ): Promise<SubmissionItem[]> {
   return api<SubmissionItem[]>(`/submissions/${formId}`);
+}
+
+export interface SybilCheckResult {
+  passed: boolean;
+  reason?: string;
+  details?: {
+    walletAgeDays: number;
+    solBalance: number;
+    requiredAgeDays: number;
+    requiredBalance: number;
+  };
+}
+
+export async function checkSybilEligibility(
+  wallet: string,
+  minWalletAgeDays: number,
+  minSolBalance: number,
+): Promise<SybilCheckResult> {
+  const params = new URLSearchParams();
+  if (minWalletAgeDays > 0)
+    params.set("minWalletAgeDays", String(minWalletAgeDays));
+  if (minSolBalance > 0) params.set("minSolBalance", String(minSolBalance));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return api<SybilCheckResult>(`/sybil/check/${wallet}${query}`);
 }

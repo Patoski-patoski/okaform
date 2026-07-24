@@ -66,6 +66,12 @@ describe('FormsService', () => {
           provide: SolanaService,
           useValue: {
             buildInitializeSurveyTx: jest.fn(),
+            initializeSurvey: jest.fn().mockResolvedValue({
+              surveyId: 'survey_abc123',
+              surveyPda: 'pda123',
+              escrowVault: 'escrow123',
+              txSignature: 'tx123',
+            }),
           },
         },
         {
@@ -93,7 +99,7 @@ describe('FormsService', () => {
   });
 
   describe('createForm', () => {
-    it('should create a form from frontend-provided on-chain data', async () => {
+    it('should create a form with on-chain data from the DTO', async () => {
       const dto = {
         title: 'Test Survey',
         questions: [
@@ -116,10 +122,10 @@ describe('FormsService', () => {
         rewardPool: 10,
         maxResponses: 100,
         rewardType: 'weighted' as const,
-        surveyId: 'survey_abc123',
-        surveyPda: 'pda123',
-        escrowPda: 'escrow123',
-        initTxSignature: 'tx123',
+        surveyId: 'survey_custom123',
+        surveyPda: 'pda_custom',
+        escrowPda: 'escrow_custom',
+        initTxSignature: 'tx_custom',
       };
 
       const mockDoc = {
@@ -131,10 +137,10 @@ describe('FormsService', () => {
       const result = await service.createForm(dto, 'wallet123');
 
       expect(result.onChain).toEqual({
-        surveyId: 'survey_abc123',
-        surveyPda: 'pda123',
-        escrowVault: 'escrow123',
-        txSignature: 'tx123',
+        surveyId: 'survey_custom123',
+        surveyPda: 'pda_custom',
+        escrowVault: 'escrow_custom',
+        txSignature: 'tx_custom',
       });
     });
   });

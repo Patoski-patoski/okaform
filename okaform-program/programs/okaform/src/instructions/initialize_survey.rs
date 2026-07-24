@@ -4,30 +4,26 @@ use crate::constants::*;
 use crate::errors::*;
 use crate::state::*;
 
-// The InitializeSurvey struct defines the accounts needed to initialize a new survey on-chain. It includes:
-
-// 1. Creator (Signer<'info>) — proves the wallet is authorizing this initialization
-// 2. Payer (payer = creator) — pays the rent for creating the new survey PDA account
-// 3. Escrow (escrow_vault) — a PDA used as an escrow vault, no data stored
+// The InitializeSurvey struct defines the accounts needed to initialize a new survey on-chain.
 
 #[derive(Accounts)]
 #[instruction(survey_id: Vec<u8>)]
 pub struct InitializeSurvey<'info> {
     #[account(mut)]
-    pub creator: Signer<'info>,
+    pub signer: Signer<'info>,
 
     #[account(
         init,
-        payer = creator,
+        payer = signer,
         space = 8 + SurveyAccount::INIT_SPACE,
-        seeds = [SURVEY_SEED, creator.key().as_ref(), survey_id.as_ref()],
+        seeds = [SURVEY_SEED, signer.key().as_ref(), survey_id.as_ref()],
         bump
     )]
     pub survey: Account<'info, SurveyAccount>,
 
     #[account(
         init,
-        payer = creator,
+        payer = signer,
         space = 0,
         seeds = [ESCROW_SEED, survey.key().as_ref()],
         bump
@@ -55,7 +51,10 @@ pub fn process_initialize_survey(
     );
 
     let survey: &mut Account<'_, SurveyAccount> = &mut ctx.accounts.survey;
-    survey.creator = ctx.accounts.creator.key();
+    let signer = &ctx.accounts.signer;
+
+    // Store the signer as the creator (can be either the user or the backend authority)
+    survey.creator = signer.key();
     survey.reward_pool = reward_pool;
     survey.reward_type = reward_type;
     survey.max_responses = max_responses;
@@ -64,14 +63,14 @@ pub fn process_initialize_survey(
     survey.bump = ctx.bumps.survey;
 
     let ix = anchor_lang::solana_program::system_instruction::transfer(
-        &ctx.accounts.creator.key(),
+        &ctx.accounts.signer.key(),
         &ctx.accounts.escrow_vault.key(),
         reward_pool,
     );
     anchor_lang::solana_program::program::invoke(
         &ix,
         &[
-            ctx.accounts.creator.to_account_info(),
+            ctx.accounts.signer.to_account_info(),
             ctx.accounts.escrow_vault.to_account_info(),
         ],
     )?;

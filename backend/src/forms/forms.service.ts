@@ -102,7 +102,6 @@ export class FormsService {
       rewardType: dto.rewardType,
     });
 
-    // Save form to MongoDB with on-chain data from frontend
     const doc = await this.formModel.create({
       title: dto.title,
       questions: dto.questions,

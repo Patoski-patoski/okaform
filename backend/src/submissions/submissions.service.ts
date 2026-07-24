@@ -9,6 +9,7 @@ import type { Model } from 'mongoose';
 import { SurveyResponse } from '../common/schemas/response.schema';
 import { Form } from '../common/schemas/form.schema';
 import { SurveyLifecycleService } from '../forms/survey-lifecycle.service';
+import { SybilService } from '../sybil/sybil.service';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { FormClosedException } from '../common/exceptions/form/form-closed.exception';
 import { FormFullException } from '../common/exceptions/form/form-full.exception';
@@ -33,6 +34,7 @@ export class SubmissionsService {
     @InjectModel(Form.name)
     private formModel: Model<Form>,
     private readonly surveyLifecycleService: SurveyLifecycleService,
+    private readonly sybilService: SybilService,
   ) {}
 
   async createSubmission(
@@ -86,6 +88,41 @@ export class SubmissionsService {
 
     if (existing) {
       throw new ConflictException('You have already submitted this survey.');
+    }
+
+    // Guard 6: Sybil check — wallet age and SOL balance
+    const sybilResult = await this.sybilService.checkEligibility(
+      respondentWallet,
+      {
+        minWalletAgeDays: form.minWalletAge ?? 0,
+        minSolBalance: form.minSolBalance ?? 0,
+      },
+    );
+
+    if (!sybilResult.passed) {
+      this.logger.warn({
+        event: 'SYBIL_CHECK_FAILED',
+        formId,
+        wallet: respondentWallet.slice(0, 8) + '...',
+        reason: sybilResult.reason,
+      });
+      throw new OkaformException(
+        {
+          code: 'SYBIL_CHECK_FAILED',
+          detail:
+            sybilResult.reason ??
+            'Wallet does not meet eligibility requirements',
+          context: {
+            formId,
+            wallet: respondentWallet.slice(0, 8) + '...',
+            walletAgeDays: sybilResult.details?.walletAgeDays,
+            solBalance: sybilResult.details?.solBalance,
+            requiredAgeDays: sybilResult.details?.requiredAgeDays,
+            requiredBalance: sybilResult.details?.requiredBalance,
+          },
+        },
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     const doc = await this.responseModel.create({

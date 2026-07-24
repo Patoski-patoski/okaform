@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, Transaction, SendTransactionError } from "@solana/web3.js";
 import {
   DndContext,
   closestCenter,
@@ -67,12 +67,15 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
+  Save,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import { useWallet } from "@/components/WalletProvider";
-import { createForm } from "@/lib/forms";
+import { createForm, buildInitTx } from "@/lib/forms";
+import { saveDraft } from "@/components/Dashboard/DraftsView";
+import solanaLogo from "@/assets/icons/solana-logo.svg";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1120,6 +1123,37 @@ function QuestionSettings({
           </div>
         )}
 
+        {/* Linear scale labels */}
+        {question.type === "linear_scale" && (
+          <div className="space-y-3 border-b border-ok-border/20 pb-4">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Low Label</label>
+              <input
+                type="text"
+                value={question.lowLabel || ""}
+                onChange={(e) => onUpdate(question.id, { lowLabel: e.target.value })}
+                placeholder="Disagree"
+                className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-xs text-ok-text placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">High Label</label>
+              <input
+                type="text"
+                value={question.highLabel || ""}
+                onChange={(e) => onUpdate(question.id, { highLabel: e.target.value })}
+                placeholder="Agree"
+                className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-xs text-ok-text placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+            </div>
+            <p className="text-[10px] leading-relaxed text-ok-dim">
+              Labels shown at each end of the linear scale. Falls back to "Disagree" / "Agree" if left empty.
+            </p>
+          </div>
+        )}
+
         {/* Matrix rows & columns editor */}
         {question.type === "matrix" && (
           <div className="space-y-4 border-b border-ok-border/20 pb-4">
@@ -1375,7 +1409,9 @@ export default function FormBuilder() {
   const [showMobilePicker, setShowMobilePicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [initializing, setInitializing] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const [draftName, setDraftName] = useState("");
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const wallet = useWallet();
@@ -1483,25 +1519,74 @@ export default function FormBuilder() {
 
   const handleInitialize = useCallback(async () => {
     if (!formTitle.trim()) {
-      setToast('Please enter a form title before initializing.');
+      setToast({ message: 'Please enter a form title before initializing.', type: 'error' });
       return;
     }
     if (questions.length < 2) {
-      setToast('Please add at least 2 questions before initializing.');
+      setToast({ message: 'Please add at least 2 questions before initializing.', type: 'error' });
       return;
     }
+
+    // Validate each question
+    const questionTypesNeedingLabel = ['short_text', 'long_text', 'multiple_choice', 'checkbox', 'dropdown', 'multi_select', 'number', 'email', 'phone', 'link', 'linear_scale', 'matrix', 'rating'];
+    const questionTypesNeedingOptions = ['multiple_choice', 'checkbox', 'dropdown', 'multi_select'];
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (questionTypesNeedingLabel.includes(q.type) && !q.label.trim()) {
+        setToast({ message: `Question ${i + 1} needs a label.`, type: 'error' });
+        return;
+      }
+      if (questionTypesNeedingOptions.includes(q.type) && q.options.length === 0) {
+        setToast({ message: `Question ${i + 1} needs at least one option.`, type: 'error' });
+        return;
+      }
+    }
+
     if (!isAuthenticated || !publicKey || !signTransaction) {
-      setToast('Please connect your wallet and sign in first.');
+      setToast({ message: 'Please connect your wallet and sign in first.', type: 'error' });
       return;
     }
     if (insufficientBalance) {
-      setToast('Insufficient wallet balance to cover the Escrow Reservoir Pool.');
+      setToast({ message: 'Insufficient wallet balance to cover the Escrow Reservoir Pool.', type: 'error' });
       return;
     }
 
     setInitializing(true);
 
     try {
+      const creator = publicKey.toBase58();
+      const surveyId = `survey_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const { blockhash } = await connection.getLatestBlockhash();
+
+      // Step 1: Build unsigned init tx
+      const { tx: txBase64 } = await buildInitTx({
+        surveyId,
+        rewardPoolSol: reward.rewardPool,
+        rewardType: reward.rewardType,
+        maxResponses: reward.maxResponses,
+        creator,
+        blockhash,
+      });
+
+      // Step 2: User signs
+      const txBytes = Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0));
+      const tx = Transaction.from(txBytes);
+      tx.feePayer = publicKey;
+      tx.recentBlockhash = blockhash;
+      const signedTx = await signTransaction(tx);
+
+      // Step 3: Send the signed transaction
+      const txSignature = await connection.sendRawTransaction(
+        signedTx.serialize(),
+      );
+      await connection.confirmTransaction(txSignature);
+
+      // Extract on-chain addresses from the transaction
+      const surveyPda = signedTx.instructions[0].keys[1].pubkey.toBase58();
+      const escrowPda = signedTx.instructions[0].keys[2].pubkey.toBase58();
+
+      // Step 4: Save form to database
       await createForm({
         title: formTitle.trim(),
         questions: questions.map((q) => ({
@@ -1527,16 +1612,50 @@ export default function FormBuilder() {
         minWalletAge: reward.minWalletAge,
         minSolBalance: reward.minSolBalance,
         closesAt: reward.closesAt || undefined,
+        surveyId,
+        surveyPda,
+        escrowPda,
+        initTxSignature: txSignature,
       });
 
       localStorage.removeItem(DRAFT_KEY);
       navigate('/dashboard');
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Failed to initialize campaign');
+      if (err instanceof SendTransactionError) {
+        const logs = await err.getLogs(connection);
+        setToast({ message: `Transaction failed. Logs: ${JSON.stringify(logs)}`, type: 'error' });
+      } else if (err instanceof Error && err.message.includes('Validation failed')) {
+        try {
+          const errorData = JSON.parse(err.message.split(': ')[1] || '{}');
+          const firstError = errorData.errors?.[0];
+          if (firstError) {
+            const field = firstError.path?.replace('/', '').replace(/\//g, ' ') || 'field';
+            setToast({ message: `Invalid ${field}: ${firstError.message}`, type: 'error' });
+          } else {
+            setToast({ message: 'Please check your form data and try again.', type: 'error' });
+          }
+        } catch {
+          setToast({ message: 'Please check your form data and try again.', type: 'error' });
+        }
+      } else {
+        setToast({ message: err instanceof Error ? err.message : 'Failed to initialize campaign', type: 'error' });
+      }
     } finally {
       setInitializing(false);
     }
-  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, publicKey, signTransaction, navigate]);
+  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, publicKey, signTransaction, navigate, connection]);
+
+  const openDraftModal = () => {
+    setDraftName(formTitle.trim() || 'Untitled');
+    setDraftModalOpen(true);
+  };
+
+  const handleSaveDraft = () => {
+    if (!draftName.trim()) return;
+    saveDraft(draftName.trim(), formTitle, questions, reward);
+    setDraftModalOpen(false);
+    setToast({ message: `Draft "${draftName.trim()}" saved`, type: 'success' });
+  };
 
   return (
     <div className="flex h-screen flex-col bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
@@ -1552,11 +1671,18 @@ export default function FormBuilder() {
             DRAFT CONFIG
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openDraftModal}
+              className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+            >
+              <Save className="h-3 w-3" />
+              Save Draft
+            </button>
+            <button
             onClick={() => {
               if (!formTitle.trim()) {
-                setToast('Enter a form title above, then preview your survey.');
+                setToast({ message: 'Enter a form title above, then preview your survey.', type: 'error' });
                 return;
               }
               setShowPreview(true);
@@ -1585,8 +1711,59 @@ export default function FormBuilder() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 animate-fadeIn rounded border border-ok-danger/30 bg-ok-bg px-4 py-2.5 font-mono text-xs text-ok-danger shadow-lg">
-          {toast}
+        <div
+          className={cn(
+            "fixed left-1/2 top-20 z-50 -translate-x-1/2 animate-fadeIn rounded border bg-ok-bg px-4 py-2.5 font-mono text-xs shadow-lg",
+            toast.type === 'error'
+              ? 'border-ok-danger/30 text-ok-danger'
+              : 'border-ok-green/30 text-ok-green',
+          )}
+        >
+          {toast.message}
+        </div>
+      )}
+
+      {/* Draft Name Modal */}
+      {draftModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div
+            className="w-full max-w-sm rounded border border-[#3D444D] bg-[#151B23] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-mono text-sm font-semibold text-[#F0F6F6]">
+              Save Draft
+            </h3>
+            <p className="mt-1 text-xs text-[#656C76]">
+              Give your draft a name so you can find it later.
+            </p>
+            <input
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveDraft();
+                if (e.key === 'Escape') setDraftModalOpen(false);
+              }}
+              placeholder="Draft name"
+              className="mt-4 w-full rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-sm text-[#F0F6F6] placeholder:text-[#656C76]/50 focus:border-ok-green/40 focus:outline-none"
+              autoFocus
+            />
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setDraftModalOpen(false)}
+                className="rounded border border-[#3D444D] bg-transparent px-4 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDraft}
+                disabled={!draftName.trim()}
+                className="rounded bg-ok-green px-4 py-2 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)] disabled:opacity-40"
+              >
+                Save Draft
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1699,7 +1876,7 @@ function PreviewModal({
             <p className="mt-1 font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
               {questions.length} question{questions.length !== 1 ? 's' : ''}
               {reward.rewardPool > 0 && (
-                <> &middot; ◎{reward.rewardPool} reward pool</>
+                <> &middot; <img src={solanaLogo} alt="SOL" className="inline-block h-3 w-3 align-middle" /> {reward.rewardPool} reward pool</>
               )}
             </p>
           </div>
@@ -1777,6 +1954,41 @@ function PreviewModal({
                     </span>
                   ))}
                 </div>
+              )}
+
+              {current.type === 'linear_scale' && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: current.ratingMax || 5 }, (_, i) => (
+                      <span
+                        key={i}
+                        className="flex h-8 w-8 items-center justify-center rounded border border-[#3D444D] bg-[#151B23] font-mono text-[10px] text-[#9198A1]"
+                      >
+                        {i + 1}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex w-fit justify-between" style={{ width: `${(current.ratingMax || 5) * 40 + (current.ratingMax || 5 - 1) * 8}px` }}>
+                    <span className="font-mono text-[9px] text-[#656C76]">{current.lowLabel || 'Disagree'}</span>
+                    <span className="font-mono text-[9px] text-[#656C76]">{current.highLabel || 'Agree'}</span>
+                  </div>
+                </div>
+              )}
+
+              {current.type === 'email' && (
+                <input
+                  disabled
+                  placeholder={current.placeholder || "email@example.com"}
+                  className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30"
+                />
+              )}
+
+              {current.type === 'date' && (
+                <input
+                  type="date"
+                  disabled
+                  className="w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6]/50 placeholder:text-[#656C76]/30"
+                />
               )}
             </div>
           )}

@@ -84,7 +84,7 @@ export class UsersService {
     }
 
     if (user.username && user.usernameUpdatedAt) {
-      const elapsed = Date.now() - user.usernameUpdatedAt.getTime();
+      const elapsed = Date.now() - user?.usernameUpdatedAt?.getTime();
       if (elapsed < USERNAME_COOLDOWN_MS) {
         const daysLeft = Math.ceil((USERNAME_COOLDOWN_MS - elapsed) / 86400000);
         throw new UsernameCooldownException(daysLeft);
