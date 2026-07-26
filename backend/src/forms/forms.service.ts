@@ -148,8 +148,10 @@ export class FormsService {
     };
   }
 
-  async buildInitializeTx(dto: BuildInitTxDto): Promise<{ tx: string }> {
-    const tx = await this.solanaService.buildInitializeSurveyTx(
+  async buildInitializeTx(
+    dto: BuildInitTxDto,
+  ): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
+    return this.solanaService.buildInitializeSurveyTx(
       dto.creator,
       dto.surveyId,
       dto.rewardPoolSol,
@@ -157,8 +159,6 @@ export class FormsService {
       dto.maxResponses,
       dto.blockhash,
     );
-
-    return { tx };
   }
 
   async getExploreForms(): Promise<ExploreFormItem[]> {

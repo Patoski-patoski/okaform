@@ -44,7 +44,7 @@ export class FormsController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async buildInitTx(
     @Body(new TypeBoxValidationPipe(BuildInitTxSchema)) dto: BuildInitTxDto,
-  ): Promise<{ tx: string }> {
+  ): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
     return await this.formsService.buildInitializeTx(dto);
   }
 

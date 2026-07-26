@@ -24,21 +24,41 @@ function loadDrafts(): SavedDraft[] {
 
 export function saveDraft(name: string, formTitle: string, questions: unknown[], reward: unknown) {
   const drafts = loadDrafts();
-  const id = crypto.randomUUID();
-  const draft: SavedDraft = {
-    id,
-    name,
-    formTitle,
-    questionCount: questions.length,
-    savedAt: new Date().toISOString(),
-  };
-  drafts.unshift(draft);
-  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
-  localStorage.setItem(
-    `okaform_draft_${id}`,
-    JSON.stringify({ formTitle, questions, reward }),
-  );
-  return id;
+  
+  // Check if a draft with this name already exists
+  const existingIndex = drafts.findIndex(d => d.name === name);
+  
+  if (existingIndex >= 0) {
+    // Update existing draft
+    drafts[existingIndex] = {
+      ...drafts[existingIndex],
+      formTitle,
+      questionCount: questions.length,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(
+      `okaform_draft_${drafts[existingIndex].id}`,
+      JSON.stringify({ formTitle, questions, reward }),
+    );
+  } else {
+    // Create new draft
+    const id = crypto.randomUUID();
+    const draft: SavedDraft = {
+      id,
+      name,
+      formTitle,
+      questionCount: questions.length,
+      savedAt: new Date().toISOString(),
+    };
+    drafts.unshift(draft);
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+    localStorage.setItem(
+      `okaform_draft_${id}`,
+      JSON.stringify({ formTitle, questions, reward }),
+    );
+  }
+  
+  return existingIndex >= 0 ? drafts[existingIndex].id : drafts[0].id;
 }
 
 export default function DraftsView() {

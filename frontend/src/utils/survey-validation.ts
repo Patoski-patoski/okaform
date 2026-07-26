@@ -33,6 +33,19 @@ export function validateAnswers(
         errors[q.id] = `Maximum ${q.maxWords} words allowed (${words} entered)`;
       }
     }
+
+    if (q.type === "email" && typeof a === "string" && a.trim() !== "") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(a.trim())) {
+        errors[q.id] = "Please enter a valid email address";
+      }
+    }
+
+    if (q.type === "number" && typeof a === "string" && a.trim() !== "") {
+      if (isNaN(Number(a))) {
+        errors[q.id] = "Please enter a valid number";
+      }
+    }
   }
 
   return errors;

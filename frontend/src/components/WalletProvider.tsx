@@ -5,6 +5,10 @@ import {
   useWallet as useAdapterWallet,
 } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
+import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
+import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
+import { CoinbaseWalletAdapter } from "@solana/wallet-adapter-coinbase";
+import { TrustWalletAdapter } from "@solana/wallet-adapter-trust";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { clusterApiUrl } from "@solana/web3.js";
 
@@ -24,7 +28,16 @@ function resolveEndpoint(): string {
 }
 
 export function WalletContextProvider({ children }: { children: ReactNode }) {
-  const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      new BackpackWalletAdapter(),
+      new CoinbaseWalletAdapter(),
+      new TrustWalletAdapter(),
+    ],
+    [],
+  );
   const endpoint = useMemo(resolveEndpoint, []);
 
   return (

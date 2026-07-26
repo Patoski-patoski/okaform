@@ -99,7 +99,7 @@ describe('FormsService', () => {
   });
 
   describe('createForm', () => {
-    it('should create a form with on-chain data from the DTO', async () => {
+    it('should create a form and call on-chain initialization', async () => {
       const dto = {
         title: 'Test Survey',
         questions: [
@@ -122,10 +122,10 @@ describe('FormsService', () => {
         rewardPool: 10,
         maxResponses: 100,
         rewardType: 'weighted' as const,
-        surveyId: 'survey_custom123',
-        surveyPda: 'pda_custom',
-        escrowPda: 'escrow_custom',
-        initTxSignature: 'tx_custom',
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
       };
 
       const mockDoc = {
@@ -137,10 +137,10 @@ describe('FormsService', () => {
       const result = await service.createForm(dto, 'wallet123');
 
       expect(result.onChain).toEqual({
-        surveyId: 'survey_custom123',
-        surveyPda: 'pda_custom',
-        escrowVault: 'escrow_custom',
-        txSignature: 'tx_custom',
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowVault: 'escrow123',
+        txSignature: 'tx123',
       });
     });
   });
@@ -196,7 +196,11 @@ describe('FormsService', () => {
       const solanaService = module.get<SolanaService>(SolanaService);
       const buildSpy = jest
         .spyOn(solanaService, 'buildInitializeSurveyTx')
-        .mockResolvedValue('mock-base64-tx');
+        .mockResolvedValue({
+          tx: 'mock-base64-tx',
+          surveyPda: 'pda123',
+          escrowPda: 'escrow123',
+        });
 
       const dto = {
         surveyId: 'survey_abc123',
@@ -217,7 +221,11 @@ describe('FormsService', () => {
         100,
         'blockhash123',
       );
-      expect(result).toEqual({ tx: 'mock-base64-tx' });
+      expect(result).toEqual({
+        tx: 'mock-base64-tx',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+      });
     });
   });
 
