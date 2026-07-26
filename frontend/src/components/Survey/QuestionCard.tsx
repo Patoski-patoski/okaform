@@ -1,4 +1,4 @@
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Star, X } from "lucide-react";
 import { Card } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { countWords } from "@/utils/survey-validation";
@@ -45,6 +45,82 @@ export function QuestionCard({
             value={typeof answer === "string" ? answer : ""}
             onChange={(e) => onChange(question.id, e.target.value)}
             className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+          />
+        </div>
+      )}
+
+      {/* Number */}
+      {question.type === "number" && (
+        <div className="pl-7">
+          <input
+            type="number"
+            placeholder={question.placeholder || "0"}
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </div>
+      )}
+
+      {/* Email */}
+      {question.type === "email" && (
+        <div className="pl-7">
+          <input
+            type="email"
+            placeholder={question.placeholder || "name@example.com"}
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+          />
+        </div>
+      )}
+
+      {/* Phone */}
+      {question.type === "phone" && (
+        <div className="pl-7">
+          <input
+            type="tel"
+            placeholder={question.placeholder || "+1 (555) 000-0000"}
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+          />
+        </div>
+      )}
+
+      {/* Link */}
+      {question.type === "link" && (
+        <div className="pl-7">
+          <input
+            type="url"
+            placeholder={question.placeholder || "https://example.com"}
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+          />
+        </div>
+      )}
+
+      {/* Date */}
+      {question.type === "date" && (
+        <div className="pl-7">
+          <input
+            type="date"
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30 [&::-webkit-calendar-picker-indicator]:opacity-40"
+          />
+        </div>
+      )}
+
+      {/* Time */}
+      {question.type === "time" && (
+        <div className="pl-7">
+          <input
+            type="time"
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30 [&::-webkit-calendar-picker-indicator]:opacity-40"
           />
         </div>
       )}
@@ -145,6 +221,24 @@ export function QuestionCard({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Dropdown */}
+      {question.type === "dropdown" && question.options && (
+        <div className="pl-7">
+          <select
+            value={typeof answer === "string" ? answer : ""}
+            onChange={(e) => onChange(question.id, e.target.value)}
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+          >
+            <option value="" disabled>Select an option</option>
+            {question.options.map((opt) => (
+              <option key={opt.id} value={opt.label}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -260,6 +354,40 @@ export function QuestionCard({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Rating (star) */}
+      {question.type === "rating" && (
+        <div className="flex items-center gap-2 pl-7">
+          {Array.from({ length: question.ratingMax || 5 }, (_, i) => i + 1).map((num) => {
+            const isSelected = answer === String(num);
+            return (
+              <button
+                key={num}
+                type="button"
+                onClick={() => onChange(question.id, String(num))}
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok)] border transition-all duration-150",
+                  isSelected
+                    ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
+                    : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text"
+                )}
+              >
+                <Star
+                  className={cn(
+                    "h-4 w-4",
+                    isSelected && "fill-ok-green text-ok-green"
+                  )}
+                />
+              </button>
+            );
+          })}
+          {typeof answer === "string" && answer && (
+            <span className="ml-1 font-mono text-xs text-ok-muted">
+              {answer}/{question.ratingMax || 5}
+            </span>
+          )}
         </div>
       )}
 

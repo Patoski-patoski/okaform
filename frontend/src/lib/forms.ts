@@ -118,11 +118,14 @@ export async function buildInitTx(payload: {
   maxResponses: number;
   creator: string;
   blockhash: string;
-}): Promise<{ tx: string }> {
-  return api<{ tx: string }>("/forms/build-init-tx", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+}): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
+  return api<{ tx: string; surveyPda: string; escrowPda: string }>(
+    "/forms/build-init-tx",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export async function getForms(): Promise<FormListItem[]> {

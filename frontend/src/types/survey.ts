@@ -9,6 +9,14 @@ export type QuestionType =
   | "multiple_choice"
   | "checkbox"
   | "multi_select"
+  | "dropdown"
+  | "number"
+  | "email"
+  | "phone"
+  | "link"
+  | "date"
+  | "time"
+  | "rating"
   | "linear_scale";
 
 export interface Question {

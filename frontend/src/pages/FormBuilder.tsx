@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { LAMPORTS_PER_SOL, Transaction, SendTransactionError } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, Transaction } from "@solana/web3.js";
 import {
   DndContext,
   closestCenter,
@@ -1518,36 +1518,49 @@ export default function FormBuilder() {
   }, []);
 
   const handleInitialize = useCallback(async () => {
+    console.log('[INIT] handleInitialize called');
+    console.log('[INIT] formTitle:', formTitle.trim());
+    console.log('[INIT] questions count:', questions.length);
+    console.log('[INIT] reward config:', JSON.stringify(reward));
+    console.log('[INIT] isAuthenticated:', isAuthenticated);
+    console.log('[INIT] publicKey:', publicKey?.toBase58());
+    console.log('[INIT] insufficientBalance:', insufficientBalance);
+
     if (!formTitle.trim()) {
+      console.warn('[INIT] Validation failed: no title');
       setToast({ message: 'Please enter a form title before initializing.', type: 'error' });
       return;
     }
     if (questions.length < 2) {
+      console.warn('[INIT] Validation failed: less than 2 questions');
       setToast({ message: 'Please add at least 2 questions before initializing.', type: 'error' });
       return;
     }
 
-    // Validate each question
     const questionTypesNeedingLabel = ['short_text', 'long_text', 'multiple_choice', 'checkbox', 'dropdown', 'multi_select', 'number', 'email', 'phone', 'link', 'linear_scale', 'matrix', 'rating'];
     const questionTypesNeedingOptions = ['multiple_choice', 'checkbox', 'dropdown', 'multi_select'];
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (questionTypesNeedingLabel.includes(q.type) && !q.label.trim()) {
+        console.warn('[INIT] Validation failed: question', i + 1, 'needs label');
         setToast({ message: `Question ${i + 1} needs a label.`, type: 'error' });
         return;
       }
       if (questionTypesNeedingOptions.includes(q.type) && q.options.length === 0) {
+        console.warn('[INIT] Validation failed: question', i + 1, 'needs options');
         setToast({ message: `Question ${i + 1} needs at least one option.`, type: 'error' });
         return;
       }
     }
 
     if (!isAuthenticated || !publicKey || !signTransaction) {
+      console.warn('[INIT] Validation failed: wallet not connected or not authenticated');
       setToast({ message: 'Please connect your wallet and sign in first.', type: 'error' });
       return;
     }
     if (insufficientBalance) {
+      console.warn('[INIT] Validation failed: insufficient balance');
       setToast({ message: 'Insufficient wallet balance to cover the Escrow Reservoir Pool.', type: 'error' });
       return;
     }
@@ -1555,38 +1568,43 @@ export default function FormBuilder() {
     setInitializing(true);
 
     try {
-      const creator = publicKey.toBase58();
       const surveyId = `survey_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const { blockhash } = await connection.getLatestBlockhash();
+      console.log('[INIT] surveyId:', surveyId);
 
-      // Step 1: Build unsigned init tx
-      const { tx: txBase64 } = await buildInitTx({
+      console.log('[INIT] Fetching recent blockhash');
+      const { blockhash } = await connection.getRecentBlockhash();
+      console.log('[INIT] blockhash:', blockhash);
+
+      console.log('[INIT] Calling buildInitTx');
+      const { tx: txBase64, surveyPda, escrowPda } = await buildInitTx({
         surveyId,
         rewardPoolSol: reward.rewardPool,
         rewardType: reward.rewardType,
         maxResponses: reward.maxResponses,
-        creator,
+        creator: publicKey.toBase58(),
         blockhash,
       });
+      console.log('[INIT] buildInitTx returned, surveyPda:', surveyPda, 'escrowPda:', escrowPda);
 
-      // Step 2: User signs
-      const txBytes = Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0));
-      const tx = Transaction.from(txBytes);
+      console.log('[INIT] Deserializing transaction');
+      const txBuffer = Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0));
+      const tx = Transaction.from(txBuffer);
       tx.feePayer = publicKey;
       tx.recentBlockhash = blockhash;
-      const signedTx = await signTransaction(tx);
 
-      // Step 3: Send the signed transaction
-      const txSignature = await connection.sendRawTransaction(
-        signedTx.serialize(),
-      );
-      await connection.confirmTransaction(txSignature);
+      console.log('[INIT] Requesting wallet signature');
+      const signed = await signTransaction(tx);
+      console.log('[INIT] Signed transaction');
 
-      // Extract on-chain addresses from the transaction
-      const surveyPda = signedTx.instructions[0].keys[1].pubkey.toBase58();
-      const escrowPda = signedTx.instructions[0].keys[2].pubkey.toBase58();
+      console.log('[INIT] Sending transaction');
+      const txSignature = await connection.sendRawTransaction(signed.serialize());
+      console.log('[INIT] txSignature:', txSignature);
 
-      // Step 4: Save form to database
+      console.log('[INIT] Confirming transaction');
+      await connection.confirmTransaction(txSignature, 'confirmed');
+      console.log('[INIT] Transaction confirmed');
+
+      console.log('[INIT] Registering form on backend');
       await createForm({
         title: formTitle.trim(),
         questions: questions.map((q) => ({
@@ -1621,10 +1639,8 @@ export default function FormBuilder() {
       localStorage.removeItem(DRAFT_KEY);
       navigate('/dashboard');
     } catch (err) {
-      if (err instanceof SendTransactionError) {
-        const logs = await err.getLogs(connection);
-        setToast({ message: `Transaction failed. Logs: ${JSON.stringify(logs)}`, type: 'error' });
-      } else if (err instanceof Error && err.message.includes('Validation failed')) {
+      console.error('[INIT] ERROR:', err);
+      if (err instanceof Error && err.message.includes('Validation failed')) {
         try {
           const errorData = JSON.parse(err.message.split(': ')[1] || '{}');
           const firstError = errorData.errors?.[0];
@@ -1641,9 +1657,10 @@ export default function FormBuilder() {
         setToast({ message: err instanceof Error ? err.message : 'Failed to initialize campaign', type: 'error' });
       }
     } finally {
+      console.log('[INIT] Finished (success or error)');
       setInitializing(false);
     }
-  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, publicKey, signTransaction, navigate, connection]);
+  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate, publicKey, signTransaction, connection]);
 
   const openDraftModal = () => {
     setDraftName(formTitle.trim() || 'Untitled');
