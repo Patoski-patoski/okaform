@@ -189,7 +189,7 @@ export async function submitResponse(
   formId: string,
   payload: SubmitResponsePayload,
 ): Promise<SubmissionItem> {
-  return api<SubmissionItem>(`/forms/${formId}/submit`, {
+  return api<SubmissionItem>(`/submissions/${formId}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

@@ -6,7 +6,8 @@ import { SurveyResponse } from '../common/schemas/response.schema';
 import { SolanaService } from '../solana/solana.service';
 import {
   DistributionService,
-  badgeTierFromScore,
+  calculateWeightedAmounts,
+  BADGE_WEIGHTS,
 } from '../distribution/distribution.service';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
@@ -102,13 +103,13 @@ export class SurveyLifecycleService {
     amounts: number[];
   }> {
     const form = await this.formModel.findById(formId).exec();
-    if (!form || form.status !== 'closed') {
+    if (!form) {
       this.logger.warn({
         event: 'BUILD_DISTRIBUTE_TX_SKIP',
         formId,
-        reason: form ? `status=${form.status}` : 'form not found',
+        reason: 'form not found',
       });
-      throw new Error(form ? 'Survey is not closed yet' : 'Form not found');
+      throw new Error('Form not found');
     }
 
     if (form.creator !== callerWallet) {
@@ -133,24 +134,82 @@ export class SurveyLifecycleService {
       throw new Error('All responses have already been distributed');
     }
 
-    const rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
     const participantWallets = responses.map((r) => r.respondentWallet);
 
     let amounts: number[];
     if (form.rewardType === 'lottery') {
-      const perParticipant = Math.floor(
-        rewardPoolLamports / participantWallets.length,
-      );
-      amounts = participantWallets.map(() => perParticipant);
+      const numWinners = Math.min(form.numWinners, participantWallets.length);
+      const rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
+      const perWinner = Math.floor(rewardPoolLamports / form.numWinners);
+
+      // Randomly select numWinners without replacement (Fisher-Yates)
+      const shuffled = [...participantWallets];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      const winners = shuffled.slice(0, numWinners);
+      participantWallets.length = 0;
+      participantWallets.push(...winners);
+      amounts = winners.map(() => perWinner);
+
+      // Send leftover SOL (if fewer participants than numWinners) back to creator
+      const totalDistributed = amounts.reduce((s, a) => s + a, 0);
+      const leftover = rewardPoolLamports - totalDistributed;
+      if (leftover > 0) {
+        participantWallets.push(form.creator);
+        amounts.push(leftover);
+      }
     } else {
-      const totalScore = responses.reduce(
-        (sum, r) => sum + (r.scoreAtSubmission || 1),
-        0,
+      if (!form.onChain?.escrowVault) {
+        throw new Error('Escrow vault PDA not found for this form');
+      }
+
+      const escrowBalance = await this.solanaService.getEscrowBalance(
+        form.onChain.escrowVault,
       );
-      amounts = responses.map((r) => {
-        const score = r.scoreAtSubmission || 1;
-        const share = (score / totalScore) * rewardPoolLamports;
-        return Math.floor(share);
+
+      if (escrowBalance === 0n) {
+        throw new Error('Escrow vault has no balance to distribute');
+      }
+
+      const badgeTiers = await Promise.all(
+        participantWallets.map(async (wallet) => {
+          const badgeTier =
+            await this.solanaService.fetchRespondentBadgeTier(wallet);
+          return { wallet, badgeTier: badgeTier ?? 'Ghost' };
+        }),
+      );
+
+      const badgeTierBreakdown: Record<string, number> = {};
+      for (const b of Object.keys(BADGE_WEIGHTS)) {
+        badgeTierBreakdown[b] = 0;
+      }
+      for (const p of badgeTiers) {
+        const tier = p.badgeTier;
+        badgeTierBreakdown[tier] = (badgeTierBreakdown[tier] ?? 0) + 1;
+      }
+
+      this.logger.log({
+        event: 'WEIGHTED_DISTRIBUTION_START',
+        formId,
+        participantCount: participantWallets.length,
+        rewardPoolLamports: escrowBalance.toString(),
+        badgeTierBreakdown,
+      });
+
+      const shares = calculateWeightedAmounts(badgeTiers, escrowBalance);
+
+      amounts = shares.map((s) => Number(s.amountLamports));
+
+      this.logger.log({
+        event: 'WEIGHTED_AMOUNTS_CALCULATED',
+        formId,
+        amounts: shares.map((s) => ({
+          wallet: s.wallet.slice(0, 8) + '...',
+          amountSol: (Number(s.amountLamports) / 1e9).toFixed(6),
+        })),
+        totalDistributed: (Number(escrowBalance) / 1e9).toFixed(6) + ' SOL',
       });
     }
 
@@ -240,15 +299,17 @@ export class SurveyLifecycleService {
       }
     }
 
-    // Validate amounts sum doesn't exceed what's in escrow (rough check)
+    // Validate amounts sum doesn't exceed on-chain escrow balance
     const totalAmount = amounts.reduce((s, a) => s + a, 0);
-    const escrowLamports = form.rewardPool * LAMPORTS_PER_SOL;
-    if (totalAmount > escrowLamports) {
+    const escrowBalance = form.onChain?.escrowVault
+      ? await this.solanaService.getEscrowBalance(form.onChain.escrowVault)
+      : BigInt(form.rewardPool * LAMPORTS_PER_SOL);
+    if (BigInt(totalAmount) > escrowBalance) {
       this.logger.warn({
         event: 'CONFIRM_DISTRIBUTE_EXCEEDS_ESCROW',
         formId,
         totalAmount,
-        escrowLamports,
+        escrowBalance: escrowBalance.toString(),
       });
       throw new Error('Total distribution amount exceeds escrow balance');
     }
@@ -270,8 +331,16 @@ export class SurveyLifecycleService {
 
     await this.responseModel.bulkWrite(bulkOps);
 
-    const scoreMap = new Map(
-      undistributed.map((r) => [r.respondentWallet, r.scoreAtSubmission || 0]),
+    const badgeTiers = await Promise.all(
+      participantWallets.map(async (wallet) => {
+        const badgeTier =
+          await this.solanaService.fetchRespondentBadgeTier(wallet);
+        return { wallet, badgeTier: badgeTier ?? 'Ghost' };
+      }),
+    );
+
+    const badgeTierMap = new Map(
+      badgeTiers.map((b) => [b.wallet, b.badgeTier]),
     );
 
     const distributionRecords = participantWallets.map((wallet, i) => ({
@@ -279,7 +348,7 @@ export class SurveyLifecycleService {
       surveyPda: form.onChain?.surveyPda ?? '',
       recipientWallet: wallet,
       amountLamports: amounts[i],
-      badgeTier: badgeTierFromScore(scoreMap.get(wallet) ?? 0),
+      badgeTier: badgeTierMap.get(wallet) ?? 'Ghost',
       txSignature,
       rewardType: form.rewardType,
     }));

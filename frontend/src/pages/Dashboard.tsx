@@ -23,6 +23,7 @@ import {
   Gift,
   Menu,
   FileEdit,
+  LogOut,
 } from "lucide-react";
 
 import {
@@ -41,6 +42,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
+import solanaLogo from "@/assets/icons/solana-logo.svg";
 import HomeView from "@/components/Dashboard/HomeView";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
@@ -94,13 +96,27 @@ function Sidebar({
   onToggle: () => void;
 }) {
   const { connected, publicKey, disconnect } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
   const { user, isAuthenticated, isLoading, login } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
 
   const wallet = publicKey?.toBase58();
   const score = user?.globalScore ?? 0;
   const tier = getBadgeTier(score);
+
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setBalance(null);
+      return;
+    }
+    let cancelled = false;
+    void connection.getBalance(publicKey).then((lamports) => {
+      if (!cancelled) setBalance(lamports);
+    });
+    return () => { cancelled = true; };
+  }, [connected, publicKey, connection]);
 
   const handleCopyAddress = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -253,15 +269,25 @@ function Sidebar({
                   e.stopPropagation();
                   disconnect();
                 }}
-                className="rounded px-1.5 py-0.5 font-mono text-[9px] text-[#656C76] transition-colors hover:bg-ok-danger/10 hover:text-ok-danger"
+                className="rounded px-1.5 py-0.5 transition-colors hover:bg-ok-danger/10 hover:text-ok-danger"
+                title="Disconnect"
               >
-                Disconnect
+                <LogOut className="h-3 w-3" />
               </button>
             </div>
             <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-2">
               <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Reputation</span>
               <Badge tier={tier} className="scale-90 origin-right" />
             </div>
+            {balance !== null && (
+              <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-2">
+                <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Balance</span>
+                <span className="flex items-center gap-1 text-xs text-ok-text">
+                  <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
+                  <span className="font-mono">{(balance / 1_000_000_000).toFixed(2)}</span>
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -477,7 +503,7 @@ function SurveysTable({
                       <Eye className="h-3 w-3" />
                       {survey.status === "active" ? "View" : "Results"}
                     </button>
-                    {survey.status === "active" && (
+                    {survey.status === "active" && !survey.rewardDistributed && (
                       <button
                         onClick={() => onCloseRequest(survey.id)}
                         className="inline-flex items-center gap-1.5 rounded border border-ok-danger/20 bg-ok-danger/5 px-2.5 py-1.5 font-mono text-[10px] font-medium text-ok-danger transition-colors hover:bg-ok-danger/15 hover:border-ok-danger/30"
@@ -486,7 +512,7 @@ function SurveysTable({
                         Close
                       </button>
                     )}
-                    {survey.status === "closed" && !survey.rewardDistributed && (
+                    {!survey.rewardDistributed && (
                       <button
                         onClick={() => onDistributeRequest(survey.id)}
                         disabled={isDistributing}
@@ -500,7 +526,7 @@ function SurveysTable({
                         Distribute
                       </button>
                     )}
-                    {survey.status === "closed" && survey.rewardDistributed && (
+                    {survey.rewardDistributed && (
                       <span className="inline-flex items-center gap-1.5 rounded border border-[#3D444D]/50 bg-[#151B23]/30 px-2.5 py-1.5 font-mono text-[10px] text-[#656C76]">
                         <CheckCircle2 className="h-3 w-3 text-ok-green/60" />
                         Distributed
@@ -972,6 +998,7 @@ function SurveyDetail({
 export default function Dashboard() {
   const { publicKey, signTransaction } = useWallet();
   const { connection } = useConnection();
+  const { user } = useAuth();
   const [activeNav, setActiveNav] = useState("surveys");
   const [view, setView] = useState<View>("surveys");
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
@@ -1006,7 +1033,7 @@ export default function Dashboard() {
       }
     };
     fetchForms();
-  }, []);
+  }, [user?.wallet]);
 
   const selectedSurvey = useMemo(
     () => surveys.find((s) => s.id === selectedSurveyId) ?? null,

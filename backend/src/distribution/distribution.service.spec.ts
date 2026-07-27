@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { DistributionService } from './distribution.service';
 import { DistributionRecord } from './distribution.schema';
+import { calculateWeightedAmounts } from './distribution.service';
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 
 describe('DistributionService', () => {
@@ -138,5 +139,141 @@ describe('DistributionService', () => {
       expect(mockFind.sort).toHaveBeenCalledWith({ distributedAt: -1 });
       expect(result).toHaveLength(1);
     });
+  });
+});
+
+describe('calculateWeightedAmounts', () => {
+  it('should distribute equally for equal tiers', () => {
+    const participants = [
+      {
+        wallet: 'Alice1111111111111111111111111111111111111',
+        badgeTier: 'Sentinel',
+      },
+      {
+        wallet: 'Bob111111111111111111111111111111111111111',
+        badgeTier: 'Sentinel',
+      },
+      {
+        wallet: 'Carol11111111111111111111111111111111111111',
+        badgeTier: 'Sentinel',
+      },
+    ];
+    const pool = 3_000_000_000n;
+
+    const result = calculateWeightedAmounts(participants, pool);
+
+    expect(result).toHaveLength(3);
+    result.forEach((r) => expect(r.amountLamports).toBe(1_000_000_000n));
+    expect(
+      result[0].amountLamports +
+        result[1].amountLamports +
+        result[2].amountLamports,
+    ).toBe(pool);
+  });
+
+  it('should distribute proportionally for mixed tiers with remainder to highest', () => {
+    const participants = [
+      {
+        wallet: 'Alice1111111111111111111111111111111111111',
+        badgeTier: 'Sovereign',
+      },
+      {
+        wallet: 'Bob111111111111111111111111111111111111111',
+        badgeTier: 'Sentinel',
+      },
+      {
+        wallet: 'Carol11111111111111111111111111111111111111',
+        badgeTier: 'Ghost',
+      },
+    ];
+    const pool = 10_000_000_000n;
+
+    const result = calculateWeightedAmounts(participants, pool);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].amountLamports).toBe(5_000_000_001n);
+    expect(result[1].amountLamports).toBe(3_333_333_333n);
+    expect(result[2].amountLamports).toBe(1_666_666_666n);
+    expect(
+      result[0].amountLamports +
+        result[1].amountLamports +
+        result[2].amountLamports,
+    ).toBe(pool);
+  });
+
+  it('should give all lamports to a single participant', () => {
+    const participants = [
+      {
+        wallet: 'Alice1111111111111111111111111111111111111',
+        badgeTier: 'Oracle',
+      },
+    ];
+    const pool = 5_000_000_000n;
+
+    const result = calculateWeightedAmounts(participants, pool);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].amountLamports).toBe(5_000_000_000n);
+  });
+
+  it('should fall back to Ghost weight for unknown badge tier', () => {
+    const participants = [
+      {
+        wallet: 'Alice1111111111111111111111111111111111111',
+        badgeTier: 'Unknown',
+      },
+    ];
+    const pool = 1_000_000_000n;
+
+    const result = calculateWeightedAmounts(participants, pool);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].amountLamports).toBe(1_000_000_000n);
+  });
+
+  it('should throw NO_PARTICIPANTS for empty array', () => {
+    expect(() => calculateWeightedAmounts([], 1_000_000_000n)).toThrow(
+      'No participants to distribute rewards to.',
+    );
+  });
+
+  it('should handle large pool with precision and distribute remainder to highest tier', () => {
+    const participants = [
+      {
+        wallet: 'Sovereign111111111111111111111111111111111',
+        badgeTier: 'Sovereign',
+      },
+      {
+        wallet: 'Ghost1111111111111111111111111111111111111',
+        badgeTier: 'Ghost',
+      },
+    ];
+    const pool = 1_000_000_001n;
+
+    const result = calculateWeightedAmounts(participants, pool);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].amountLamports).toBe(750_000_001n);
+    expect(result[1].amountLamports).toBe(250_000_000n);
+    expect(result[0].amountLamports + result[1].amountLamports).toBe(pool);
+  });
+
+  it('should keep result order matching input order', () => {
+    const participants = [
+      {
+        wallet: 'First1111111111111111111111111111111111111',
+        badgeTier: 'Ghost',
+      },
+      {
+        wallet: 'Second111111111111111111111111111111111111',
+        badgeTier: 'Sentinel',
+      },
+    ];
+    const pool = 3_000_000_000n;
+
+    const result = calculateWeightedAmounts(participants, pool);
+
+    expect(result[0].wallet).toBe('First1111111111111111111111111111111111111');
+    expect(result[1].wallet).toBe('Second111111111111111111111111111111111111');
   });
 });

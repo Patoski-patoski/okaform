@@ -1,0 +1,233 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
+import { SurveyLifecycleService } from './survey-lifecycle.service';
+import { Form } from '../common/schemas/form.schema';
+import { SurveyResponse } from '../common/schemas/response.schema';
+import { SolanaService } from '../solana/solana.service';
+import { DistributionService } from '../distribution/distribution.service';
+
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+describe('SurveyLifecycleService', () => {
+  let service: SurveyLifecycleService;
+  let formModel: { findById: jest.Mock };
+  let responseModel: { find: jest.Mock };
+  let solanaService: { buildDistributeRewardsTx: jest.Mock };
+  let distributionService: { saveDistributionRecords: jest.Mock };
+
+  function mockForm(data: Record<string, unknown>) {
+    return { exec: jest.fn().mockResolvedValue(data) };
+  }
+
+  beforeEach(async () => {
+    formModel = { findById: jest.fn() };
+    responseModel = { find: jest.fn() };
+    solanaService = { buildDistributeRewardsTx: jest.fn() };
+    distributionService = { saveDistributionRecords: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SurveyLifecycleService,
+        { provide: getModelToken(Form.name), useValue: formModel },
+        {
+          provide: getModelToken(SurveyResponse.name),
+          useValue: responseModel,
+        },
+        { provide: SolanaService, useValue: solanaService },
+        { provide: DistributionService, useValue: distributionService },
+      ],
+    }).compile();
+
+    service = module.get<SurveyLifecycleService>(SurveyLifecycleService);
+  });
+
+  describe('buildDistributeTx', () => {
+    const creator = 'CreatorWallet1111111111111111111111111111111111';
+    const blockhash = 'blockhash123';
+
+    function mockRespondents(count: number) {
+      return Array.from({ length: count }, (_, i) => ({
+        respondentWallet: `Wallet${String(i).padStart(2, '0')}11111111111111111111111111111111`,
+      }));
+    }
+
+    it('should distribute equally and send leftover to creator when fewer participants than numWinners', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lottery',
+          numWinners: 10,
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(5)),
+      });
+      solanaService.buildDistributeRewardsTx.mockResolvedValue(
+        'mock-base64-tx',
+      );
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      expect(result.participantWallets).toHaveLength(6); // 5 winners + creator
+      expect(result.amounts).toHaveLength(6);
+
+      for (let i = 0; i < 5; i++) {
+        expect(result.amounts[i]).toBe(1 * LAMPORTS_PER_SOL);
+      }
+
+      expect(result.participantWallets[5]).toBe(creator);
+      expect(result.amounts[5]).toBe(5 * LAMPORTS_PER_SOL); // leftover
+    });
+
+    it('should randomly select numWinners from participants when more than numWinners', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lottery',
+          numWinners: 3,
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(10)),
+      });
+      solanaService.buildDistributeRewardsTx.mockResolvedValue(
+        'mock-base64-tx',
+      );
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      // 3 winners + creator for rounding leftover (floor(10/3)*3 < 10)
+      expect(result.participantWallets).toHaveLength(4);
+      expect(result.amounts).toHaveLength(4);
+
+      const expected = Math.floor((10 * LAMPORTS_PER_SOL) / 3);
+      for (let i = 0; i < 3; i++) {
+        expect(result.amounts[i]).toBe(expected);
+      }
+
+      // Last entry is creator with 1-lamport rounding leftover
+      expect(result.participantWallets[3]).toBe(creator);
+      expect(result.amounts[3]).toBe(10 * LAMPORTS_PER_SOL - 3 * expected);
+
+      const winners = new Set(result.participantWallets.slice(0, 3));
+      expect(winners.size).toBe(3);
+    });
+
+    it('should give each winner equal share when participants match numWinners with no leftover', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lottery',
+          numWinners: 5,
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(5)),
+      });
+      solanaService.buildDistributeRewardsTx.mockResolvedValue(
+        'mock-base64-tx',
+      );
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      expect(result.participantWallets).toHaveLength(5);
+      result.amounts.forEach((amt) => expect(amt).toBe(2 * LAMPORTS_PER_SOL));
+      expect(result.participantWallets).not.toContain(creator);
+    });
+
+    it('should allow distribution for an active survey with responses', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'active',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lottery',
+          numWinners: 5,
+          closesAt: new Date('2099-01-01'),
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(5)),
+      });
+      solanaService.buildDistributeRewardsTx.mockResolvedValue(
+        'mock-base64-tx',
+      );
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      expect(result.participantWallets).toHaveLength(5);
+      expect(result.amounts).toHaveLength(5);
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lottery',
+          numWinners: 5,
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      await expect(
+        service.buildDistributeTx(
+          'f1',
+          'SomeOther1111111111111111111111111111111111',
+          blockhash,
+        ),
+      ).rejects.toThrow('Only the form creator can distribute rewards');
+    });
+
+    it('should reject when no undistributed responses exist', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lottery',
+          numWinners: 5,
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      await expect(
+        service.buildDistributeTx('f1', creator, blockhash),
+      ).rejects.toThrow('All responses have already been distributed');
+    });
+
+    it('should reject when form does not exist', async () => {
+      formModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(
+        service.buildDistributeTx('nonexistent', creator, blockhash),
+      ).rejects.toThrow('Form not found');
+    });
+  });
+});
