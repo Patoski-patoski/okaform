@@ -233,7 +233,7 @@ function WalletButton({
     const solBalance = displayBalance != null ? (displayBalance / 1_000_000_000).toFixed(2) : null;
 
     return (
-      <div className="inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5">
+      <div className="group inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5">
         <button
           onClick={onClick}
           className="flex items-center gap-2.5 text-sm font-medium text-ok-text focus-visible:outline-none"

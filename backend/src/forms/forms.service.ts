@@ -386,6 +386,7 @@ export class FormsService {
     tx: string;
     participantWallets: string[];
     amounts: number[];
+    badgeTiers: Record<string, string>;
   }> {
     const form = await this.formModel.findById(formId).lean().exec();
 
@@ -420,6 +421,7 @@ export class FormsService {
     participantWallets: string[],
     amounts: number[],
     txSignature: string,
+    badgeTiers?: Record<string, string>,
   ): Promise<void> {
     const form = await this.formModel.findById(formId).lean().exec();
 
@@ -444,6 +446,7 @@ export class FormsService {
       participantWallets,
       amounts,
       txSignature,
+      badgeTiers,
     );
   }
 }

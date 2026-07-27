@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
@@ -101,6 +102,7 @@ export class SurveyLifecycleService {
     tx: string;
     participantWallets: string[];
     amounts: number[];
+    badgeTiers: Record<string, string>;
   }> {
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
@@ -137,18 +139,16 @@ export class SurveyLifecycleService {
     const participantWallets = responses.map((r) => r.respondentWallet);
 
     let amounts: number[];
+    let badgeTiers: { wallet: string; badgeTier: string }[];
     if (form.rewardType === 'lottery') {
       const numWinners = Math.min(form.numWinners, participantWallets.length);
       const rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
       const perWinner = Math.floor(rewardPoolLamports / form.numWinners);
 
-      // Randomly select numWinners without replacement (Fisher-Yates)
-      const shuffled = [...participantWallets];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      const winners = shuffled.slice(0, numWinners);
+      const winners = this.shuffleWalletsForLottery(
+        participantWallets,
+        numWinners,
+      );
       participantWallets.length = 0;
       participantWallets.push(...winners);
       amounts = winners.map(() => perWinner);
@@ -160,6 +160,14 @@ export class SurveyLifecycleService {
         participantWallets.push(form.creator);
         amounts.push(leftover);
       }
+
+      badgeTiers = await Promise.all(
+        participantWallets.map(async (wallet) => {
+          const badgeTier =
+            await this.solanaService.fetchRespondentBadgeTier(wallet);
+          return { wallet, badgeTier: badgeTier ?? 'Ghost' };
+        }),
+      );
     } else {
       if (!form.onChain?.escrowVault) {
         throw new Error('Escrow vault PDA not found for this form');
@@ -173,7 +181,7 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault has no balance to distribute');
       }
 
-      const badgeTiers = await Promise.all(
+      badgeTiers = await Promise.all(
         participantWallets.map(async (wallet) => {
           const badgeTier =
             await this.solanaService.fetchRespondentBadgeTier(wallet);
@@ -213,6 +221,11 @@ export class SurveyLifecycleService {
       });
     }
 
+    const badgeTiersMap: Record<string, string> = {};
+    for (const b of badgeTiers) {
+      badgeTiersMap[b.wallet] = b.badgeTier;
+    }
+
     this.logger.log({
       event: 'BUILD_DISTRIBUTE_TX_CALCULATED',
       formId,
@@ -232,7 +245,7 @@ export class SurveyLifecycleService {
       blockhash,
     );
 
-    return { tx, participantWallets, amounts };
+    return { tx, participantWallets, amounts, badgeTiers: badgeTiersMap };
   }
 
   /**
@@ -246,6 +259,7 @@ export class SurveyLifecycleService {
     participantWallets: string[],
     amounts: number[],
     txSignature: string,
+    badgeTiers?: Record<string, string>,
   ): Promise<void> {
     const form = await this.formModel.findById(formId).exec();
     if (!form || form.creator !== callerWallet) {
@@ -331,17 +345,19 @@ export class SurveyLifecycleService {
 
     await this.responseModel.bulkWrite(bulkOps);
 
-    const badgeTiers = await Promise.all(
-      participantWallets.map(async (wallet) => {
-        const badgeTier =
-          await this.solanaService.fetchRespondentBadgeTier(wallet);
-        return { wallet, badgeTier: badgeTier ?? 'Ghost' };
-      }),
-    );
-
-    const badgeTierMap = new Map(
-      badgeTiers.map((b) => [b.wallet, b.badgeTier]),
-    );
+    let badgeTierMap: Map<string, string>;
+    if (badgeTiers) {
+      badgeTierMap = new Map(Object.entries(badgeTiers));
+    } else {
+      const fetched = await Promise.all(
+        participantWallets.map(async (wallet) => {
+          const badgeTier =
+            await this.solanaService.fetchRespondentBadgeTier(wallet);
+          return { wallet, badgeTier: badgeTier ?? 'Ghost' };
+        }),
+      );
+      badgeTierMap = new Map(fetched.map((b) => [b.wallet, b.badgeTier]));
+    }
 
     const distributionRecords = participantWallets.map((wallet, i) => ({
       formId,
@@ -463,5 +479,14 @@ export class SurveyLifecycleService {
     await form.save();
 
     this.logger.log({ event: 'CONFIRM_CLOSE_SUCCESS', formId });
+  }
+
+  private shuffleWalletsForLottery<T>(wallets: T[], count: number): T[] {
+    const shuffled = [...wallets];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, count);
   }
 }

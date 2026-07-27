@@ -111,6 +111,7 @@ export class FormsController {
       dto.participantWallets,
       dto.amounts,
       dto.txSignature,
+      dto.badgeTiers,
     );
   }
 
