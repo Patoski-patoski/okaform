@@ -161,6 +161,15 @@ export class FormsService {
     );
   }
 
+  private deriveStatus(
+    closesAt: Date | null | undefined,
+    dbStatus: string,
+  ): 'active' | 'closed' {
+    if (dbStatus === 'closed') return 'closed';
+    if (closesAt && closesAt.getTime() <= Date.now()) return 'closed';
+    return 'active';
+  }
+
   async getExploreForms(): Promise<ExploreFormItem[]> {
     const forms = await this.formModel
       .find({ status: { $in: ['active', 'closed'] } })
@@ -191,7 +200,7 @@ export class FormsService {
     return forms.map((form) => ({
       id: String(form._id),
       title: form.title,
-      status: form.status,
+      status: this.deriveStatus(form.closesAt, form.status),
       organization: form.organization,
       rewardPool: form.rewardPool,
       rewardType: form.rewardType,
@@ -237,7 +246,7 @@ export class FormsService {
     return forms.map((form) => ({
       id: String(form._id),
       title: form.title,
-      status: form.status,
+      status: this.deriveStatus(form.closesAt, form.status),
       organization: form.organization,
       rewardPool: form.rewardPool,
       maxResponses: form.maxResponses,
@@ -270,7 +279,7 @@ export class FormsService {
       id: String(form._id),
       title: form.title,
       creator: form.creator,
-      status: form.status,
+      status: this.deriveStatus(form.closesAt, form.status),
       organization: form.organization,
       rewardPool: form.rewardPool,
       maxResponses: form.maxResponses,

@@ -4,13 +4,14 @@ import { Link } from "react-router-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
   Wallet,
-  ChevronDown,
   Gem,
   Circle,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
 
 import { cn } from "@/lib/utils";
 import OkaformLogo from "./OkaformLogo";
@@ -180,6 +181,7 @@ interface WalletButtonProps {
   score?: number;
   balance?: number | null;
   onClick?: () => void;
+  onDisconnect?: () => void;
   className?: string;
 }
 
@@ -190,9 +192,12 @@ function WalletButton({
   score = 0,
   balance,
   onClick,
+  onDisconnect,
   className,
 }: WalletButtonProps) {
   const [copied, setCopied] = useState(false);
+  const [localBalance, setLocalBalance] = useState<number | null>(null);
+  const { connection } = useConnection();
 
   const label = connected && wallet
     ? username ?? truncateAddress(wallet)
@@ -207,60 +212,85 @@ function WalletButton({
     }
   };
 
+  useEffect(() => {
+    if (!connected || !wallet) {
+      setLocalBalance(null);
+      return;
+    }
+    let cancelled = false;
+    const pubkey = new PublicKey(wallet);
+    void connection.getBalance(pubkey).then((lamports) => {
+      if (!cancelled) setLocalBalance(lamports);
+    });
+    return () => { cancelled = true; };
+  }, [connected, wallet, connection]);
+
+  const displayBalance = balance ?? localBalance;
+
   if (connected && wallet) {
     const tier = getBadgeTier(score);
     const badgeConfig = BADGE_CONFIG[tier];
-    const solBalance = balance != null ? (balance / 1_000_000_000).toFixed(2) : null;
+    const solBalance = displayBalance != null ? (displayBalance / 1_000_000_000).toFixed(2) : null;
 
     return (
-      <button
-        onClick={onClick}
-        className={cn(
-          "group inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 text-sm font-medium text-ok-text transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50",
-          className
-        )}
-      >
-        <span className="flex items-center gap-1.5">
-          <Wallet className="h-4 w-4 text-ok-green" />
-          <span
-            className="font-mono text-xs cursor-pointer transition-colors hover:text-ok-green"
-            onClick={handleCopyAddress}
-            title="Click to copy"
-          >
-            {copied ? 'Copied!' : label}
+      <div className="inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5">
+        <button
+          onClick={onClick}
+          className="flex items-center gap-2.5 text-sm font-medium text-ok-text focus-visible:outline-none"
+        >
+          <span className="flex items-center gap-1.5">
+            <Wallet className="h-4 w-4 text-ok-green" />
+            <span
+              className="font-mono text-xs cursor-pointer transition-colors hover:text-ok-green"
+              onClick={handleCopyAddress}
+              title="Click to copy"
+            >
+              {copied ? 'Copied!' : label}
+            </span>
           </span>
-        </span>
 
-        {solBalance !== null && (
+          {solBalance !== null && (
+            <>
+              <span className="h-4 w-px bg-ok-border" />
+              <span className="flex items-center gap-1 text-xs text-ok-muted transition-colors group-hover:text-ok-text">
+                <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
+                <span className="font-mono">{solBalance}</span>
+              </span>
+            </>
+          )}
+
+          <span className="h-4 w-px bg-ok-border" />
+
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+              badgeConfig.containerClass
+            )}
+          >
+            {tier === "diamond" ? (
+              <Gem className="h-2.5 w-2.5" />
+            ) : (
+              <Circle
+                className={cn("h-1.5 w-1.5 fill-current", badgeConfig.dotClass)}
+              />
+            )}
+            {badgeConfig.label}
+          </span>
+        </button>
+
+        {onDisconnect && (
           <>
             <span className="h-4 w-px bg-ok-border" />
-            <span className="flex items-center gap-1 text-xs text-ok-muted transition-colors group-hover:text-ok-text">
-              <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
-              <span className="font-mono">{solBalance}</span>
-            </span>
+            <button
+              onClick={onDisconnect}
+              className="flex items-center gap-1 font-mono text-xs text-ok-muted transition-colors hover:text-ok-danger cursor-pointer"
+              title="Disconnect"
+            >
+              <LogOut className="h-3 w-3" />
+            </button>
           </>
         )}
-
-        <span className="h-4 w-px bg-ok-border" />
-
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-            badgeConfig.containerClass
-          )}
-        >
-          {tier === "diamond" ? (
-            <Gem className="h-2.5 w-2.5" />
-          ) : (
-            <Circle
-              className={cn("h-1.5 w-1.5 fill-current", badgeConfig.dotClass)}
-            />
-          )}
-          {badgeConfig.label}
-        </span>
-
-        <ChevronDown className="h-3.5 w-3.5 text-ok-muted" />
-      </button>
+      </div>
     );
   }
 
@@ -396,7 +426,7 @@ function Navbar({
   const { connected, publicKey, disconnect } = useWallet();
   const { connection } = useConnection();
   const { setVisible } = useWalletModal();
-  const { isAuthenticated, user, isLoading, login } = useAuth();
+  const { isAuthenticated, user, isLoading, login, logout } = useAuth();
 
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -418,11 +448,9 @@ function Navbar({
   }, [connected, publicKey, connection]);
 
   const handleWalletClick = () => {
-    if (connected && isAuthenticated) {
-      disconnect();
-    } else if (connected && !isAuthenticated && !isLoading) {
+    if (connected && !isAuthenticated && !isLoading) {
       void login();
-    } else {
+    } else if (!connected) {
       setVisible(true);
     }
   };
@@ -482,6 +510,7 @@ function Navbar({
           score={displayScore}
           balance={connected && isAuthenticated ? balance : null}
           onClick={handleWalletClick}
+          onDisconnect={connected && isAuthenticated ? () => { logout(); disconnect(); } : undefined}
         />
       )}
     </nav>

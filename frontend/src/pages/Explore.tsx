@@ -20,9 +20,11 @@ import {
 import { Link } from "react-router-dom";
 import OkaformLogo from "@/components/OkaformLogo";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { Button, Badge, getBadgeTier } from "@/components/okaform";
 import { useWallet } from "@/components/WalletProvider";
 import { useAuth } from "@/components/AuthProvider";
+import solanaLogo from "@/assets/icons/solana-logo.svg";
 import { cn, displayName } from "@/lib/utils";
 import { getExploreForms } from "@/lib/forms";
 import type { ExploreFormItem } from "@/lib/forms";
@@ -134,9 +136,23 @@ function ProtocolLogo({ name, color }: { name: string; color: string }) {
 
 function WalletBadge() {
   const { connected, publicKey, disconnect } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
   const { isAuthenticated, isLoading, login, logout, user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setBalance(null);
+      return;
+    }
+    let cancelled = false;
+    void connection.getBalance(publicKey).then((lamports) => {
+      if (!cancelled) setBalance(lamports);
+    });
+    return () => { cancelled = true; };
+  }, [connected, publicKey, connection]);
 
   if (isLoading) {
     return (
@@ -194,6 +210,15 @@ function WalletBadge() {
       </button>
       <span className="h-4 w-px bg-[#3D444D]" />
       <Badge tier={tier} className="text-xs" />
+      {balance !== null && (
+        <>
+          <span className="h-4 w-px bg-[#3D444D]" />
+          <span className="flex items-center gap-1 text-xs text-[#9198A1]">
+            <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
+            <span className="font-mono">{(balance / 1_000_000_000).toFixed(2)}</span>
+          </span>
+        </>
+      )}
       <span className="h-4 w-px bg-[#3D444D]" />
       <button
         onClick={() => { logout(); disconnect(); }}

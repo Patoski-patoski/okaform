@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { ChevronLeft, Loader2, ShieldX, ArrowRight } from "lucide-react";
+import { Loader2, ShieldX, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
@@ -243,22 +243,24 @@ export default function SurveyFill() {
     <div className="min-h-screen bg-ok-bg">
       <ProgressBar percent={submitted ? 100 : progress} />
 
-      <div className="mx-auto max-w-[680px] px-6 pt-10 pb-2">
-        <Link
-          to="/explore"
-          className="inline-flex items-center gap-1.5 text-xs text-ok-muted/60 transition-colors hover:text-ok-text"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Back to Explore
-        </Link>
-      </div>
-
-      <main className="mx-auto max-w-[680px] px-6 pb-24">
+      <main className="mx-auto max-w-[680px] px-6 pb-24 pt-10">
         {alreadySubmitted ? (
-          <div className="flex flex-col items-center gap-4 py-20 text-center">
-            <p className="text-sm text-ok-muted">You have already submitted this survey.</p>
-            <Link to="/explore" className="text-xs text-ok-green border-b border-transparent hover:border-ok-green transition-colors">
-              Back to Explore
+          <div className="flex flex-col items-center gap-6 py-24 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-ok-green/20 bg-ok-green/5">
+              <CheckCircle2 className="h-8 w-8 text-ok-green" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-ok-text">Already Submitted</h2>
+              <p className="max-w-sm text-sm text-ok-muted">
+                You've already shared your feedback on this survey. Each wallet is limited to one response.
+              </p>
+            </div>
+            <Link
+              to="/explore"
+              className="inline-flex items-center gap-2 rounded-lg border border-ok-border bg-ok-surface px-5 py-2.5 text-sm font-medium text-ok-text transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5 hover:text-ok-green"
+            >
+              Browse More Surveys
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         ) : submitted ? (

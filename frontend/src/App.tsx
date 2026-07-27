@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { WalletContextProvider } from "./components/WalletProvider";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
@@ -11,18 +10,6 @@ import HowItWorks from "./pages/HowItWorks";
 import Explore from "./pages/Explore";
 import Pricing from "./pages/Pricing";
 import { Loader2 } from "lucide-react";
-
-// Clean up old UUID-based drafts on app load
-function useCleanupOldDrafts() {
-  useEffect(() => {
-    const keys = Object.keys(localStorage);
-    keys.forEach((key) => {
-      if (key.startsWith("okaform_draft_")) {
-        localStorage.removeItem(key);
-      }
-    });
-  }, []);
-}
 
 function IndexRoute() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,8 +34,6 @@ function IndexRoute() {
 }
 
 export default function App() {
-  useCleanupOldDrafts();
-
   return (
     <WalletContextProvider>
       <AuthProvider>

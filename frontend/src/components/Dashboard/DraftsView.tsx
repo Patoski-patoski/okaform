@@ -75,7 +75,12 @@ export default function DraftsView() {
   const handleLoad = (draft: SavedDraft) => {
     try {
       const raw = localStorage.getItem(`okaform_draft_${draft.id}`);
-      if (!raw) return;
+      if (!raw) {
+        const updated = drafts.filter((d) => d.id !== draft.id);
+        setDrafts(updated);
+        localStorage.setItem(DRAFTS_KEY, JSON.stringify(updated));
+        return;
+      }
       localStorage.setItem("okaform_current_draft", raw);
       navigate("/create");
     } catch {

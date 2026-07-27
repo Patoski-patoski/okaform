@@ -466,4 +466,38 @@ export class SolanaService {
       throw new RpcErrorException('getTransactionCount');
     }
   }
+
+  async getEscrowBalance(escrowPda: string): Promise<bigint> {
+    const pubkey = this.validateWallet(escrowPda);
+    const balance = await this.connection.getBalance(pubkey, 'confirmed');
+    return BigInt(balance);
+  }
+
+  async fetchRespondentBadgeTier(wallet: string): Promise<string | null> {
+    try {
+      const walletPubkey = this.validateWallet(wallet);
+      const [scorePda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('score'), walletPubkey.toBuffer()],
+        this.program.programId,
+      );
+      const account = await (
+        this.program.account as unknown as {
+          respondentScoreAccount: {
+            fetch: (pda: PublicKey) => Promise<{
+              badgeTier: Record<string, Record<string, unknown>>;
+            }>;
+          };
+        }
+      )['respondentScoreAccount'].fetch(scorePda);
+      const badgeTier = Object.keys(account.badgeTier)[0];
+      return badgeTier ?? null;
+    } catch (error) {
+      this.logger.warn({
+        event: 'FETCH_BADGE_TIER_FAILED',
+        wallet: wallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
 }
