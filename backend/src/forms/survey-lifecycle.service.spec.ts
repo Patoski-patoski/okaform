@@ -12,7 +12,10 @@ describe('SurveyLifecycleService', () => {
   let service: SurveyLifecycleService;
   let formModel: { findById: jest.Mock };
   let responseModel: { find: jest.Mock };
-  let solanaService: { buildDistributeRewardsTx: jest.Mock };
+  let solanaService: {
+    buildDistributeRewardsTx: jest.Mock;
+    fetchRespondentBadgeTier: jest.Mock;
+  };
   let distributionService: { saveDistributionRecords: jest.Mock };
 
   function mockForm(data: Record<string, unknown>) {
@@ -22,7 +25,10 @@ describe('SurveyLifecycleService', () => {
   beforeEach(async () => {
     formModel = { findById: jest.fn() };
     responseModel = { find: jest.fn() };
-    solanaService = { buildDistributeRewardsTx: jest.fn() };
+    solanaService = {
+      buildDistributeRewardsTx: jest.fn(),
+      fetchRespondentBadgeTier: jest.fn().mockResolvedValue('Ghost'),
+    };
     distributionService = { saveDistributionRecords: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({

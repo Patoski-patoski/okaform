@@ -156,6 +156,7 @@ export interface BuildDistributeTxResult {
   tx: string;
   participantWallets: string[];
   amounts: number[];
+  badgeTiers: Record<string, string>;
 }
 
 export async function buildDistributeTx(
@@ -173,10 +174,16 @@ export async function confirmDistribute(
   participantWallets: string[],
   amounts: number[],
   txSignature: string,
+  badgeTiers?: Record<string, string>,
 ): Promise<void> {
   return api<void>(`/forms/${formId}/confirm-distribute`, {
     method: "POST",
-    body: JSON.stringify({ participantWallets, amounts, txSignature }),
+    body: JSON.stringify({
+      participantWallets,
+      amounts,
+      txSignature,
+      badgeTiers,
+    }),
   });
 }
 

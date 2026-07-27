@@ -1115,7 +1115,7 @@ export default function Dashboard() {
       // Wait for transaction confirmation before marking as distributed
       await connection.confirmTransaction(txSignature, 'confirmed');
 
-      await confirmDistribute(surveyId, result.participantWallets, result.amounts, txSignature);
+      await confirmDistribute(surveyId, result.participantWallets, result.amounts, txSignature, result.badgeTiers);
 
       setSurveys((prev) =>
         prev.map((s) => (s.id === surveyId ? { ...s, rewardDistributed: true } : s))
