@@ -2,64 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileEdit, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
-
-const DRAFTS_KEY = "okaform_saved_drafts";
-
-export interface SavedDraft {
-  id: string;
-  name: string;
-  formTitle: string;
-  questionCount: number;
-  savedAt: string;
-}
-
-function loadDrafts(): SavedDraft[] {
-  try {
-    const raw = localStorage.getItem(DRAFTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveDraft(name: string, formTitle: string, questions: unknown[], reward: unknown) {
-  const drafts = loadDrafts();
-  
-  // Check if a draft with this name already exists
-  const existingIndex = drafts.findIndex(d => d.name === name);
-  
-  if (existingIndex >= 0) {
-    // Update existing draft
-    drafts[existingIndex] = {
-      ...drafts[existingIndex],
-      formTitle,
-      questionCount: questions.length,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(
-      `okaform_draft_${drafts[existingIndex].id}`,
-      JSON.stringify({ formTitle, questions, reward }),
-    );
-  } else {
-    // Create new draft
-    const id = crypto.randomUUID();
-    const draft: SavedDraft = {
-      id,
-      name,
-      formTitle,
-      questionCount: questions.length,
-      savedAt: new Date().toISOString(),
-    };
-    drafts.unshift(draft);
-    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
-    localStorage.setItem(
-      `okaform_draft_${id}`,
-      JSON.stringify({ formTitle, questions, reward }),
-    );
-  }
-  
-  return existingIndex >= 0 ? drafts[existingIndex].id : drafts[0].id;
-}
+import { loadDrafts, type SavedDraft } from "@/lib/drafts";
 
 export default function DraftsView() {
   const navigate = useNavigate();
@@ -140,7 +83,9 @@ export default function DraftsView() {
                   {draft.name || draft.formTitle || "Untitled"}
                 </p>
                 <p className="mt-0.5 font-mono text-[10px] text-[#656C76]">
-                  {draft.formTitle || "No title"} · {draft.questionCount} question{draft.questionCount !== 1 ? "s" : ""} · Saved {formatRelativeTime(new Date(draft.savedAt))}
+                  {draft.formTitle || "No title"} · {draft.questionCount}{" "}
+                  question{draft.questionCount !== 1 ? "s" : ""} · Saved{" "}
+                  {formatRelativeTime(new Date(draft.savedAt))}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-4">

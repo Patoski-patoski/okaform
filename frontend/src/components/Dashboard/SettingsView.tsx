@@ -7,11 +7,12 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import { Badge, tierFromLabel } from "@/components/okaform";
-import { truncateAddress, getBadgeTier } from "@/components/okaform";
+import { Badge } from "@/components/okaform";
+import { tierFromLabel, getBadgeTier } from "@/lib/tiers";
+import { truncateAddress } from "@/lib/format";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import { useWallet } from "@/components/WalletProvider";
-import { useAuth } from "@/components/AuthProvider";
+import { useWallet } from "@/hooks/useWallet";
+import { useAuth } from "@/hooks/useAuth";
 import { setUsername as setUsernameApi } from "@/lib/auth";
 import { getUserEarnings } from "@/lib/distribution";
 import type { DistributionRecord } from "@/types/distribution";

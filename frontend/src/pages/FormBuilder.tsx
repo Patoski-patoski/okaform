@@ -71,11 +71,11 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/components/AuthProvider";
-import { useWallet } from "@/components/WalletProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { useWallet } from "@/hooks/useWallet";
 import { createForm, buildInitTx } from "@/lib/forms";
 import { ApiError } from "@/lib/api";
-import { saveDraft } from "@/components/Dashboard/DraftsView";
+import { saveDraft } from "@/lib/drafts";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────

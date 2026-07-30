@@ -8,12 +8,11 @@ import {
   Circle,
   ArrowRight,
 } from "lucide-react";
-import { useWallet } from "@/components/WalletProvider";
-import { useAuth } from "@/components/AuthProvider";
-import { getBadgeTier } from "@/components/okaform";
+import { useWallet } from "@/hooks/useWallet";
+import { useAuth } from "@/hooks/useAuth";
+import { getBadgeTier } from "@/lib/tiers";
 import { cn, displayName } from "@/lib/utils";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
-
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -89,7 +88,8 @@ export default function HomeView({
     diamond: "Sovereign",
   };
 
-  const greeting = surveysCompleted > 0 ? tierNames[tier] ?? "Creator" : "Creator";
+  const greeting =
+    surveysCompleted > 0 ? (tierNames[tier] ?? "Creator") : "Creator";
   const tierEmoji = tier === "diamond" ? " 💎" : tier === "gold" ? " 🏛️" : "";
 
   return (
@@ -101,10 +101,12 @@ export default function HomeView({
             DASHBOARD // OKAFORM
           </p>
           <h1 className="mt-2 font-display text-2xl font-bold text-[#F0F6F6]">
-            Good morning, {greeting}{tierEmoji}
+            Good morning, {greeting}
+            {tierEmoji}
           </h1>
           <p className="mt-1 font-mono text-xs text-[#9198A1]">
-            {wallet ? displayName(user, wallet) : "Not connected"} · Global Score: {score} · {surveysCompleted} surveys completed
+            {wallet ? displayName(user, wallet) : "Not connected"} · Global
+            Score: {score} · {surveysCompleted} surveys completed
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -175,10 +177,13 @@ export default function HomeView({
           </p>
           <p className="mt-2 font-mono text-2xl font-bold">
             <span className="inline-flex items-center gap-1.5">
-              <img src={solanaLogo} alt="Solana" className="h-5 w-5 text-ok-green" />{" "}
+              <img
+                src={solanaLogo}
+                alt="Solana"
+                className="h-5 w-5 text-ok-green"
+              />{" "}
               <span className="text-[#F0F6F6]">{solDistributed}</span>
             </span>
-           
           </p>
         </div>
       </div>
@@ -198,11 +203,10 @@ export default function HomeView({
         </div>
         <div className="divide-y divide-[#3D444D]/30">
           {ACTIVITY_FEED.map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 px-4 py-3"
-            >
-              <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", item.color)} />
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <span
+                className={cn("h-1.5 w-1.5 shrink-0 rounded-full", item.color)}
+              />
               <p className="flex-1 text-xs text-[#9198A1]">{item.text}</p>
               <span className="shrink-0 font-mono text-[10px] text-[#656C76]">
                 {item.time}
@@ -248,7 +252,9 @@ export default function HomeView({
                   <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#3D444D]">
                     <div
                       className="h-full rounded-full bg-ok-green"
-                      style={{ width: `${(survey.responses / survey.maxResponses) * 100}%` }}
+                      style={{
+                        width: `${(survey.responses / survey.maxResponses) * 100}%`,
+                      }}
                     />
                   </div>
                 </div>
@@ -270,7 +276,9 @@ export default function HomeView({
         ) : (
           <div className="flex flex-col items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] py-12 text-center">
             <FileText className="h-8 w-8 text-[#656C76]/30" />
-            <p className="font-mono text-xs text-[#9198A1]">No active surveys</p>
+            <p className="font-mono text-xs text-[#9198A1]">
+              No active surveys
+            </p>
             <Link
               to="/create"
               className="inline-flex items-center gap-2 rounded bg-ok-green px-4 py-2 font-mono text-xs font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A]"
@@ -291,19 +299,27 @@ export default function HomeView({
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-ok-green" />
-                <span className="text-xs text-[#9198A1]">Connect your wallet</span>
+                <span className="text-xs text-[#9198A1]">
+                  Connect your wallet
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-ok-green" />
-                <span className="text-xs text-[#9198A1]">Create your first survey</span>
+                <span className="text-xs text-[#9198A1]">
+                  Create your first survey
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Circle className="h-4 w-4 text-[#656C76]" />
-                <span className="text-xs text-[#9198A1]">Get your first 10 responses</span>
+                <span className="text-xs text-[#9198A1]">
+                  Get your first 10 responses
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Circle className="h-4 w-4 text-[#656C76]" />
-                <span className="text-xs text-[#9198A1]">Reach Cipher tier (score 26+)</span>
+                <span className="text-xs text-[#9198A1]">
+                  Reach Cipher tier (score 26+)
+                </span>
               </div>
             </div>
           </div>

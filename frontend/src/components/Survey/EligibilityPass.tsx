@@ -1,5 +1,6 @@
 import { CheckCircle2 } from "lucide-react";
-import { Badge, getBadgeTier } from "@/components/okaform";
+import { Badge } from "@/components/okaform";
+import { getBadgeTier } from "@/lib/tiers";
 
 export function EligibilityPass({
   wallet,
@@ -28,9 +29,7 @@ export function EligibilityPass({
       <div className="flex items-center gap-2 px-1">
         <span className="text-xs text-ok-muted">Your reputation:</span>
         <Badge tier={tier} />
-        <span className="font-mono text-xs text-ok-muted">
-          · Score {score}
-        </span>
+        <span className="font-mono text-xs text-ok-muted">· Score {score}</span>
       </div>
     </div>
   );
