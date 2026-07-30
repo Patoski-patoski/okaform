@@ -121,18 +121,46 @@ export class DistributionService implements OnApplicationInit {
 
   async onApplicationInit(): Promise<void> {
     try {
-      const indexes = await this.recordModel.collection.indexes();
-      const staleIndex = indexes.find((idx) => idx.name === 'txSignature_1');
-      if (staleIndex) {
-        await this.recordModel.collection.dropIndex('txSignature_1');
-        this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
+      let indexes: Array<{ name: string }>;
+      try {
+        indexes = await this.recordModel.collection.indexes();
+      } catch (err) {
+        this.logger.warn({
+          event: 'INDEX_FETCH_FAILED',
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return;
       }
 
-      await this.recordModel.syncIndexes();
+      const staleIndex = indexes.find((idx) => idx.name === 'txSignature_1');
+      if (staleIndex) {
+        try {
+          await this.recordModel.collection.dropIndex('txSignature_1');
+          this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
+        } catch (err) {
+          this.logger.warn({
+            event: 'INDEX_DROP_FAILED',
+            indexName: 'txSignature_1',
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      try {
+        await this.recordModel.syncIndexes();
+      } catch (err) {
+        this.logger.warn({
+          event: 'INDEX_SYNC_FAILED',
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return;
+      }
+
       this.logger.log({ event: 'DISTRIBUTION_INDEXES_SYNCED' });
     } catch (error) {
       this.logger.warn({
         event: 'ON_INIT_INDEX_FAILED',
+        operation: 'onApplicationInit',
         error: error instanceof Error ? error.message : String(error),
       });
     }

@@ -171,7 +171,23 @@ export class FormsService {
   private validateExpirationDate(closesAtStr?: string): void {
     if (!closesAtStr) return;
 
-    const closesAt = new Date(closesAtStr);
+    // Accept YYYY-MM-DDTHH:mm (browser datetime-local), YYYY-MM-DDTHH:mm:ss,
+    // YYYY-MM-DDTHH:mm:ss.sss, optionally with Z or +/-HH:mm timezone.
+    const iso8601 =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
+    if (!iso8601.test(closesAtStr)) {
+      throw new InvalidExpirationException(
+        'Survey expiration date must be in ISO 8601 format (e.g. 2026-12-31T23:59:59Z).',
+      );
+    }
+
+    // Normalize: append seconds and UTC timezone when absent (browser
+    // datetime-local sends YYYY-MM-DDTHH:mm without timezone).
+    let normalized = closesAtStr;
+    if (normalized.length === 16) normalized += ':00';
+    if (!/[Z+-]/.test(normalized.slice(-6))) normalized += 'Z';
+
+    const closesAt = new Date(normalized);
     if (isNaN(closesAt.getTime())) {
       throw new InvalidExpirationException(
         'Survey expiration date is not a valid date.',
