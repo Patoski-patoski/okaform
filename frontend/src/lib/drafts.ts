@@ -1,4 +1,4 @@
-const DRAFTS_KEY = "okaform_saved_drafts";
+export const DRAFTS_KEY = "okaform_saved_drafts";
 
 export interface SavedDraft {
   id: string;
