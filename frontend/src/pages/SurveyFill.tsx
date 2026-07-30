@@ -5,8 +5,8 @@ import { Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import OkaformLogo from "@/components/OkaformLogo";
-import { useWallet } from "@/components/WalletProvider";
-import { useAuth } from "@/components/AuthProvider";
+import { useWallet } from "@/hooks/useWallet";
+import { useAuth } from "@/hooks/useAuth";
 import {
   WalletGate,
   EligibilityPass,

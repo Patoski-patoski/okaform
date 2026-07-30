@@ -35,10 +35,10 @@ import {
   getBadgeTier,
 } from "@/components/okaform";
 import type { StatusType } from "@/components/okaform";
-import { buttonVariants } from "@/components/okaform";
+import { buttonVariants } from "@/lib/tiers";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/components/AuthProvider";
-import { useWallet } from "@/components/WalletProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { useWallet } from "@/hooks/useWallet";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { WalletContextProvider } from "./components/WalletProvider";
-import { AuthProvider, useAuth } from "./components/AuthProvider";
+import { AuthProvider } from "./components/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
@@ -40,10 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<IndexRoute />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route
-            path="/how-it-works"
-            element={<HowItWorks />}
-          />
+          <Route path="/how-it-works" element={<HowItWorks />} />
           <Route
             path="/pricing"
             element={
@@ -52,10 +50,7 @@ export default function App() {
               </Layout>
             }
           />
-          <Route
-            path="/explore"
-            element={<Explore />}
-          />
+          <Route path="/explore" element={<Explore />} />
           <Route
             path="/form/:formId"
             element={

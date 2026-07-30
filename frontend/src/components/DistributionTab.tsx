@@ -10,7 +10,8 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { Badge, tierFromLabel } from "@/components/okaform";
+import { Badge } from "@/components/okaform";
+import { tierFromLabel } from "@/lib/tiers";
 import { formatRelativeTime } from "@/lib/utils";
 
 function exportCSV(records: DistributionRecord[], formId: string) {

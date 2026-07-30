@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
-  useWallet as useAdapterWallet,
 } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
@@ -47,8 +46,4 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       </SolanaWalletProvider>
     </ConnectionProvider>
   );
-}
-
-export function useWallet() {
-  return useAdapterWallet();
 }

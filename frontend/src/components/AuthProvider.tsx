@@ -1,32 +1,15 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useCallback,
-  useState,
-  type ReactNode,
-} from 'react';
-import bs58 from 'bs58';
-import { useWallet } from './WalletProvider';
-import { setAccessToken } from '@/lib/api';
+import { useEffect, useCallback, useState, type ReactNode } from "react";
+import bs58 from "bs58";
+import { useWallet } from "@/hooks/useWallet";
+import { setAccessToken } from "@/lib/api";
 import {
   getNonce,
   verifySignature,
   getMe,
   logout as apiLogout,
   type UserProfile,
-} from '@/lib/auth';
-
-interface AuthContextValue {
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  updateUser: (updates: Partial<UserProfile>) => void;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+} from "@/lib/auth";
+import { AuthContext } from "@/hooks/useAuth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { connected, publicKey, signMessage } = useWallet();
@@ -38,7 +21,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await apiLogout();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setAccessToken(null);
     setUser(null);
   }, []);
@@ -81,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await getMe();
         if (profile.wallet !== wallet) {
-          throw new Error('wallet mismatch');
+          throw new Error("wallet mismatch");
         }
         setUser(profile);
       } catch {
@@ -111,12 +96,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return ctx;
 }
