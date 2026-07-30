@@ -255,6 +255,41 @@ describe('FormsService', () => {
         InvalidExpirationException,
       );
     });
+
+    it('should throw when closesAt is an invalid date string', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'Q',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+        closesAt: 'not-a-valid-date',
+      };
+
+      await expect(service.createForm(dto, 'wallet123')).rejects.toThrow(
+        InvalidExpirationException,
+      );
+    });
   });
 
   describe('getFormsByCreator', () => {
@@ -365,6 +400,22 @@ describe('FormsService', () => {
         creator: 'wallet123',
         blockhash: 'hash123',
         closesAt: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+
+      await expect(service.buildInitializeTx(dto)).rejects.toThrow(
+        InvalidExpirationException,
+      );
+    });
+
+    it('should throw when closesAt is an invalid date string', async () => {
+      const dto = {
+        surveyId: '123',
+        rewardPoolSol: 10,
+        rewardType: 'weighted' as const,
+        maxResponses: 100,
+        creator: 'wallet123',
+        blockhash: 'hash123',
+        closesAt: 'not-a-valid-date',
       };
 
       await expect(service.buildInitializeTx(dto)).rejects.toThrow(
