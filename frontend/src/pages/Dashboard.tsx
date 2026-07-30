@@ -1222,6 +1222,7 @@ export default function Dashboard() {
             batchAmounts,
             txSignature,
             result.badgeTiers,
+            i === result.txs.length - 1,
           );
         }
       }

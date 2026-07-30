@@ -40,11 +40,11 @@ interface CacheEntry<T> {
 export type RewardType = 'weighted' | 'lucky_draw';
 
 type RewardTypeArg =
-  { weighted: Record<string, never> } | { luckyDraw: Record<string, never> };
+  { Weighted: Record<string, never> } | { LuckyDraw: Record<string, never> };
 
 function toRewardTypeArg(rewardType: RewardType): RewardTypeArg {
-  if (rewardType === 'weighted') return { weighted: {} };
-  return { luckyDraw: {} };
+  if (rewardType === 'weighted') return { Weighted: {} };
+  return { LuckyDraw: {} };
 }
 
 function toLamportsBn(lamports: number): anchor.BN {

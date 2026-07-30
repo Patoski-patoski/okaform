@@ -380,7 +380,7 @@ export function QuestionCard({
         <div className="flex items-center gap-2 pl-7">
           {Array.from({ length: question.ratingMax || 5 }, (_, i) => i + 1).map(
             (num) => {
-              const isSelected = answer === String(num);
+              const filled = Number(answer) >= num;
               return (
                 <button
                   key={num}
@@ -388,7 +388,7 @@ export function QuestionCard({
                   onClick={() => onChange(question.id, String(num))}
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok)] border transition-all duration-150",
-                    isSelected
+                    filled
                       ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
                       : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text",
                   )}
@@ -396,7 +396,7 @@ export function QuestionCard({
                   <Star
                     className={cn(
                       "h-4 w-4",
-                      isSelected && "fill-ok-green text-ok-green",
+                      filled && "fill-ok-green text-ok-green",
                     )}
                   />
                 </button>

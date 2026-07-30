@@ -653,6 +653,7 @@ function SortableQuestionCard({
             value={question.label}
             onChange={(e) => onUpdateLabel(e.target.value)}
             placeholder={getPlaceholderText()}
+            autoFocus
             className={cn(
               "w-full border-none bg-transparent text-sm font-medium text-ok-text placeholder:text-ok-muted/30 focus:outline-none",
               (question.type === "h1" || question.type === "title") &&
@@ -1956,6 +1957,7 @@ export default function FormBuilder() {
         maxResponses: reward.maxResponses,
         creator: publicKey.toBase58(),
         blockhash,
+        closesAt: reward.closesAt || undefined,
       });
       console.log(
         "[INIT] buildInitTx returned, surveyPda:",

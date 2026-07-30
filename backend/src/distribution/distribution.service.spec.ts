@@ -7,10 +7,16 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 
 describe('DistributionService', () => {
   let service: DistributionService;
-  let recordModel: jest.Mocked<{
-    insertMany: ReturnType<typeof jest.fn>;
-    find: ReturnType<typeof jest.fn>;
-  }>;
+  let recordModel: {
+    bulkWrite: jest.Mock;
+    insertMany: jest.Mock;
+    find: jest.Mock;
+    syncIndexes: jest.Mock;
+    collection: {
+      indexes: jest.Mock;
+      dropIndex: jest.Mock;
+    };
+  };
 
   const mockRecord = {
     formId: 'form123',
@@ -37,8 +43,14 @@ describe('DistributionService', () => {
         {
           provide: getModelToken(DistributionRecord.name),
           useValue: {
+            bulkWrite: jest.fn(),
             insertMany: jest.fn(),
             find: jest.fn().mockReturnValue(mockFind),
+            syncIndexes: jest.fn().mockResolvedValue(undefined),
+            collection: {
+              indexes: jest.fn().mockResolvedValue([]),
+              dropIndex: jest.fn(),
+            },
           },
         },
       ],
@@ -49,7 +61,7 @@ describe('DistributionService', () => {
   });
 
   describe('saveDistributionRecords', () => {
-    it('should save records successfully', async () => {
+    it('should upsert records via bulkWrite', async () => {
       const records = [
         {
           formId: 'form123',
@@ -62,29 +74,36 @@ describe('DistributionService', () => {
         },
       ];
 
+      recordModel.bulkWrite.mockResolvedValue({
+        upsertedCount: 1,
+        modifiedCount: 0,
+      });
+
       await service.saveDistributionRecords(records);
 
-      expect(recordModel.insertMany).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({
-            formId: 'form123',
-            recipientWallet: 'wallet1',
-            explorerUrl: 'https://solscan.io/tx/tx_sig_123?cluster=devnet',
-          }),
-        ]),
-        { ordered: false },
+      expect(recordModel.bulkWrite).toHaveBeenCalledTimes(1);
+      const ops = recordModel.bulkWrite.mock.calls[0][0];
+      expect(ops).toHaveLength(1);
+      expect(ops[0].updateOne.filter).toEqual({
+        formId: 'form123',
+        recipientWallet: 'wallet1',
+        txSignature: 'tx_sig_123',
+      });
+      expect(ops[0].updateOne.upsert).toBe(true);
+      expect(ops[0].updateOne.update.$set.explorerUrl).toBe(
+        'https://solscan.io/tx/tx_sig_123?cluster=devnet',
       );
     });
 
     it('should handle empty array gracefully', async () => {
       await service.saveDistributionRecords([]);
 
-      expect(recordModel.insertMany).not.toHaveBeenCalled();
+      expect(recordModel.bulkWrite).not.toHaveBeenCalled();
     });
 
     it('should never throw on DB error', async () => {
       const mockError = new Error('DB connection failed');
-      recordModel.insertMany.mockRejectedValue(mockError);
+      recordModel.bulkWrite.mockRejectedValue(mockError);
 
       const records = [
         {

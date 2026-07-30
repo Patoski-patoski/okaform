@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationInit } from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -111,13 +111,33 @@ export function calculateWeightedAmounts(
 }
 
 @Injectable()
-export class DistributionService {
+export class DistributionService implements OnApplicationInit {
   private readonly logger = new Logger(DistributionService.name);
 
   constructor(
     @InjectModel(DistributionRecord.name)
     private recordModel: Model<DistributionRecordDocument>,
   ) {}
+
+  async onApplicationInit(): Promise<void> {
+    try {
+      await this.recordModel.syncIndexes();
+
+      const indexes = await this.recordModel.collection.indexes();
+      const staleIndex = indexes.find((idx) => idx.name === 'txSignature_1');
+      if (staleIndex) {
+        await this.recordModel.collection.dropIndex('txSignature_1');
+        this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
+      }
+
+      this.logger.log({ event: 'DISTRIBUTION_INDEXES_SYNCED' });
+    } catch (error) {
+      this.logger.warn({
+        event: 'ON_INIT_INDEX_FAILED',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   async saveDistributionRecords(
     records: SaveDistributionInput[],
@@ -130,19 +150,37 @@ export class DistributionService {
     }
 
     try {
-      const docs = records.map((r) => ({
-        formId: r.formId,
-        surveyPda: r.surveyPda,
-        recipientWallet: r.recipientWallet,
-        amountLamports: r.amountLamports,
-        badgeTier: r.badgeTier,
-        txSignature: r.txSignature,
-        explorerUrl: `https://solscan.io/tx/${r.txSignature}?cluster=devnet`,
-        distributedAt: new Date(),
-        rewardType: r.rewardType,
+      const ops = records.map((r) => ({
+        updateOne: {
+          filter: {
+            formId: r.formId,
+            recipientWallet: r.recipientWallet,
+            txSignature: r.txSignature,
+          },
+          update: {
+            $set: {
+              formId: r.formId,
+              surveyPda: r.surveyPda,
+              recipientWallet: r.recipientWallet,
+              amountLamports: r.amountLamports,
+              badgeTier: r.badgeTier,
+              txSignature: r.txSignature,
+              explorerUrl: `https://solscan.io/tx/${r.txSignature}?cluster=devnet`,
+              distributedAt: new Date(),
+              rewardType: r.rewardType,
+            },
+          },
+          upsert: true,
+        },
       }));
 
-      await this.recordModel.insertMany(docs, { ordered: false });
+      const result = await this.recordModel.bulkWrite(ops);
+      this.logger.log({
+        event: 'DISTRIBUTION_RECORDS_UPSERTED',
+        inserted: result.upsertedCount,
+        modified: result.modifiedCount,
+        total: records.length,
+      });
     } catch (error) {
       this.logger.error({
         event: 'SAVE_DISTRIBUTION_RECORDS_FAILED',

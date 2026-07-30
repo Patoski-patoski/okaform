@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileEdit, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
-import { loadDrafts, type SavedDraft } from "@/lib/drafts";
+import { DRAFTS_KEY, loadDrafts, type SavedDraft } from "@/lib/drafts";
 
 export default function DraftsView() {
   const navigate = useNavigate();
