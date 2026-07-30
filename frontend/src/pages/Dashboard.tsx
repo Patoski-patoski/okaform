@@ -26,16 +26,10 @@ import {
   LogOut,
 } from "lucide-react";
 
-import {
-  Button,
-  Badge,
-  StatusPill,
-  SOLAmount,
-  truncateAddress,
-  getBadgeTier,
-} from "@/components/okaform";
+import { Button, Badge, StatusPill, SOLAmount } from "@/components/okaform";
 import type { StatusType } from "@/components/okaform";
-import { buttonVariants } from "@/lib/tiers";
+import { buttonVariants, getBadgeTier } from "@/lib/tiers";
+import { truncateAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
