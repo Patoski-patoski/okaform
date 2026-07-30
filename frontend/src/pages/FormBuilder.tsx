@@ -1957,6 +1957,7 @@ export default function FormBuilder() {
         maxResponses: reward.maxResponses,
         creator: publicKey.toBase58(),
         blockhash,
+        closesAt: reward.closesAt || undefined,
       });
       console.log(
         "[INIT] buildInitTx returned, surveyPda:",

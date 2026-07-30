@@ -11,6 +11,7 @@ import { SurveyResponse } from '../common/schemas/response.schema';
 import type { CreateFormDto } from './dto/create-form.dto';
 import type { BuildInitTxDto } from './dto/build-init-tx.dto';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
+import { InvalidExpirationException } from '../common/exceptions/form/invalid-expiration.exception';
 import { SolanaService } from '../solana/solana.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
 
@@ -104,6 +105,8 @@ export class FormsService {
 
     await this.solanaService.verifyInitializeSurveyTx(dto.initTxSignature);
 
+    this.validateExpirationDate(dto.closesAt);
+
     const doc = await this.formModel.create({
       title: dto.title,
       questions: dto.questions,
@@ -153,6 +156,8 @@ export class FormsService {
   async buildInitializeTx(
     dto: BuildInitTxDto,
   ): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
+    this.validateExpirationDate(dto.closesAt);
+
     return this.solanaService.buildInitializeSurveyTx(
       dto.creator,
       dto.surveyId,
@@ -161,6 +166,27 @@ export class FormsService {
       dto.maxResponses,
       dto.blockhash,
     );
+  }
+
+  private validateExpirationDate(closesAtStr?: string): void {
+    if (!closesAtStr) return;
+
+    const closesAt = new Date(closesAtStr);
+    const now = new Date();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+    const diff = closesAt.getTime() - now.getTime();
+    if (diff < oneDayInMs) {
+      throw new InvalidExpirationException(
+        'Survey expiration must be at least 24 hours from now.',
+      );
+    }
+    if (diff > thirtyDaysInMs) {
+      throw new InvalidExpirationException(
+        'Survey expiration cannot be more than 30 days from now.',
+      );
+    }
   }
 
   private deriveStatus(
@@ -442,6 +468,7 @@ export class FormsService {
     amounts: number[],
     txSignature: string,
     badgeTiers?: Record<string, string>,
+    isLastBatch?: boolean,
   ): Promise<void> {
     const form = await this.formModel.findById(formId).lean().exec();
 
@@ -456,17 +483,18 @@ export class FormsService {
         caller: callerWallet.slice(0, 8) + '...',
       });
       throw new ForbiddenException(
-        'Only the form creator can confirm distribution.',
+        'Only the form creator can distribute rewards.',
       );
     }
 
-    await this.surveyLifecycleService.confirmDistribute(
+    return this.surveyLifecycleService.confirmDistribute(
       formId,
       callerWallet,
       participantWallets,
       amounts,
       txSignature,
       badgeTiers,
+      isLastBatch,
     );
   }
 }

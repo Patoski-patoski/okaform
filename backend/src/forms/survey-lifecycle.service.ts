@@ -265,13 +265,22 @@ export class SurveyLifecycleService {
       badgeTiersMap[b.wallet] = b.badgeTier;
     }
 
+    const aggregatedAmounts = new Map<string, number>();
+    for (let i = 0; i < participantWallets.length; i++) {
+      const w = participantWallets[i];
+      aggregatedAmounts.set(w, (aggregatedAmounts.get(w) ?? 0) + amounts[i]);
+    }
+
+    const uniqueWallets = Array.from(aggregatedAmounts.keys());
+    const uniqueAmounts = uniqueWallets.map((w) => aggregatedAmounts.get(w)!);
+
     this.logger.log({
       event: 'BUILD_DISTRIBUTE_TX_CALCULATED',
       formId,
       rewardPool: form.rewardPool,
       rewardType: form.rewardType,
-      participants: participantWallets.length,
-      totalAmount: amounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
+      participants: uniqueWallets.length,
+      totalAmount: uniqueAmounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
     });
 
     const surveyId = form.onChain?.surveyId ?? formId;
@@ -280,19 +289,20 @@ export class SurveyLifecycleService {
       this.logger.log({
         event: 'DISTRIBUTE_RECOVERY_CONFIRM',
         formId,
-        participantCount: participantWallets.length,
-        totalAmount: amounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
+        participantCount: uniqueWallets.length,
+        totalAmount:
+          uniqueAmounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
       });
 
       const now = new Date();
       const recoveryTxSignature = `recovery_${formId}_${now.getTime()}`;
-      const bulkOps = participantWallets.map((wallet, i) => ({
-        updateOne: {
+      const bulkOps = uniqueWallets.map((wallet, i) => ({
+        updateMany: {
           filter: { formId, respondentWallet: wallet },
           update: {
             $set: {
               distributed: true,
-              distributedAmount: amounts[i],
+              distributedAmount: uniqueAmounts[i],
               distributedAt: now,
               txSignature: recoveryTxSignature,
             },
@@ -301,14 +311,22 @@ export class SurveyLifecycleService {
       }));
       await this.responseModel.bulkWrite(bulkOps);
 
+      // Mark any remaining losers as distributed: true with 0 amount
+      await this.responseModel.updateMany(
+        { formId, distributed: { $ne: true } },
+        {
+          $set: { distributed: true, distributedAmount: 0, distributedAt: now },
+        },
+      );
+
       form.rewardDistributed = true;
       await form.save();
 
-      const distributionRecords = participantWallets.map((wallet, i) => ({
+      const distributionRecords = uniqueWallets.map((wallet, i) => ({
         formId,
         surveyPda: form.onChain?.surveyPda ?? '',
         recipientWallet: wallet,
-        amountLamports: amounts[i],
+        amountLamports: uniqueAmounts[i],
         badgeTier: badgeTiersMap[wallet] ?? 'Ghost',
         txSignature: recoveryTxSignature,
         rewardType: form.rewardType,
@@ -319,8 +337,8 @@ export class SurveyLifecycleService {
 
       return {
         txs: [],
-        participantWallets: [participantWallets],
-        amounts: [amounts],
+        participantWallets: [uniqueWallets],
+        amounts: [uniqueAmounts],
         badgeTiers: badgeTiersMap,
         recovered: true,
       };
@@ -330,8 +348,8 @@ export class SurveyLifecycleService {
       await this.solanaService.buildDistributeRewardsTxBatch(
         form.creator,
         surveyId,
-        participantWallets,
-        amounts,
+        uniqueWallets,
+        uniqueAmounts,
         blockhash,
       );
 
@@ -355,6 +373,7 @@ export class SurveyLifecycleService {
     amounts: number[],
     txSignature: string,
     badgeTiers?: Record<string, string>,
+    isLastBatch?: boolean,
   ): Promise<void> {
     const form = await this.formModel.findById(formId).exec();
     if (!form || form.creator !== callerWallet) {
@@ -414,7 +433,7 @@ export class SurveyLifecycleService {
 
     const now = new Date();
     const bulkOps = participantWallets.map((wallet, i) => ({
-      updateOne: {
+      updateMany: {
         filter: { formId, respondentWallet: wallet },
         update: {
           $set: {
@@ -463,14 +482,35 @@ export class SurveyLifecycleService {
     });
 
     // Re-count remaining undistributed AFTER the bulkWrite to get an accurate picture.
-    // Using the pre-bulkWrite snapshot for comparison was unreliable in multi-batch
-    // scenarios — the last batch would compare its size against a count that already
-    // excluded wallets marked by previous batches, making the equality check wrong.
     const remainingUndistributed = await this.responseModel
       .countDocuments({ formId, distributed: { $ne: true } })
       .exec();
 
-    const fullyDistributed = remainingUndistributed === 0;
+    // If it's the last batch, we must forcefully mark all remaining losers as distributed (amount 0)
+    if (isLastBatch && remainingUndistributed > 0) {
+      this.logger.log({
+        event: 'CONFIRM_DISTRIBUTE_MARK_LOSERS',
+        formId,
+        count: remainingUndistributed,
+      });
+
+      await this.responseModel.updateMany(
+        { formId, distributed: { $ne: true } },
+        {
+          $set: {
+            distributed: true,
+            distributedAmount: 0,
+            distributedAt: now,
+          },
+        },
+      );
+    }
+
+    const finalRemaining = await this.responseModel
+      .countDocuments({ formId, distributed: { $ne: true } })
+      .exec();
+
+    const fullyDistributed = finalRemaining === 0;
     if (fullyDistributed) {
       form.rewardDistributed = true;
       await form.save();

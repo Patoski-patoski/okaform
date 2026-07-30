@@ -118,6 +118,7 @@ export async function buildInitTx(payload: {
   maxResponses: number;
   creator: string;
   blockhash: string;
+  closesAt?: string;
 }): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
   return api<{ tx: string; surveyPda: string; escrowPda: string }>(
     "/forms/build-init-tx",
@@ -179,6 +180,7 @@ export async function confirmDistribute(
   amounts: number[],
   txSignature: string,
   badgeTiers?: Record<string, string>,
+  isLastBatch?: boolean,
 ): Promise<void> {
   return api<void>(`/forms/${formId}/confirm-distribute`, {
     method: "POST",
@@ -187,6 +189,7 @@ export async function confirmDistribute(
       amounts,
       txSignature,
       badgeTiers,
+      isLastBatch,
     }),
   });
 }

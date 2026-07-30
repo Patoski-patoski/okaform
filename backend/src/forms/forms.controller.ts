@@ -118,6 +118,7 @@ export class FormsController {
       dto.amounts,
       dto.txSignature,
       dto.badgeTiers,
+      dto.isLastBatch,
     );
   }
 

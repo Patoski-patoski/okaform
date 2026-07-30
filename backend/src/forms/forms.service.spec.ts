@@ -4,6 +4,7 @@ import { FormsService } from './forms.service';
 import { Form } from '../common/schemas/form.schema';
 import { SurveyResponse } from '../common/schemas/response.schema';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
+import { InvalidExpirationException } from '../common/exceptions/form/invalid-expiration.exception';
 import { SolanaService } from '../solana/solana.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
 
@@ -184,6 +185,76 @@ describe('FormsService', () => {
       );
       expect(formModel.create).not.toHaveBeenCalled();
     });
+
+    it('should throw when closesAt is less than 24 hours from now', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'Q',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+        closesAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), // 12 hours
+      };
+
+      await expect(service.createForm(dto, 'wallet123')).rejects.toThrow(
+        InvalidExpirationException,
+      );
+    });
+
+    it('should throw when closesAt is more than 30 days from now', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'Q',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+        closesAt: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString(), // 35 days
+      };
+
+      await expect(service.createForm(dto, 'wallet123')).rejects.toThrow(
+        InvalidExpirationException,
+      );
+    });
   });
 
   describe('getFormsByCreator', () => {
@@ -267,6 +338,38 @@ describe('FormsService', () => {
         surveyPda: 'pda123',
         escrowPda: 'escrow123',
       });
+    });
+
+    it('should throw when closesAt is less than 24 hours from now', async () => {
+      const dto = {
+        surveyId: '123',
+        rewardPoolSol: 10,
+        rewardType: 'weighted' as const,
+        maxResponses: 100,
+        creator: 'wallet123',
+        blockhash: 'hash123',
+        closesAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      };
+
+      await expect(service.buildInitializeTx(dto)).rejects.toThrow(
+        InvalidExpirationException,
+      );
+    });
+
+    it('should throw when closesAt is more than 30 days from now', async () => {
+      const dto = {
+        surveyId: '123',
+        rewardPoolSol: 10,
+        rewardType: 'weighted' as const,
+        maxResponses: 100,
+        creator: 'wallet123',
+        blockhash: 'hash123',
+        closesAt: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+
+      await expect(service.buildInitializeTx(dto)).rejects.toThrow(
+        InvalidExpirationException,
+      );
     });
   });
 

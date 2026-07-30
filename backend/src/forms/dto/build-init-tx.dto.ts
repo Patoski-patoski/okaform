@@ -10,6 +10,7 @@ export const BuildInitTxSchema = Type.Object({
   maxResponses: Type.Number({ minimum: 1 }),
   creator: Type.String(),
   blockhash: Type.String(),
+  closesAt: Type.Optional(Type.String()),
 });
 
 export type BuildInitTxDto = Static<typeof BuildInitTxSchema>;
