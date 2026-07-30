@@ -171,6 +171,14 @@ export class FormsService {
   private validateExpirationDate(closesAtStr?: string): void {
     if (!closesAtStr) return;
 
+    const iso8601 =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+    if (!iso8601.test(closesAtStr)) {
+      throw new InvalidExpirationException(
+        'Survey expiration date must be in ISO 8601 format (e.g. 2026-12-31T23:59:59Z).',
+      );
+    }
+
     const closesAt = new Date(closesAtStr);
     if (isNaN(closesAt.getTime())) {
       throw new InvalidExpirationException(
