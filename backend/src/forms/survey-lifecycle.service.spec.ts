@@ -14,6 +14,7 @@ describe('SurveyLifecycleService', () => {
   let formModel: { findById: jest.Mock };
   let responseModel: { find: jest.Mock };
   let solanaService: {
+    buildDistributeRewardsTxBatch: jest.Mock;
     buildDistributeRewardsTx: jest.Mock;
     fetchRespondentBadgeTier: jest.Mock;
     getEscrowBalance: jest.Mock;
@@ -29,6 +30,20 @@ describe('SurveyLifecycleService', () => {
     responseModel = { find: jest.fn() };
     solanaService = {
       buildDistributeRewardsTx: jest.fn(),
+      buildDistributeRewardsTxBatch: jest
+        .fn()
+        .mockImplementation(
+          (
+            _creator: string,
+            _surveyId: string,
+            allWallets: string[],
+            allAmounts: number[],
+          ) => ({
+            txs: ['mock-base64-tx'],
+            walletChunks: [allWallets],
+            amountChunks: [allAmounts],
+          }),
+        ),
       fetchRespondentBadgeTier: jest.fn().mockResolvedValue('Ghost'),
       getEscrowBalance: jest.fn(),
     };
@@ -82,19 +97,20 @@ describe('SurveyLifecycleService', () => {
       responseModel.find.mockReturnValue({
         exec: jest.fn().mockResolvedValue(mockRespondents(5)),
       });
-      solanaService.buildDistributeRewardsTx.mockResolvedValue(
-        'mock-base64-tx',
-      );
 
       const result = await service.buildDistributeTx('f1', creator, blockhash);
 
       // All 5 participants become winners (numWinners capped to participant count)
-      expect(result.participantWallets).toHaveLength(5);
-      expect(result.amounts).toHaveLength(5);
+      expect(result.participantWallets).toHaveLength(1);
+      expect(result.amounts).toHaveLength(1);
+      const wallets = result.participantWallets[0];
+      const amts = result.amounts[0];
+      expect(wallets).toHaveLength(5);
+      expect(amts).toHaveLength(5);
 
       // Each gets an equal share of the full reward pool, no leftover for creator
       for (let i = 0; i < 5; i++) {
-        expect(result.amounts[i]).toBe(2 * LAMPORTS_PER_SOL);
+        expect(amts[i]).toBe(2 * LAMPORTS_PER_SOL);
       }
     });
 
@@ -114,26 +130,27 @@ describe('SurveyLifecycleService', () => {
       responseModel.find.mockReturnValue({
         exec: jest.fn().mockResolvedValue(mockRespondents(10)),
       });
-      solanaService.buildDistributeRewardsTx.mockResolvedValue(
-        'mock-base64-tx',
-      );
 
       const result = await service.buildDistributeTx('f1', creator, blockhash);
 
       // 3 winners + creator for rounding leftover (floor(10/3)*3 < 10)
-      expect(result.participantWallets).toHaveLength(4);
-      expect(result.amounts).toHaveLength(4);
+      expect(result.participantWallets).toHaveLength(1);
+      expect(result.amounts).toHaveLength(1);
+      const wallets = result.participantWallets[0];
+      const amts = result.amounts[0];
+      expect(wallets).toHaveLength(4);
+      expect(amts).toHaveLength(4);
 
       const expected = Math.floor((10 * LAMPORTS_PER_SOL) / 3);
       for (let i = 0; i < 3; i++) {
-        expect(result.amounts[i]).toBe(expected);
+        expect(amts[i]).toBe(expected);
       }
 
       // Last entry is creator with 1-lamport rounding leftover
-      expect(result.participantWallets[3]).toBe(creator);
-      expect(result.amounts[3]).toBe(10 * LAMPORTS_PER_SOL - 3 * expected);
+      expect(wallets[3]).toBe(creator);
+      expect(amts[3]).toBe(10 * LAMPORTS_PER_SOL - 3 * expected);
 
-      const winners = new Set(result.participantWallets.slice(0, 3));
+      const winners = new Set(wallets.slice(0, 3));
       expect(winners.size).toBe(3);
     });
 
@@ -153,15 +170,16 @@ describe('SurveyLifecycleService', () => {
       responseModel.find.mockReturnValue({
         exec: jest.fn().mockResolvedValue(mockRespondents(5)),
       });
-      solanaService.buildDistributeRewardsTx.mockResolvedValue(
-        'mock-base64-tx',
-      );
 
       const result = await service.buildDistributeTx('f1', creator, blockhash);
 
-      expect(result.participantWallets).toHaveLength(5);
-      result.amounts.forEach((amt) => expect(amt).toBe(2 * LAMPORTS_PER_SOL));
-      expect(result.participantWallets).not.toContain(creator);
+      expect(result.participantWallets).toHaveLength(1);
+      expect(result.amounts).toHaveLength(1);
+      const wallets = result.participantWallets[0];
+      const amts = result.amounts[0];
+      expect(wallets).toHaveLength(5);
+      amts.forEach((amt) => expect(amt).toBe(2 * LAMPORTS_PER_SOL));
+      expect(wallets).not.toContain(creator);
     });
 
     it('should allow distribution for an active survey with responses', async () => {
@@ -180,14 +198,12 @@ describe('SurveyLifecycleService', () => {
       responseModel.find.mockReturnValue({
         exec: jest.fn().mockResolvedValue(mockRespondents(5)),
       });
-      solanaService.buildDistributeRewardsTx.mockResolvedValue(
-        'mock-base64-tx',
-      );
-
       const result = await service.buildDistributeTx('f1', creator, blockhash);
 
-      expect(result.participantWallets).toHaveLength(5);
-      expect(result.amounts).toHaveLength(5);
+      expect(result.participantWallets).toHaveLength(1);
+      expect(result.amounts).toHaveLength(1);
+      expect(result.participantWallets[0]).toHaveLength(5);
+      expect(result.amounts[0]).toHaveLength(5);
     });
 
     it('should reject when called by non-creator', async () => {
