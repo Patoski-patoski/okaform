@@ -37,3 +37,4 @@ export class SurveyResponse {
 }
 
 export const ResponseSchema = SchemaFactory.createForClass(SurveyResponse);
+ResponseSchema.index({ formId: 1, respondentWallet: 1 }, { unique: true });

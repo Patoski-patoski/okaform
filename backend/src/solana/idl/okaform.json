@@ -476,7 +476,7 @@
             "name": "Weighted"
           },
           {
-            "name": "Lottery"
+            "name": "LuckyDraw"
           }
         ]
       }

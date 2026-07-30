@@ -7,7 +7,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import { Badge } from "@/components/okaform";
+import { Badge, tierFromLabel } from "@/components/okaform";
 import { truncateAddress, getBadgeTier } from "@/components/okaform";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useWallet } from "@/components/WalletProvider";
@@ -18,7 +18,8 @@ import type { DistributionRecord } from "@/types/distribution";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type SettingsSection = "profile" | "notifications" | "security" | "api" | "danger";
+type SettingsSection =
+  "profile" | "notifications" | "security" | "api" | "danger";
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -38,13 +39,16 @@ export default function SettingsView() {
   const { publicKey, disconnect } = useWallet();
   const { user, updateUser } = useAuth();
 
-  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [activeSection, setActiveSection] =
+    useState<SettingsSection>("profile");
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [username, setUsername] = useState(user?.username ?? "");
   const [confirmDeleteData, setConfirmDeleteData] = useState(false);
   const [confirmCloseAll, setConfirmCloseAll] = useState(false);
-  const [earningsRecords, setEarningsRecords] = useState<DistributionRecord[]>([]);
+  const [earningsRecords, setEarningsRecords] = useState<DistributionRecord[]>(
+    [],
+  );
   const [earningsLoading, setEarningsLoading] = useState(false);
   const [earningsLimit, setEarningsLimit] = useState(10);
   const [saving, setSaving] = useState(false);
@@ -76,7 +80,8 @@ export default function SettingsView() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save username";
+      const message =
+        err instanceof Error ? err.message : "Failed to save username";
       setSaveError(message);
       setTimeout(() => setSaveError(null), 5000);
     } finally {
@@ -124,7 +129,7 @@ export default function SettingsView() {
                 "whitespace-nowrap font-mono text-sm transition-all",
                 activeSection === item.id
                   ? "border-l-2 border-ok-green bg-ok-green/5 pl-3 text-ok-green"
-                  : "pl-3.5 text-[#9198A1] hover:text-[#F0F6F6]"
+                  : "pl-3.5 text-[#9198A1] hover:text-[#F0F6F6]",
               )}
             >
               {item.label}
@@ -192,7 +197,8 @@ export default function SettingsView() {
                 <div className="flex items-center gap-3">
                   <Badge tier={tier} className="text-[10px]" />
                   <span className="font-mono text-xs text-[#9198A1]">
-                    {score} points · {tierNames[tier] ?? "Ghost"} · {surveysCompleted} surveys completed
+                    {score} points · {tierNames[tier] ?? "Ghost"} ·{" "}
+                    {surveysCompleted} surveys completed
                   </span>
                 </div>
                 <button className="mt-2 font-mono text-[10px] text-ok-green transition-colors hover:text-[#10C97A]">
@@ -226,14 +232,7 @@ export default function SettingsView() {
                           </p>
                           <div className="flex items-center gap-2">
                             <Badge
-                              tier={
-                                record.badgeTier.toLowerCase() as
-                                  | "grey"
-                                  | "blue"
-                                  | "green"
-                                  | "gold"
-                                  | "diamond"
-                              }
+                              tier={tierFromLabel(record.badgeTier)}
                               className="scale-90 origin-left"
                             />
                             <span className="font-mono text-[10px] text-[#656C76]">
@@ -245,8 +244,7 @@ export default function SettingsView() {
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-sm font-bold text-ok-green">
-                            ◎{" "}
-                            {(record.amountLamports / 1e9).toFixed(4)}
+                            ◎ {(record.amountLamports / 1e9).toFixed(4)}
                           </p>
                           <a
                             href={record.explorerUrl}
@@ -265,7 +263,8 @@ export default function SettingsView() {
                         onClick={() => setEarningsLimit((prev) => prev + 10)}
                         className="mt-3 w-full rounded border border-[#3D444D]/50 bg-transparent px-3 py-2 font-mono text-[10px] text-[#656C76] hover:text-[#F0F6F6] transition-colors"
                       >
-                        Load more ({earningsRecords.length - earningsLimit} remaining)
+                        Load more ({earningsRecords.length - earningsLimit}{" "}
+                        remaining)
                       </button>
                     )}
                   </div>
@@ -276,10 +275,14 @@ export default function SettingsView() {
               <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-4">
                 <div className="flex-1">
                   {saveError && (
-                    <p className="font-mono text-[10px] text-ok-danger">{saveError}</p>
+                    <p className="font-mono text-[10px] text-ok-danger">
+                      {saveError}
+                    </p>
                   )}
                   {saveSuccess && (
-                    <p className="font-mono text-[10px] text-ok-green">Username saved</p>
+                    <p className="font-mono text-[10px] text-ok-green">
+                      Username saved
+                    </p>
                   )}
                 </div>
                 <button
@@ -292,7 +295,11 @@ export default function SettingsView() {
                   ) : saveSuccess ? (
                     <Check className="h-3 w-3" />
                   ) : null}
-                  {saving ? "Saving..." : saveSuccess ? "Saved" : "Save Changes"}
+                  {saving
+                    ? "Saving..."
+                    : saveSuccess
+                      ? "Saved"
+                      : "Save Changes"}
                 </button>
               </div>
             </div>
@@ -312,10 +319,13 @@ export default function SettingsView() {
                 </span>
               </div>
               <p className="text-xs leading-relaxed text-[#9198A1]">
-                Email notifications — provide an email address to receive survey alerts when responses come in, milestones are hit, or distributions complete.
+                Email notifications — provide an email address to receive survey
+                alerts when responses come in, milestones are hit, or
+                distributions complete.
               </p>
               <p className="mt-3 text-[10px] text-[#656C76]">
-                In the meantime, activity updates appear in your Home dashboard feed.
+                In the meantime, activity updates appear in your Home dashboard
+                feed.
               </p>
             </div>
           </div>
@@ -356,7 +366,8 @@ export default function SettingsView() {
                   {truncateAddress(AUTHORITY_KEY)}
                 </div>
                 <p className="mt-2 text-[10px] leading-relaxed text-[#656C76]">
-                  This keypair signs on-chain instructions on your behalf. It never holds funds and cannot move your escrow.
+                  This keypair signs on-chain instructions on your behalf. It
+                  never holds funds and cannot move your escrow.
                 </p>
               </div>
             </div>
@@ -400,7 +411,8 @@ export default function SettingsView() {
                       Delete all survey data
                     </p>
                     <p className="mt-0.5 text-xs text-[#9198A1]">
-                      Permanently removes all response data from our database. On-chain state is unaffected.
+                      Permanently removes all response data from our database.
+                      On-chain state is unaffected.
                     </p>
                   </div>
                   <button
@@ -437,7 +449,8 @@ export default function SettingsView() {
                       Close all active surveys
                     </p>
                     <p className="mt-0.5 text-xs text-[#9198A1]">
-                      Immediately closes all active surveys and triggers distribution for each.
+                      Immediately closes all active surveys and triggers
+                      distribution for each.
                     </p>
                   </div>
                   <button

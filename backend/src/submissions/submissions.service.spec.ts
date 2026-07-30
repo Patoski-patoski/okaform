@@ -9,6 +9,7 @@ import { SybilService } from '../sybil/sybil.service';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { FormClosedException } from '../common/exceptions/form/form-closed.exception';
 import { FormFullException } from '../common/exceptions/form/form-full.exception';
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 
 describe('SubmissionsService', () => {
   let service: SubmissionsService;
@@ -20,6 +21,7 @@ describe('SubmissionsService', () => {
   };
   let formModel: {
     findById: jest.Mock;
+    findOneAndUpdate: jest.Mock;
   };
   let surveyLifecycleService: jest.Mocked<SurveyLifecycleService>;
   let sybilService: jest.Mocked<SybilService>;
@@ -37,8 +39,21 @@ describe('SubmissionsService', () => {
   const mockForm = {
     _id: 'form123',
     status: 'active',
+    creator: 'creator123',
     maxResponses: 10,
+    minWalletAge: 0,
+    minSolBalance: 0,
   };
+
+  // const mockFormFull = {
+  //   _id: 'form123',
+  //   status: 'active',
+  //   creator: 'creator123',
+  //   maxResponses: 10,
+  //   responseCount: 10,
+  //   minWalletAge: 0,
+  //   minSolBalance: 0,
+  // };
 
   beforeEach(async () => {
     responseModel = {
@@ -50,6 +65,7 @@ describe('SubmissionsService', () => {
 
     formModel = {
       findById: jest.fn(),
+      findOneAndUpdate: jest.fn(),
     };
 
     surveyLifecycleService = {
@@ -87,21 +103,20 @@ describe('SubmissionsService', () => {
 
   describe('createSubmission', () => {
     beforeEach(() => {
+      responseModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
       formModel.findById.mockReturnValue({
         lean: jest.fn().mockReturnValue({
           exec: jest.fn().mockResolvedValue(mockForm),
         }),
       });
-      responseModel.countDocuments.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(5), // below maxResponses
+      formModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ ...mockForm, responseCount: 6 }),
       });
     });
 
     it('should create a new submission when no duplicate exists and form is valid', async () => {
-      responseModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      });
-
       const mockDoc = {
         ...mockSubmission,
         save: jest.fn().mockResolvedValue(mockSubmission),
@@ -145,8 +160,8 @@ describe('SubmissionsService', () => {
     });
 
     it('should throw FormFullException if form has reached maxResponses', async () => {
-      responseModel.countDocuments.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(10), // equal to maxResponses
+      formModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
       });
 
       await expect(

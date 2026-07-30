@@ -2,13 +2,7 @@ import * as React from "react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { cva, type VariantProps } from "class-variance-authority";
-import {
-  Wallet,
-  Gem,
-  Circle,
-  Loader2,
-  LogOut,
-} from "lucide-react";
+import { Wallet, Gem, Circle, Loader2, LogOut } from "lucide-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
@@ -43,11 +37,12 @@ const buttonVariants = cva(
       variant: "primary",
       size: "md",
     },
-  }
+  },
 );
 
 interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -59,7 +54,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       />
     );
-  }
+  },
 );
 Button.displayName = "Button";
 
@@ -77,34 +72,41 @@ const BADGE_CONFIG: Record<BadgeTier, BadgeConfig> = {
   grey: {
     label: "Ghost",
     dotClass: "bg-ok-grey",
-    containerClass:
-      "border-ok-grey/25 bg-ok-grey/10 text-ok-grey",
+    containerClass: "border-ok-grey/25 bg-ok-grey/10 text-ok-grey",
   },
   blue: {
     label: "Cipher",
     dotClass: "bg-ok-blue",
-    containerClass:
-      "border-ok-blue/25 bg-ok-blue/10 text-ok-blue",
+    containerClass: "border-ok-blue/25 bg-ok-blue/10 text-ok-blue",
   },
   green: {
     label: " Sentinel",
     dotClass: "bg-ok-green",
-    containerClass:
-      "border-ok-green/25 bg-ok-green/10 text-ok-green",
+    containerClass: "border-ok-green/25 bg-ok-green/10 text-ok-green",
   },
   gold: {
     label: "Oracle",
     dotClass: "bg-ok-gold",
-    containerClass:
-      "border-ok-gold/25 bg-ok-gold/10 text-ok-gold",
+    containerClass: "border-ok-gold/25 bg-ok-gold/10 text-ok-gold",
   },
   diamond: {
     label: "Sovereign",
     dotClass: "bg-cyan-400",
-    containerClass:
-      "border-cyan-400/25 bg-cyan-400/10 text-cyan-300",
+    containerClass: "border-cyan-400/25 bg-cyan-400/10 text-cyan-300",
   },
 };
+
+const BADGE_LABEL_TO_TIER: Record<string, BadgeTier> = {
+  ghost: "grey",
+  cipher: "blue",
+  sentinel: "green",
+  oracle: "gold",
+  sovereign: "diamond",
+};
+
+function tierFromLabel(label: string): BadgeTier {
+  return BADGE_LABEL_TO_TIER[label.toLowerCase().trim()] ?? "grey";
+}
 
 function getBadgeTier(score: number): BadgeTier {
   if (score >= 100) return "diamond";
@@ -125,7 +127,7 @@ function Badge({ tier, className, children, ...props }: BadgeProps) {
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
         config.containerClass,
-        className
+        className,
       )}
       {...props}
     >
@@ -158,7 +160,7 @@ function Card({ className, padding = "md", children, ...props }: CardProps) {
       className={cn(
         "rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface shadow-lg shadow-black/20",
         CARD_PADDING[padding],
-        className
+        className,
       )}
       {...props}
     >
@@ -199,9 +201,8 @@ function WalletButton({
   const [localBalance, setLocalBalance] = useState<number | null>(null);
   const { connection } = useConnection();
 
-  const label = connected && wallet
-    ? username ?? truncateAddress(wallet)
-    : undefined;
+  const label =
+    connected && wallet ? (username ?? truncateAddress(wallet)) : undefined;
 
   const handleCopyAddress = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -222,7 +223,9 @@ function WalletButton({
     void connection.getBalance(pubkey).then((lamports) => {
       if (!cancelled) setLocalBalance(lamports);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [connected, wallet, connection]);
 
   const displayBalance = balance ?? localBalance;
@@ -230,7 +233,10 @@ function WalletButton({
   if (connected && wallet) {
     const tier = getBadgeTier(score);
     const badgeConfig = BADGE_CONFIG[tier];
-    const solBalance = displayBalance != null ? (displayBalance / 1_000_000_000).toFixed(2) : null;
+    const solBalance =
+      displayBalance != null
+        ? (displayBalance / 1_000_000_000).toFixed(2)
+        : null;
 
     return (
       <div className="group inline-flex items-center gap-2.5 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface px-3.5 py-2 transition-all duration-200 hover:border-ok-green/30 hover:bg-ok-green/5">
@@ -245,7 +251,7 @@ function WalletButton({
               onClick={handleCopyAddress}
               title="Click to copy"
             >
-              {copied ? 'Copied!' : label}
+              {copied ? "Copied!" : label}
             </span>
           </span>
 
@@ -264,7 +270,7 @@ function WalletButton({
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-              badgeConfig.containerClass
+              badgeConfig.containerClass,
             )}
           >
             {tier === "diamond" ? (
@@ -299,7 +305,7 @@ function WalletButton({
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-2 rounded-[var(--radius-ok)] bg-ok-green px-4 py-2 text-sm font-medium text-ok-bg shadow-[0_0_20px_rgba(20,241,149,0.15)] transition-all duration-150 hover:bg-ok-green/90 hover:shadow-[0_0_28px_rgba(20,241,149,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ok-green/50 active:scale-[0.97]",
-        className
+        className,
       )}
     >
       <Wallet className="h-4 w-4" />
@@ -331,13 +337,20 @@ function SOLAmount({
   className,
   ...props
 }: SOLAmountProps) {
-  const displayValue = unit === "lamports" ? formatLamports(amount) : amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const displayValue =
+    unit === "lamports"
+      ? formatLamports(amount)
+      : amount.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        });
 
   return (
-    <span className={cn("inline-flex items-center gap-1 font-mono", className)} {...props}>
-      {showSymbol && (
-        <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
-      )}
+    <span
+      className={cn("inline-flex items-center gap-1 font-mono", className)}
+      {...props}
+    >
+      {showSymbol && <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />}
       <span className="text-ok-text">{displayValue}</span>
       {showSymbol && (
         <span className="text-ok-muted text-xs font-sans">SOL</span>
@@ -378,7 +391,12 @@ interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {
   status: StatusType;
 }
 
-function StatusPill({ status, className, children, ...props }: StatusPillProps) {
+function StatusPill({
+  status,
+  className,
+  children,
+  ...props
+}: StatusPillProps) {
   const config = STATUS_CONFIG[status] ?? {
     label: status,
     dotClass: "bg-ok-muted",
@@ -389,7 +407,7 @@ function StatusPill({ status, className, children, ...props }: StatusPillProps) 
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
         config.containerClass,
-        className
+        className,
       )}
       {...props}
     >
@@ -442,8 +460,16 @@ function Navbar({
     void connection.getBalance(publicKey).then((lamports) => {
       if (!cancelled) setBalance(lamports);
     });
+    const subId = connection.onAccountChange(
+      publicKey,
+      (info) => {
+        if (!cancelled) setBalance(info.lamports);
+      },
+      "confirmed",
+    );
     return () => {
       cancelled = true;
+      connection.removeAccountChangeListener(subId);
     };
   }, [connected, publicKey, connection]);
 
@@ -459,7 +485,7 @@ function Navbar({
     <nav
       className={cn(
         "sticky top-0 z-50 flex items-center justify-between border-b border-ok-border bg-ok-surface/80 px-6 py-3 backdrop-blur-xl",
-        className
+        className,
       )}
     >
       {/* Logo */}
@@ -510,7 +536,14 @@ function Navbar({
           score={displayScore}
           balance={connected && isAuthenticated ? balance : null}
           onClick={handleWalletClick}
-          onDisconnect={connected && isAuthenticated ? () => { logout(); disconnect(); } : undefined}
+          onDisconnect={
+            connected && isAuthenticated
+              ? () => {
+                  logout();
+                  disconnect();
+                }
+              : undefined
+          }
         />
       )}
     </nav>
@@ -524,6 +557,7 @@ export {
   buttonVariants,
   Badge,
   getBadgeTier,
+  tierFromLabel,
   Card,
   WalletButton,
   SOLAmount,

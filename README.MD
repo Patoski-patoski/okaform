@@ -24,7 +24,7 @@ Creators launch surveys backed by an on-chain SOL escrow pool. Respondents conne
 - **Sybil resistance** — wallet age, SOL balance, and funding-graph clustering filter out bots before a single response is accepted
 - **Reputation scoring** — five-metric system (completion rate, response depth, consistency, wallet history, creator rating) produces a cumulative global score stored in a per-wallet PDA
 - **Badge tiers** — Ghost → Cipher →  Sentinel → Oracle → Sovereign, each carrying a reward weight multiplier
-- **Weighted distribution** — rewards distributed proportionally by badge tier (0.5x to 1.5x); optional lottery mode available as a creator toggle
+- **Weighted distribution** — rewards distributed proportionally by badge tier (0.5x to 1.5x); optional lucky draw mode available as a creator toggle
 - **Zero respondent fees** — all transaction costs absorbed by the platform; respondents pay nothing to participate
 
 ---
@@ -132,7 +132,7 @@ Okaform/
 │       ├── forms/                # Form CRUD, submission handling
 │       ├── sybil/                # Wallet age, balance, funding-graph checks
 │       ├── score/                # Score calculation service
-│       └── distribution/         # Weighted + lottery payout orchestration
+│       └── distribution/         # Weighted + lucky draw payout orchestration
 ├── frontend/
 │   └── src/
 │       ├── pages/                # Home, form builder, form fill, dashboard
@@ -203,7 +203,7 @@ npm run dev
 ## Roadmap (Post-MVP)
 
 - On-chain distribution verification (tolerance-check against declared `RewardType`)
-- Switchboard VRF for verifiable lottery randomness
+- Switchboard VRF for verifiable lucky draw randomness
 - Advanced token-gating (specific NFT collections, DAO participation)
 - Arweave storage for response bodies (replacing MongoDB)
 - Auto-close on response target met

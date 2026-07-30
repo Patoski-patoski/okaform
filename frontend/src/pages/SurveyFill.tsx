@@ -16,12 +16,18 @@ import {
 import { validateAnswers } from "@/utils/survey-validation";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 import type { Question, QuestionType } from "@/types/survey";
-import { getFormById, submitResponse, getSubmissions, checkSybilEligibility, type FormDetail } from "@/lib/forms";
+import {
+  getFormById,
+  submitResponse,
+  getSubmissions,
+  checkSybilEligibility,
+  type FormDetail,
+} from "@/lib/forms";
 import type { QuestionOption } from "@/types/survey";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function toFrontendQuestion(q: FormDetail['questions'][number]): Question {
+function toFrontendQuestion(q: FormDetail["questions"][number]): Question {
   const options: QuestionOption[] | undefined = q.options?.length
     ? q.options.map((label, i) => ({ id: `${q.id}-opt-${i}`, label }))
     : undefined;
@@ -41,8 +47,8 @@ function toFrontendQuestion(q: FormDetail['questions'][number]): Question {
 }
 
 function formatRewardType(rewardType: string): string {
-  if (rewardType === 'weighted') return 'Reputation-Weighted Rewards';
-  if (rewardType === 'lottery') return 'Lottery Draw';
+  if (rewardType === "weighted") return "Reputation-Weighted Rewards";
+  if (rewardType === "lucky_draw") return "Lucky Draw";
   return rewardType;
 }
 
@@ -72,7 +78,11 @@ export default function SurveyFill() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [sybilCheck, setSybilCheck] = useState<{ checked: boolean; passed: boolean; reason?: string }>({ checked: false, passed: false });
+  const [sybilCheck, setSybilCheck] = useState<{
+    checked: boolean;
+    passed: boolean;
+    reason?: string;
+  }>({ checked: false, passed: false });
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
   const { user } = useAuth();
@@ -101,7 +111,9 @@ export default function SurveyFill() {
       getSubmissions(formId)
         .then((subs) => {
           if (!cancelled) {
-            setAlreadySubmitted(subs.some((s) => s.respondentWallet === wallet));
+            setAlreadySubmitted(
+              subs.some((s) => s.respondentWallet === wallet),
+            );
           }
         })
         .catch(() => {
@@ -109,7 +121,9 @@ export default function SurveyFill() {
         });
     }
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [formId, wallet]);
 
   useEffect(() => {
@@ -117,10 +131,18 @@ export default function SurveyFill() {
     let cancelled = false;
 
     // Check sybil eligibility before showing survey
-    checkSybilEligibility(wallet, form.minWalletAge ?? 0, form.minSolBalance ?? 0)
+    checkSybilEligibility(
+      wallet,
+      form.minWalletAge ?? 0,
+      form.minSolBalance ?? 0,
+    )
       .then((result) => {
         if (!cancelled) {
-          setSybilCheck({ checked: true, passed: result.passed, reason: result.reason });
+          setSybilCheck({
+            checked: true,
+            passed: result.passed,
+            reason: result.reason,
+          });
         }
       })
       .catch(() => {
@@ -131,30 +153,29 @@ export default function SurveyFill() {
         }
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [formId, wallet, form]);
 
   const surveyQuestions = useMemo(
     () => form?.questions.map(toFrontendQuestion) ?? [],
-    [form]
+    [form],
   );
 
   const handleConnect = useCallback(() => {
     setVisible(true);
   }, [setVisible]);
 
-  const handleAnswer = useCallback(
-    (id: string, value: string | string[]) => {
-      setAnswers((prev) => ({ ...prev, [id]: value }));
-      setErrors((prev) => {
-        if (!(id in prev)) return prev;
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    },
-    []
-  );
+  const handleAnswer = useCallback((id: string, value: string | string[]) => {
+    setAnswers((prev) => ({ ...prev, [id]: value }));
+    setErrors((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     const validationErrors = validateAnswers(answers, surveyQuestions);
@@ -173,7 +194,7 @@ export default function SurveyFill() {
       });
       setSubmitted(true);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Submission failed');
+      setSubmitError(err instanceof Error ? err.message : "Submission failed");
     } finally {
       setSubmitting(false);
     }
@@ -211,9 +232,7 @@ export default function SurveyFill() {
     );
   }
 
-  const isCreator =
-    publicKey !== null &&
-    publicKey.toBase58() === form.creator;
+  const isCreator = publicKey !== null && publicKey.toBase58() === form.creator;
 
   if (isCreator) {
     return (
@@ -224,8 +243,8 @@ export default function SurveyFill() {
             You created this survey
           </h2>
           <p className="mb-6 text-sm text-ok-muted">
-            Survey creators cannot submit responses to their own surveys.
-            This protects the integrity of your community data.
+            Survey creators cannot submit responses to their own surveys. This
+            protects the integrity of your community data.
           </p>
           <Link
             to="/dashboard"
@@ -250,9 +269,12 @@ export default function SurveyFill() {
               <CheckCircle2 className="h-8 w-8 text-ok-green" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-ok-text">Already Submitted</h2>
+              <h2 className="text-xl font-semibold text-ok-text">
+                Already Submitted
+              </h2>
               <p className="max-w-sm text-sm text-ok-muted">
-                You've already shared your feedback on this survey. Each wallet is limited to one response.
+                You've already shared your feedback on this survey. Each wallet
+                is limited to one response.
               </p>
             </div>
             <Link
@@ -289,26 +311,43 @@ export default function SurveyFill() {
                   <WalletGate onConnect={handleConnect} />
                 </div>
               ) : !sybilCheck.checked ? (
-                <div className="animate-fadeIn flex items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] px-4 py-3" key="checking">
+                <div
+                  className="animate-fadeIn flex items-center gap-3 rounded border border-[#3D444D] bg-[#151B23] px-4 py-3"
+                  key="checking"
+                >
                   <Loader2 className="h-4 w-4 animate-spin text-[#656C76]" />
-                  <span className="text-xs text-[#9198A1]">Checking eligibility...</span>
+                  <span className="text-xs text-[#9198A1]">
+                    Checking eligibility...
+                  </span>
                 </div>
               ) : !sybilCheck.passed ? (
-                <div className="animate-fadeIn rounded border border-ok-danger/20 bg-ok-danger/5 p-5" key="eligibility-fail">
+                <div
+                  className="animate-fadeIn rounded border border-ok-danger/20 bg-ok-danger/5 p-5"
+                  key="eligibility-fail"
+                >
                   <div className="flex items-start gap-3">
                     <ShieldX className="h-5 w-5 shrink-0 text-ok-danger" />
                     <div>
-                      <p className="text-sm font-medium text-ok-danger">Eligibility requirements not met</p>
-                      <p className="mt-1 text-xs text-[#9198A1]">{sybilCheck.reason}</p>
+                      <p className="text-sm font-medium text-ok-danger">
+                        Eligibility requirements not met
+                      </p>
+                      <p className="mt-1 text-xs text-[#9198A1]">
+                        {sybilCheck.reason}
+                      </p>
                       <p className="mt-2 text-[10px] text-[#656C76]">
-                        This survey has minimum wallet requirements set by the creator.
+                        This survey has minimum wallet requirements set by the
+                        creator.
                       </p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="animate-fadeIn" key="eligibility-pass">
-                  <EligibilityPass wallet={wallet} score={score} username={user?.username} />
+                  <EligibilityPass
+                    wallet={wallet}
+                    score={score}
+                    username={user?.username}
+                  />
                 </div>
               )}
             </div>
@@ -318,7 +357,7 @@ export default function SurveyFill() {
                 "space-y-5 pt-2 transition-all duration-500 ease-in-out",
                 connected && sybilCheck.passed
                   ? "opacity-100 translate-y-0 pointer-events-auto"
-                  : "opacity-0 translate-y-2 pointer-events-none h-0 overflow-hidden"
+                  : "opacity-0 translate-y-2 pointer-events-none h-0 overflow-hidden",
               )}
             >
               {surveyQuestions.map((q, i) => (
@@ -326,7 +365,12 @@ export default function SurveyFill() {
                   key={q.id}
                   question={q}
                   index={i}
-                  answer={answers[q.id] ?? (q.type === "checkbox" || q.type === "multi_select" ? [] : "")}
+                  answer={
+                    answers[q.id] ??
+                    (q.type === "checkbox" || q.type === "multi_select"
+                      ? []
+                      : "")
+                  }
                   error={errors[q.id]}
                   onChange={handleAnswer}
                 />
@@ -345,11 +389,11 @@ export default function SurveyFill() {
                   onClick={handleSubmit}
                   disabled={submitting}
                 >
-                  {submitting ? 'Submitting…' : 'Submit Response'}
+                  {submitting ? "Submitting…" : "Submit Response"}
                 </Button>
                 <p className="text-center text-[11px] text-ok-muted/50">
-                  Submitting signs a message with your wallet. No
-                  transaction fee required.
+                  Submitting signs a message with your wallet. No transaction
+                  fee required.
                 </p>
               </div>
             </div>
@@ -362,7 +406,15 @@ export default function SurveyFill() {
 
 // ─── Reward banner ───────────────────────────────────────────────────────────────
 
-function RewardBanner({ rewardPool, rewardType, maxResponses }: { rewardPool: number; rewardType: string; maxResponses: number }) {
+function RewardBanner({
+  rewardPool,
+  rewardType,
+  maxResponses,
+}: {
+  rewardPool: number;
+  rewardType: string;
+  maxResponses: number;
+}) {
   const solAmount = rewardPool.toFixed(2);
 
   return (
@@ -373,8 +425,12 @@ function RewardBanner({ rewardPool, rewardType, maxResponses }: { rewardPool: nu
         </div>
         <div>
           <p className="text-xs text-ok-muted">Reward Pool</p>
-          <span className="font-mono text-base font-semibold text-ok-text">{solAmount} SOL</span>
-          <p className="text-[10px] text-ok-muted/50">Max {maxResponses} responses</p>
+          <span className="font-mono text-base font-semibold text-ok-text">
+            {solAmount} SOL
+          </span>
+          <p className="text-[10px] text-ok-muted/50">
+            Max {maxResponses} responses
+          </p>
         </div>
       </div>
       <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-ok-green/25 bg-ok-green/10 px-3 py-1 text-xs font-medium text-ok-green sm:self-auto">

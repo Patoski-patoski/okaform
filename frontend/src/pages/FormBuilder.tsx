@@ -74,6 +74,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { createForm, buildInitTx } from "@/lib/forms";
+import { ApiError } from "@/lib/api";
 import { saveDraft } from "@/components/Dashboard/DraftsView";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 
@@ -83,15 +84,46 @@ type QuestionCategory = "input" | "layout" | "embed" | "advanced";
 
 type QuestionType =
   // Inputs
-  | "short_text" | "long_text" | "multiple_choice" | "checkbox" | "dropdown" | "multi_select"
-  | "number" | "email" | "phone" | "link" | "file_upload" | "date" | "time"
-  | "linear_scale" | "matrix" | "rating" | "payment" | "signature" | "ranking"
+  | "short_text"
+  | "long_text"
+  | "multiple_choice"
+  | "checkbox"
+  | "dropdown"
+  | "multi_select"
+  | "number"
+  | "email"
+  | "phone"
+  | "link"
+  | "file_upload"
+  | "date"
+  | "time"
+  | "linear_scale"
+  | "matrix"
+  | "rating"
+  | "payment"
+  | "signature"
+  | "ranking"
   // Layouts
-  | "new_page" | "thank_you" | "text" | "h1" | "h2" | "h3" | "divider" | "title" | "label"
+  | "new_page"
+  | "thank_you"
+  | "text"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "divider"
+  | "title"
+  | "label"
   // Embeds
-  | "image" | "video" | "audio" | "embed_anything"
+  | "image"
+  | "video"
+  | "audio"
+  | "embed_anything"
   // Advanced
-  | "conditional_logic" | "calculated_field" | "hidden_field" | "recaptcha" | "country";
+  | "conditional_logic"
+  | "calculated_field"
+  | "hidden_field"
+  | "recaptcha"
+  | "country";
 
 interface Question {
   id: string;
@@ -113,7 +145,7 @@ interface Question {
 interface RewardSettings {
   rewardPool: number;
   maxResponses: number;
-  rewardType: "weighted" | "lottery";
+  rewardType: "weighted" | "lucky_draw";
   numWinners: number;
   minWalletAge: number;
   minSolBalance: number;
@@ -132,19 +164,54 @@ interface QuestionTypeItem {
 const QUESTION_TYPES: QuestionTypeItem[] = [
   // Input blocks
   { type: "short_text", label: "Short answer", icon: Type, category: "input" },
-  { type: "long_text", label: "Long answer", icon: AlignLeft, category: "input" },
-  { type: "multiple_choice", label: "Multiple choice", icon: ListChecks, category: "input" },
-  { type: "checkbox", label: "Checkboxes", icon: CheckSquare, category: "input" },
-  { type: "dropdown", label: "Dropdown", icon: ChevronDownSquare, category: "input" },
-  { type: "multi_select", label: "Multi-select", icon: ListPlus, category: "input" },
+  {
+    type: "long_text",
+    label: "Long answer",
+    icon: AlignLeft,
+    category: "input",
+  },
+  {
+    type: "multiple_choice",
+    label: "Multiple choice",
+    icon: ListChecks,
+    category: "input",
+  },
+  {
+    type: "checkbox",
+    label: "Checkboxes",
+    icon: CheckSquare,
+    category: "input",
+  },
+  {
+    type: "dropdown",
+    label: "Dropdown",
+    icon: ChevronDownSquare,
+    category: "input",
+  },
+  {
+    type: "multi_select",
+    label: "Multi-select",
+    icon: ListPlus,
+    category: "input",
+  },
   { type: "number", label: "Number", icon: Hash, category: "input" },
   { type: "email", label: "Email", icon: Mail, category: "input" },
   { type: "phone", label: "Phone number", icon: Phone, category: "input" },
   { type: "link", label: "Link", icon: Link2, category: "input" },
-  { type: "file_upload", label: "File upload", icon: Upload, category: "input" },
+  {
+    type: "file_upload",
+    label: "File upload",
+    icon: Upload,
+    category: "input",
+  },
   { type: "date", label: "Date", icon: Calendar, category: "input" },
   { type: "time", label: "Time", icon: Clock, category: "input" },
-  { type: "linear_scale", label: "Linear scale", icon: SlidersHorizontal, category: "input" },
+  {
+    type: "linear_scale",
+    label: "Linear scale",
+    icon: SlidersHorizontal,
+    category: "input",
+  },
   { type: "matrix", label: "Matrix", icon: Grid, category: "input" },
   { type: "rating", label: "Rating", icon: Star, category: "input" },
   { type: "payment", label: "Payment", icon: CreditCard, category: "input" },
@@ -153,7 +220,12 @@ const QUESTION_TYPES: QuestionTypeItem[] = [
 
   // Layout blocks
   { type: "new_page", label: "New page", icon: FilePlus, category: "layout" },
-  { type: "thank_you", label: "'Thank you' page", icon: Smile, category: "layout" },
+  {
+    type: "thank_you",
+    label: "'Thank you' page",
+    icon: Smile,
+    category: "layout",
+  },
   { type: "text", label: "Text", icon: Pilcrow, category: "layout" },
   { type: "h1", label: "Heading 1", icon: Heading1, category: "layout" },
   { type: "h2", label: "Heading 2", icon: Heading2, category: "layout" },
@@ -166,20 +238,53 @@ const QUESTION_TYPES: QuestionTypeItem[] = [
   { type: "image", label: "Image", icon: ImageIcon, category: "embed" },
   { type: "video", label: "Video", icon: Video, category: "embed" },
   { type: "audio", label: "Audio", icon: Music, category: "embed" },
-  { type: "embed_anything", label: "Embed anything", icon: Code, category: "embed" },
+  {
+    type: "embed_anything",
+    label: "Embed anything",
+    icon: Code,
+    category: "embed",
+  },
 
   // Advanced blocks
-  { type: "conditional_logic", label: "Conditional logic", icon: GitBranch, category: "advanced" },
-  { type: "calculated_field", label: "Calculated fields", icon: Calculator, category: "advanced" },
-  { type: "hidden_field", label: "Hidden fields", icon: EyeOff, category: "advanced" },
-  { type: "recaptcha", label: "reCAPTCHA", icon: ShieldCheck, category: "advanced" },
-  { type: "country", label: "Respondent's country", icon: Globe, category: "advanced" },
+  {
+    type: "conditional_logic",
+    label: "Conditional logic",
+    icon: GitBranch,
+    category: "advanced",
+  },
+  {
+    type: "calculated_field",
+    label: "Calculated fields",
+    icon: Calculator,
+    category: "advanced",
+  },
+  {
+    type: "hidden_field",
+    label: "Hidden fields",
+    icon: EyeOff,
+    category: "advanced",
+  },
+  {
+    type: "recaptcha",
+    label: "reCAPTCHA",
+    icon: ShieldCheck,
+    category: "advanced",
+  },
+  {
+    type: "country",
+    label: "Respondent's country",
+    icon: Globe,
+    category: "advanced",
+  },
 ];
 
-const QUESTION_TYPE_LABEL = QUESTION_TYPES.reduce((acc, curr) => {
-  acc[curr.type] = curr.label;
-  return acc;
-}, {} as Record<QuestionType, string>);
+const QUESTION_TYPE_LABEL = QUESTION_TYPES.reduce(
+  (acc, curr) => {
+    acc[curr.type] = curr.label;
+    return acc;
+  },
+  {} as Record<QuestionType, string>,
+);
 
 // ─── Smart DnD Sensor ──────────────────────────────────────────────────────────
 // Extends PointerSensor to skip activation when the event target is an
@@ -225,10 +330,15 @@ function createQuestion(type: QuestionType): Question {
     label: "",
     placeholder: "",
     required: true,
-    options:
-      ["multiple_choice", "checkbox", "dropdown", "multi_select", "ranking"].includes(type)
-        ? ["Option 1", "Option 2"]
-        : [],
+    options: [
+      "multiple_choice",
+      "checkbox",
+      "dropdown",
+      "multi_select",
+      "ranking",
+    ].includes(type)
+      ? ["Option 1", "Option 2"]
+      : [],
     minWords: 0,
     maxWords: 0,
     randomize: false,
@@ -259,12 +369,29 @@ function LeftPanel({
   onAdd: (type: QuestionType) => void;
   onMobileClose?: () => void;
 }) {
-  const groups: { title: string; items: QuestionTypeItem[]; color: string }[] = [
-    { title: "Input blocks", items: QUESTION_TYPES.filter((t) => t.category === "input"), color: "text-ok-green" },
-    { title: "Layout blocks", items: QUESTION_TYPES.filter((t) => t.category === "layout"), color: "text-ok-muted" },
-    { title: "Embed blocks", items: QUESTION_TYPES.filter((t) => t.category === "embed"), color: "text-ok-purple" },
-    { title: "Advanced blocks", items: QUESTION_TYPES.filter((t) => t.category === "advanced"), color: "text-ok-danger" },
-  ];
+  const groups: { title: string; items: QuestionTypeItem[]; color: string }[] =
+    [
+      {
+        title: "Input blocks",
+        items: QUESTION_TYPES.filter((t) => t.category === "input"),
+        color: "text-ok-green",
+      },
+      {
+        title: "Layout blocks",
+        items: QUESTION_TYPES.filter((t) => t.category === "layout"),
+        color: "text-ok-muted",
+      },
+      {
+        title: "Embed blocks",
+        items: QUESTION_TYPES.filter((t) => t.category === "embed"),
+        color: "text-ok-purple",
+      },
+      {
+        title: "Advanced blocks",
+        items: QUESTION_TYPES.filter((t) => t.category === "advanced"),
+        color: "text-ok-danger",
+      },
+    ];
 
   return (
     <div className="flex h-full flex-col">
@@ -273,7 +400,10 @@ function LeftPanel({
           [ Element Picker ]
         </h3>
         {onMobileClose && (
-          <button onClick={onMobileClose} className="text-[#656C76] hover:text-[#F0F6F6] lg:hidden">
+          <button
+            onClick={onMobileClose}
+            className="text-[#656C76] hover:text-[#F0F6F6] lg:hidden"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
@@ -295,7 +425,12 @@ function LeftPanel({
                   }}
                   className="flex w-full items-center gap-3 rounded px-3 py-2 text-xs text-[#656C76] transition-all duration-200 hover:bg-[#151B23]/50 hover:text-[#F0F6F6] group"
                 >
-                  <qt.icon className={cn("h-3.5 w-3.5 opacity-60 group-hover:opacity-100 transition-opacity", group.color)} />
+                  <qt.icon
+                    className={cn(
+                      "h-3.5 w-3.5 opacity-60 group-hover:opacity-100 transition-opacity",
+                      group.color,
+                    )}
+                  />
                   {qt.label}
                 </button>
               ))}
@@ -309,41 +444,40 @@ function LeftPanel({
 
 // ─── Center canvas — Question cards ────────────────────────────────────────────
 
-function RatingPreview({
-  question,
-}: {
-  question: Question;
-}) {
+function RatingPreview({ question }: { question: Question }) {
   const [hovered, setHovered] = useState(0);
   const [selected, setSelected] = useState(0);
 
   return (
     <div className="flex items-center gap-2 mt-2">
-      {Array.from({ length: question.ratingMax }, (_, i) => i + 1).map((num) => (
-        <button
-          key={num}
-          type="button"
-          onMouseEnter={() => setHovered(num)}
-          onMouseLeave={() => setHovered(0)}
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelected(num);
-          }}
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border transition-all duration-150",
-            (selected >= num || hovered >= num)
-              ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
-              : "border-ok-border/50 bg-ok-bg/50 text-ok-muted/50 hover:border-ok-green/20"
-          )}
-        >
-          <Star
+      {Array.from({ length: question.ratingMax }, (_, i) => i + 1).map(
+        (num) => (
+          <button
+            key={num}
+            type="button"
+            onMouseEnter={() => setHovered(num)}
+            onMouseLeave={() => setHovered(0)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelected(num);
+            }}
             className={cn(
-              "h-4 w-4 transition-colors",
-              (selected >= num || hovered >= num) && "fill-ok-green text-ok-green"
+              "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border transition-all duration-150",
+              selected >= num || hovered >= num
+                ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
+                : "border-ok-border/50 bg-ok-bg/50 text-ok-muted/50 hover:border-ok-green/20",
             )}
-          />
-        </button>
-      ))}
+          >
+            <Star
+              className={cn(
+                "h-4 w-4 transition-colors",
+                (selected >= num || hovered >= num) &&
+                  "fill-ok-green text-ok-green",
+              )}
+            />
+          </button>
+        ),
+      )}
       {selected > 0 && (
         <span className="ml-2 font-mono text-xs text-ok-muted">
           {selected}/{question.ratingMax}
@@ -353,11 +487,7 @@ function RatingPreview({
   );
 }
 
-function LinearScalePreview({
-  question,
-}: {
-  question: Question;
-}) {
+function LinearScalePreview({ question }: { question: Question }) {
   const [selected, setSelected] = useState(0);
   const max = question.ratingMax || 5;
 
@@ -373,7 +503,7 @@ function LinearScalePreview({
               "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok-inner)] border transition-all duration-150",
               selected === num
                 ? "border-ok-green/40 bg-ok-green/10 text-ok-green shadow-[0_0_12px_rgba(20,241,149,0.2)]"
-                : "border-ok-border/50 bg-ok-bg/50 text-ok-muted/50 hover:border-ok-green/20 hover:text-ok-green"
+                : "border-ok-border/50 bg-ok-bg/50 text-ok-muted/50 hover:border-ok-green/20 hover:text-ok-green",
             )}
           >
             {num}
@@ -381,8 +511,12 @@ function LinearScalePreview({
         ))}
       </div>
       <div className="flex justify-between mt-1.5">
-        <span className="text-[10px] text-ok-dim/60">{question.lowLabel || "Disagree"}</span>
-        <span className="text-[10px] text-ok-dim/60">{question.highLabel || "Agree"}</span>
+        <span className="text-[10px] text-ok-dim/60">
+          {question.lowLabel || "Disagree"}
+        </span>
+        <span className="text-[10px] text-ok-dim/60">
+          {question.highLabel || "Agree"}
+        </span>
       </div>
     </div>
   );
@@ -404,7 +538,6 @@ function SortableQuestionCard({
   onDelete: () => void;
   onUpdateLabel: (label: string) => void;
   onUpdate: (updates: Partial<Question>) => void;
-  
 }) {
   const {
     attributes,
@@ -414,7 +547,6 @@ function SortableQuestionCard({
     transition,
     isDragging,
   } = useSortable({ id: question.id });
-  
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -423,26 +555,42 @@ function SortableQuestionCard({
     zIndex: isDragging ? 50 : undefined,
   };
 
-  const isLayout = QUESTION_TYPES.find(q => q.type === question.type)?.category === "layout";
-  const isEmbed = QUESTION_TYPES.find(q => q.type === question.type)?.category === "embed";
-  const isAdvanced = QUESTION_TYPES.find(q => q.type === question.type)?.category === "advanced";
-  
+  const isLayout =
+    QUESTION_TYPES.find((q) => q.type === question.type)?.category === "layout";
+  const isEmbed =
+    QUESTION_TYPES.find((q) => q.type === question.type)?.category === "embed";
+  const isAdvanced =
+    QUESTION_TYPES.find((q) => q.type === question.type)?.category ===
+    "advanced";
+
   const isNonInput = isLayout || isEmbed || isAdvanced;
 
   const getPlaceholderText = () => {
     switch (question.type) {
-      case "h1": return "Heading 1...";
-      case "h2": return "Heading 2...";
-      case "h3": return "Heading 3...";
-      case "title": return "Form Title...";
-      case "text": return "Type your text here...";
-      case "new_page": return "New Page break description...";
-      case "thank_you": return "Thank you message...";
-      case "image": return "Image URL or description...";
-      case "video": return "Video URL...";
-      case "conditional_logic": return "Logic rule description...";
-      case "calculated_field": return "Calculation formula...";
-      default: return "Enter your prompt here...";
+      case "h1":
+        return "Heading 1...";
+      case "h2":
+        return "Heading 2...";
+      case "h3":
+        return "Heading 3...";
+      case "title":
+        return "Form Title...";
+      case "text":
+        return "Type your text here...";
+      case "new_page":
+        return "New Page break description...";
+      case "thank_you":
+        return "Thank you message...";
+      case "image":
+        return "Image URL or description...";
+      case "video":
+        return "Video URL...";
+      case "conditional_logic":
+        return "Logic rule description...";
+      case "calculated_field":
+        return "Calculation formula...";
+      default:
+        return "Enter your prompt here...";
     }
   };
 
@@ -455,7 +603,7 @@ function SortableQuestionCard({
         selected
           ? "border-ok-green/30 bg-ok-surface shadow-[inset_3px_0_0_0_var(--color-ok-green)]"
           : "border-ok-border bg-ok-surface/40 hover:border-ok-border-glow hover:bg-ok-surface/60",
-        isDragging && "shadow-lg shadow-black/20 ring-2 ring-ok-green/30"
+        isDragging && "shadow-lg shadow-black/20 ring-2 ring-ok-green/30",
       )}
       onClick={() => onSelect()}
     >
@@ -481,7 +629,9 @@ function SortableQuestionCard({
             {QUESTION_TYPE_LABEL[question.type]}
           </span>
           {question.required && !isNonInput && (
-            <span className="text-xs text-ok-danger font-bold leading-none">*</span>
+            <span className="text-xs text-ok-danger font-bold leading-none">
+              *
+            </span>
           )}
         </div>
 
@@ -491,7 +641,9 @@ function SortableQuestionCard({
         ) : question.type === "new_page" ? (
           <div className="my-4 flex items-center gap-4">
             <div className="h-px flex-1 bg-ok-border/40" />
-            <span className="font-mono text-[10px] uppercase tracking-wider text-ok-dim">Page Break</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-ok-dim">
+              Page Break
+            </span>
             <div className="h-px flex-1 bg-ok-border/40" />
           </div>
         ) : (
@@ -503,10 +655,11 @@ function SortableQuestionCard({
             placeholder={getPlaceholderText()}
             className={cn(
               "w-full border-none bg-transparent text-sm font-medium text-ok-text placeholder:text-ok-muted/30 focus:outline-none",
-              (question.type === "h1" || question.type === "title") && "font-display text-2xl font-bold",
+              (question.type === "h1" || question.type === "title") &&
+                "font-display text-2xl font-bold",
               question.type === "h2" && "font-display text-xl font-bold",
               question.type === "h3" && "font-display text-lg font-semibold",
-              question.type === "text" && "font-normal text-ok-muted"
+              question.type === "text" && "font-normal text-ok-muted",
             )}
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -600,7 +753,7 @@ function SortableQuestionCard({
                 className="flex h-10 w-full items-center rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/50 focus:border-ok-green/40 focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-40"
               />
             )}
-            
+
             {/* Long inputs */}
             {question.type === "long_text" && (
               <textarea
@@ -611,9 +764,11 @@ function SortableQuestionCard({
                 className="w-full resize-none rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 pt-2.5 text-xs text-ok-muted/50 placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
               />
             )}
-            
+
             {/* Choice / Lists */}
-            {["multiple_choice", "checkbox", "ranking"].includes(question.type) && (
+            {["multiple_choice", "checkbox", "ranking"].includes(
+              question.type,
+            ) && (
               <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
                 {question.options.map((opt, i) => (
                   <div
@@ -625,7 +780,9 @@ function SortableQuestionCard({
                     ) : question.type === "checkbox" ? (
                       <span className="h-3 w-3 shrink-0 rounded-[3px] border border-ok-border bg-ok-surface" />
                     ) : (
-                      <span className="font-mono text-[10px] text-ok-dim shrink-0">{i + 1}.</span>
+                      <span className="font-mono text-[10px] text-ok-dim shrink-0">
+                        {i + 1}.
+                      </span>
                     )}
                     <input
                       type="text"
@@ -653,7 +810,12 @@ function SortableQuestionCard({
                 <button
                   type="button"
                   onClick={() => {
-                    onUpdate({ options: [...question.options, `Option ${question.options.length + 1}`] });
+                    onUpdate({
+                      options: [
+                        ...question.options,
+                        `Option ${question.options.length + 1}`,
+                      ],
+                    });
                   }}
                   className="flex w-full items-center justify-center gap-1 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/40 py-1.5 text-[11px] text-ok-dim/60 transition-colors hover:border-ok-green/30 hover:text-ok-green"
                 >
@@ -702,7 +864,12 @@ function SortableQuestionCard({
                 <button
                   type="button"
                   onClick={() => {
-                    onUpdate({ options: [...question.options, `Option ${question.options.length + 1}`] });
+                    onUpdate({
+                      options: [
+                        ...question.options,
+                        `Option ${question.options.length + 1}`,
+                      ],
+                    });
                   }}
                   className="flex w-full items-center justify-center gap-1 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/40 py-1.5 text-[11px] text-ok-dim/60 transition-colors hover:border-ok-green/30 hover:text-ok-green"
                 >
@@ -726,7 +893,12 @@ function SortableQuestionCard({
             {/* Matrix — editable rows and columns */}
             {question.type === "matrix" && (
               <div className="w-full overflow-hidden rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/30">
-                <div className="grid gap-px" style={{ gridTemplateColumns: `1fr repeat(${question.matrixColumns.length}, minmax(0, 1fr))` }}>
+                <div
+                  className="grid gap-px"
+                  style={{
+                    gridTemplateColumns: `1fr repeat(${question.matrixColumns.length}, minmax(0, 1fr))`,
+                  }}
+                >
                   {/* Header row */}
                   <div className="bg-ok-surface/60 p-2 text-[10px] uppercase tracking-wider text-ok-dim" />
                   {question.matrixColumns.map((col, ci) => (
@@ -757,11 +929,14 @@ function SortableQuestionCard({
                           onUpdate({ matrixRows: next });
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()} 
+                        onPointerDown={(e) => e.stopPropagation()}
                         className="bg-ok-bg/50 p-2 text-xs font-medium text-ok-muted border-none focus:outline-none focus:ring-1 focus:ring-ok-green/30"
                       />
                       {question.matrixColumns.map((_, ci) => (
-                        <div key={ci} className="flex items-center justify-center bg-ok-bg/50 p-2 text-xs text-ok-muted/40">
+                        <div
+                          key={ci}
+                          className="flex items-center justify-center bg-ok-bg/50 p-2 text-xs text-ok-muted/40"
+                        >
                           ○
                         </div>
                       ))}
@@ -792,21 +967,24 @@ function SortableQuestionCard({
             )}
           </div>
         )}
-        
+
         {/* Placeholder for complex embeds / advanced blocks */}
         {isEmbed && (
-           <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-purple/30 bg-ok-purple/5 px-4 py-6 text-xs text-ok-purple/70 pointer-events-none select-none">
-             <Code className="h-5 w-5" />
-             Configure {QUESTION_TYPE_LABEL[question.type]} settings in the side panel
-           </div>
+          <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-purple/30 bg-ok-purple/5 px-4 py-6 text-xs text-ok-purple/70 pointer-events-none select-none">
+            <Code className="h-5 w-5" />
+            Configure {QUESTION_TYPE_LABEL[question.type]} settings in the side
+            panel
+          </div>
         )}
 
-        {isAdvanced && question.type !== "country" && question.type !== "recaptcha" && (
-           <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-danger/30 bg-ok-danger/5 px-4 py-4 text-xs text-ok-danger/70 pointer-events-none select-none">
-             <Settings className="h-4 w-4" />
-             Logic / Calculation block (Invisible to respondents)
-           </div>
-        )}
+        {isAdvanced &&
+          question.type !== "country" &&
+          question.type !== "recaptcha" && (
+            <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-danger/30 bg-ok-danger/5 px-4 py-4 text-xs text-ok-danger/70 pointer-events-none select-none">
+              <Settings className="h-4 w-4" />
+              Logic / Calculation block (Invisible to respondents)
+            </div>
+          )}
       </div>
 
       {/* Actions */}
@@ -852,9 +1030,8 @@ function Canvas({
     useSensor(SmartPointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
-  
 
   const questionIds = useMemo(() => questions.map((q) => q.id), [questions]);
 
@@ -887,9 +1064,12 @@ function Canvas({
             <div className="flex h-10 w-10 items-center justify-center rounded border border-[#3D444D] bg-[#151B23]">
               <Plus className="h-4 w-4 text-[#656C76]" />
             </div>
-            <p className="font-mono text-xs font-medium text-[#F0F6F6]">Build your research pipeline</p>
+            <p className="font-mono text-xs font-medium text-[#F0F6F6]">
+              Build your research pipeline
+            </p>
             <p className="font-mono text-[10px] text-[#656C76] leading-relaxed">
-              Select an element or input field from the side construction panel to populate your survey structure.
+              Select an element or input field from the side construction panel
+              to populate your survey structure.
             </p>
           </div>
         </div>
@@ -899,7 +1079,10 @@ function Canvas({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={questionIds} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={questionIds}
+            strategy={verticalListSortingStrategy}
+          >
             <div className="space-y-3 pb-24">
               {questions.map((q, i) => (
                 <div key={q.id} className="relative group/step">
@@ -951,13 +1134,23 @@ function QuestionSettings({
     );
   }
 
-  const isLayout = QUESTION_TYPES.find(q => q.type === question.type)?.category === "layout";
-  const isEmbed = QUESTION_TYPES.find(q => q.type === question.type)?.category === "embed";
-  const isAdvanced = QUESTION_TYPES.find(q => q.type === question.type)?.category === "advanced";
+  const isLayout =
+    QUESTION_TYPES.find((q) => q.type === question.type)?.category === "layout";
+  const isEmbed =
+    QUESTION_TYPES.find((q) => q.type === question.type)?.category === "embed";
+  const isAdvanced =
+    QUESTION_TYPES.find((q) => q.type === question.type)?.category ===
+    "advanced";
   const isNonInput = isLayout || isEmbed || isAdvanced;
 
   const isLong = question.type === "long_text";
-  const hasOptions = ["multiple_choice", "checkbox", "dropdown", "multi_select", "ranking"].includes(question.type);
+  const hasOptions = [
+    "multiple_choice",
+    "checkbox",
+    "dropdown",
+    "multi_select",
+    "ranking",
+  ].includes(question.type);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -971,18 +1164,22 @@ function QuestionSettings({
         {/* Common: Required toggle (only for inputs) */}
         {!isNonInput && (
           <div className="flex items-center justify-between border-b border-ok-border/20 pb-4">
-            <label className="text-xs font-medium text-ok-muted">Enforce Requirement</label>
+            <label className="text-xs font-medium text-ok-muted">
+              Enforce Requirement
+            </label>
             <button
-              onClick={() => onUpdate(question.id, { required: !question.required })}
+              onClick={() =>
+                onUpdate(question.id, { required: !question.required })
+              }
               className={cn(
                 "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none",
-                question.required ? "bg-ok-green" : "bg-ok-border"
+                question.required ? "bg-ok-green" : "bg-ok-border",
               )}
             >
               <span
                 className={cn(
                   "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-ok-bg transition-transform duration-200",
-                  question.required && "translate-x-4"
+                  question.required && "translate-x-4",
                 )}
               />
             </button>
@@ -992,11 +1189,15 @@ function QuestionSettings({
         {/* Placeholder text (short_text / long_text) */}
         {(question.type === "short_text" || question.type === "long_text") && (
           <div className="space-y-1.5 border-b border-ok-border/20 pb-4">
-            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Placeholder</label>
+            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+              Placeholder
+            </label>
             <input
               type="text"
               value={question.placeholder ?? ""}
-              onChange={(e) => onUpdate(question.id, { placeholder: e.target.value })}
+              onChange={(e) =>
+                onUpdate(question.id, { placeholder: e.target.value })
+              }
               placeholder="Enter placeholder text..."
               className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-xs text-ok-text placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
               onPointerDown={(e) => e.stopPropagation()}
@@ -1012,28 +1213,41 @@ function QuestionSettings({
           <div className="space-y-4 border-b border-ok-border/20 pb-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Min Words</label>
+                <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                  Min Words
+                </label>
                 <input
                   type="number"
                   min={0}
                   value={question.minWords || ""}
-                  onChange={(e) => onUpdate(question.id, { minWords: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    onUpdate(question.id, {
+                      minWords: parseInt(e.target.value) || 0,
+                    })
+                  }
                   className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Max Words</label>
+                <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                  Max Words
+                </label>
                 <input
                   type="number"
                   min={0}
                   value={question.maxWords || ""}
-                  onChange={(e) => onUpdate(question.id, { maxWords: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    onUpdate(question.id, {
+                      maxWords: parseInt(e.target.value) || 0,
+                    })
+                  }
                   className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
                 />
               </div>
             </div>
             <p className="text-[10px] leading-relaxed text-ok-dim">
-              Note: Paragraph profiles scoring beneath criteria limits lower the response vector payload value during engine checks.
+              Note: Paragraph profiles scoring beneath criteria limits lower the
+              response vector payload value during engine checks.
             </p>
           </div>
         )}
@@ -1042,7 +1256,9 @@ function QuestionSettings({
         {hasOptions && (
           <div className="space-y-4 border-b border-ok-border/20 pb-4">
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Option Mapping</label>
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                Option Mapping
+              </label>
               <div className="space-y-2">
                 {question.options.map((opt, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -1072,7 +1288,10 @@ function QuestionSettings({
               <button
                 onClick={() =>
                   onUpdate(question.id, {
-                    options: [...question.options, `Option ${question.options.length + 1}`],
+                    options: [
+                      ...question.options,
+                      `Option ${question.options.length + 1}`,
+                    ],
                   })
                 }
                 className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 py-2 text-xs text-ok-dim transition-colors hover:border-ok-green/40 hover:text-ok-green"
@@ -1083,36 +1302,49 @@ function QuestionSettings({
             </div>
 
             <div className="flex items-center justify-between pt-2">
-              <label className="text-xs font-medium text-ok-muted">Randomize Item Sequence</label>
+              <label className="text-xs font-medium text-ok-muted">
+                Randomize Item Sequence
+              </label>
               <button
-                onClick={() => onUpdate(question.id, { randomize: !question.randomize })}
+                onClick={() =>
+                  onUpdate(question.id, { randomize: !question.randomize })
+                }
                 className={cn(
                   "relative h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none",
-                  question.randomize ? "bg-ok-green" : "bg-ok-border"
+                  question.randomize ? "bg-ok-green" : "bg-ok-border",
                 )}
               >
                 <span
                   className={cn(
                     "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-ok-bg transition-transform duration-200",
-                    question.randomize && "translate-x-4"
+                    question.randomize && "translate-x-4",
                   )}
                 />
               </button>
             </div>
           </div>
         )}
-        
+
         {/* Rating max setting */}
         {question.type === "rating" && (
           <div className="space-y-3 border-b border-ok-border/20 pb-4">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Maximum Stars</label>
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                Maximum Stars
+              </label>
               <input
                 type="number"
                 min={1}
                 max={10}
                 value={question.ratingMax}
-                onChange={(e) => onUpdate(question.id, { ratingMax: Math.max(1, Math.min(10, parseInt(e.target.value) || 5)) })}
+                onChange={(e) =>
+                  onUpdate(question.id, {
+                    ratingMax: Math.max(
+                      1,
+                      Math.min(10, parseInt(e.target.value) || 5),
+                    ),
+                  })
+                }
                 className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
                 onPointerDown={(e) => e.stopPropagation()}
               />
@@ -1127,29 +1359,38 @@ function QuestionSettings({
         {question.type === "linear_scale" && (
           <div className="space-y-3 border-b border-ok-border/20 pb-4">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Low Label</label>
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                Low Label
+              </label>
               <input
                 type="text"
                 value={question.lowLabel || ""}
-                onChange={(e) => onUpdate(question.id, { lowLabel: e.target.value })}
+                onChange={(e) =>
+                  onUpdate(question.id, { lowLabel: e.target.value })
+                }
                 placeholder="Disagree"
                 className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-xs text-ok-text placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
                 onPointerDown={(e) => e.stopPropagation()}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">High Label</label>
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                High Label
+              </label>
               <input
                 type="text"
                 value={question.highLabel || ""}
-                onChange={(e) => onUpdate(question.id, { highLabel: e.target.value })}
+                onChange={(e) =>
+                  onUpdate(question.id, { highLabel: e.target.value })
+                }
                 placeholder="Agree"
                 className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 text-xs text-ok-text placeholder:text-ok-muted/30 focus:border-ok-green/40 focus:outline-none"
                 onPointerDown={(e) => e.stopPropagation()}
               />
             </div>
             <p className="text-[10px] leading-relaxed text-ok-dim">
-              Labels shown at each end of the linear scale. Falls back to "Disagree" / "Agree" if left empty.
+              Labels shown at each end of the linear scale. Falls back to
+              "Disagree" / "Agree" if left empty.
             </p>
           </div>
         )}
@@ -1159,11 +1400,15 @@ function QuestionSettings({
           <div className="space-y-4 border-b border-ok-border/20 pb-4">
             {/* Rows */}
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Row Labels</label>
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                Row Labels
+              </label>
               <div className="space-y-2">
                 {question.matrixRows.map((row, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="w-5 text-center font-mono text-[10px] text-ok-dim">{i + 1}</span>
+                    <span className="w-5 text-center font-mono text-[10px] text-ok-dim">
+                      {i + 1}
+                    </span>
                     <input
                       type="text"
                       value={row}
@@ -1177,7 +1422,9 @@ function QuestionSettings({
                     />
                     <button
                       onClick={() => {
-                        const next = question.matrixRows.filter((_, j) => j !== i);
+                        const next = question.matrixRows.filter(
+                          (_, j) => j !== i,
+                        );
                         onUpdate(question.id, { matrixRows: next });
                       }}
                       className="shrink-0 rounded p-1.5 text-ok-muted hover:bg-ok-surface hover:text-ok-danger transition-colors"
@@ -1188,7 +1435,14 @@ function QuestionSettings({
                 ))}
               </div>
               <button
-                onClick={() => onUpdate(question.id, { matrixRows: [...question.matrixRows, `Row ${question.matrixRows.length + 1}`] })}
+                onClick={() =>
+                  onUpdate(question.id, {
+                    matrixRows: [
+                      ...question.matrixRows,
+                      `Row ${question.matrixRows.length + 1}`,
+                    ],
+                  })
+                }
                 className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 py-2 text-xs text-ok-dim transition-colors hover:border-ok-green/40 hover:text-ok-green"
               >
                 <Plus className="h-3 w-3" />
@@ -1198,11 +1452,15 @@ function QuestionSettings({
 
             {/* Columns */}
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Column Labels</label>
+              <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+                Column Labels
+              </label>
               <div className="space-y-2">
                 {question.matrixColumns.map((col, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="w-5 text-center font-mono text-[10px] text-ok-dim">{String.fromCharCode(65 + i)}</span>
+                    <span className="w-5 text-center font-mono text-[10px] text-ok-dim">
+                      {String.fromCharCode(65 + i)}
+                    </span>
                     <input
                       type="text"
                       value={col}
@@ -1216,7 +1474,9 @@ function QuestionSettings({
                     />
                     <button
                       onClick={() => {
-                        const next = question.matrixColumns.filter((_, j) => j !== i);
+                        const next = question.matrixColumns.filter(
+                          (_, j) => j !== i,
+                        );
                         onUpdate(question.id, { matrixColumns: next });
                       }}
                       className="shrink-0 rounded p-1.5 text-ok-muted hover:bg-ok-surface hover:text-ok-danger transition-colors"
@@ -1227,7 +1487,14 @@ function QuestionSettings({
                 ))}
               </div>
               <button
-                onClick={() => onUpdate(question.id, { matrixColumns: [...question.matrixColumns, `Column ${question.matrixColumns.length + 1}`] })}
+                onClick={() =>
+                  onUpdate(question.id, {
+                    matrixColumns: [
+                      ...question.matrixColumns,
+                      `Column ${question.matrixColumns.length + 1}`,
+                    ],
+                  })
+                }
                 className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-ok-inner)] border border-dashed border-ok-border/60 py-2 text-xs text-ok-dim transition-colors hover:border-ok-green/40 hover:text-ok-green"
               >
                 <Plus className="h-3 w-3" />
@@ -1240,16 +1507,28 @@ function QuestionSettings({
         {/* Placeholder for block-specific settings */}
         {isEmbed && (
           <div className="space-y-3">
-             <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Embed Source URI</label>
-             <input type="text" placeholder="https://" className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none" />
+            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+              Embed Source URI
+            </label>
+            <input
+              type="text"
+              placeholder="https://"
+              className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+            />
           </div>
         )}
-        
+
         {question.type === "file_upload" && (
-           <div className="space-y-3">
-             <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Size Limit (MB)</label>
-             <input type="number" defaultValue={10} className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none" />
-           </div>
+          <div className="space-y-3">
+            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+              Size Limit (MB)
+            </label>
+            <input
+              type="number"
+              defaultValue={10}
+              className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+            />
+          </div>
         )}
       </div>
     </div>
@@ -1275,15 +1554,21 @@ function RewardSettingsPanel({
 
       <div className="space-y-3.5">
         <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Escrow Reservoir Pool</label>
+          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+            Escrow Reservoir Pool
+          </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">◎</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">
+              ◎
+            </span>
             <input
               type="number"
               min={0}
               step={0.1}
               value={settings.rewardPool || ""}
-              onChange={(e) => onUpdate({ rewardPool: parseFloat(e.target.value) || 0 })}
+              onChange={(e) =>
+                onUpdate({ rewardPool: parseFloat(e.target.value) || 0 })
+              }
               className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg py-2 pl-8 pr-3 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
               onPointerDown={(e) => e.stopPropagation()}
             />
@@ -1297,19 +1582,25 @@ function RewardSettingsPanel({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Target Threshold Cap</label>
+          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+            Target Threshold Cap
+          </label>
           <input
             type="number"
             min={1}
             value={settings.maxResponses || ""}
-            onChange={(e) => onUpdate({ maxResponses: parseInt(e.target.value) || 0 })}
+            onChange={(e) =>
+              onUpdate({ maxResponses: parseInt(e.target.value) || 0 })
+            }
             className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
             onPointerDown={(e) => e.stopPropagation()}
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Distribution Distribution</label>
+          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+            Distribution Distribution
+          </label>
           <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg p-1">
             <button
               onClick={() => onUpdate({ rewardType: "weighted" })}
@@ -1317,33 +1608,37 @@ function RewardSettingsPanel({
                 "rounded-[var(--radius-ok-inner)] py-1.5 text-xs font-medium transition-colors",
                 settings.rewardType === "weighted"
                   ? "bg-ok-green/10 text-ok-green border border-ok-green/20"
-                  : "text-ok-dim hover:text-ok-text border border-transparent"
+                  : "text-ok-dim hover:text-ok-text border border-transparent",
               )}
             >
               Weighted
             </button>
             <button
-              onClick={() => onUpdate({ rewardType: "lottery" })}
+              onClick={() => onUpdate({ rewardType: "lucky_draw" })}
               className={cn(
                 "rounded-[var(--radius-ok-inner)] py-1.5 text-xs font-medium transition-colors",
-                settings.rewardType === "lottery"
+                settings.rewardType === "lucky_draw"
                   ? "bg-ok-purple/10 text-ok-purple border border-ok-purple/20"
-                  : "text-ok-dim hover:text-ok-text border border-transparent"
+                  : "text-ok-dim hover:text-ok-text border border-transparent",
               )}
             >
-              Lottery
+              Lucky Draw
             </button>
           </div>
         </div>
 
-        {settings.rewardType === "lottery" && (
+        {settings.rewardType === "lucky_draw" && (
           <div className="space-y-1.5 animate-fadeIn">
-            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Draw Target Winners</label>
+            <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+              Draw Target Winners
+            </label>
             <input
               type="number"
               min={1}
               value={settings.numWinners || ""}
-              onChange={(e) => onUpdate({ numWinners: parseInt(e.target.value) || 0 })}
+              onChange={(e) =>
+                onUpdate({ numWinners: parseInt(e.target.value) || 0 })
+              }
               className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
               onPointerDown={(e) => e.stopPropagation()}
             />
@@ -1351,7 +1646,9 @@ function RewardSettingsPanel({
         )}
 
         <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">Closes At (Optional)</label>
+          <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
+            Closes At (Optional)
+          </label>
           <input
             type="datetime-local"
             value={settings.closesAt || ""}
@@ -1360,7 +1657,8 @@ function RewardSettingsPanel({
             onPointerDown={(e) => e.stopPropagation()}
           />
           <p className="text-[10px] text-ok-dim">
-            Leave empty for no deadline. Survey closes automatically when this time is reached.
+            Leave empty for no deadline. Survey closes automatically when this
+            time is reached.
           </p>
         </div>
 
@@ -1375,7 +1673,9 @@ function RewardSettingsPanel({
                 type="number"
                 min={0}
                 value={settings.minWalletAge || ""}
-                onChange={(e) => onUpdate({ minWalletAge: parseInt(e.target.value) || 0 })}
+                onChange={(e) =>
+                  onUpdate({ minWalletAge: parseInt(e.target.value) || 0 })
+                }
                 className="w-24 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-2.5 py-1.5 font-mono text-xs text-right text-ok-text focus:border-ok-green/40 focus:outline-none"
                 onPointerDown={(e) => e.stopPropagation()}
               />
@@ -1387,7 +1687,9 @@ function RewardSettingsPanel({
                 min={0}
                 step={0.1}
                 value={settings.minSolBalance || ""}
-                onChange={(e) => onUpdate({ minSolBalance: parseFloat(e.target.value) || 0 })}
+                onChange={(e) =>
+                  onUpdate({ minSolBalance: parseFloat(e.target.value) || 0 })
+                }
                 className="w-24 rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-2.5 py-1.5 font-mono text-xs text-right text-ok-text focus:border-ok-green/40 focus:outline-none"
                 onPointerDown={(e) => e.stopPropagation()}
               />
@@ -1409,7 +1711,10 @@ export default function FormBuilder() {
   const [showMobilePicker, setShowMobilePicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [initializing, setInitializing] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "error" | "success";
+  } | null>(null);
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
   const navigate = useNavigate();
@@ -1430,7 +1735,10 @@ export default function FormBuilder() {
       if (parsed.formTitle) setFormTitle(parsed.formTitle);
       if (parsed.questions?.length) setQuestions(parsed.questions);
       if (parsed.reward) setReward(parsed.reward);
-      if (parsed.selectedId && parsed.questions?.some((q: Question) => q.id === parsed.selectedId)) {
+      if (
+        parsed.selectedId &&
+        parsed.questions?.some((q: Question) => q.id === parsed.selectedId)
+      ) {
         setSelectedId(parsed.selectedId);
       }
     } catch {
@@ -1481,7 +1789,7 @@ export default function FormBuilder() {
 
   const selectedQuestion = useMemo(
     () => questions.find((q) => q.id === selectedId),
-    [questions, selectedId]
+    [questions, selectedId],
   );
 
   const addQuestion = useCallback((type: QuestionType) => {
@@ -1500,68 +1808,129 @@ export default function FormBuilder() {
     setSelectedId(q.id);
   }, []);
 
-  const deleteQuestion = useCallback((id: string) => {
-    setQuestions((prev) => prev.filter((q) => q.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  }, [selectedId]);
+  const deleteQuestion = useCallback(
+    (id: string) => {
+      setQuestions((prev) => prev.filter((q) => q.id !== id));
+      if (selectedId === id) setSelectedId(null);
+    },
+    [selectedId],
+  );
 
   const reorderQuestions = useCallback((oldIndex: number, newIndex: number) => {
     setQuestions((prev) => arrayMove(prev, oldIndex, newIndex));
   }, []);
 
   const updateQuestionLabel = useCallback((id: string, label: string) => {
-    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, label } : q)));
+    setQuestions((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, label } : q)),
+    );
   }, []);
 
-  const updateQuestion = useCallback((id: string, updates: Partial<Question>) => {
-    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...updates } : q)));
-  }, []);
+  const updateQuestion = useCallback(
+    (id: string, updates: Partial<Question>) => {
+      setQuestions((prev) =>
+        prev.map((q) => (q.id === id ? { ...q, ...updates } : q)),
+      );
+    },
+    [],
+  );
 
   const handleInitialize = useCallback(async () => {
-    console.log('[INIT] handleInitialize called');
-    console.log('[INIT] formTitle:', formTitle.trim());
-    console.log('[INIT] questions count:', questions.length);
-    console.log('[INIT] reward config:', JSON.stringify(reward));
-    console.log('[INIT] isAuthenticated:', isAuthenticated);
-    console.log('[INIT] publicKey:', publicKey?.toBase58());
-    console.log('[INIT] insufficientBalance:', insufficientBalance);
+    console.log("[INIT] handleInitialize called");
+    console.log("[INIT] formTitle:", formTitle.trim());
+    console.log("[INIT] questions count:", questions.length);
+    console.log("[INIT] reward config:", JSON.stringify(reward));
+    console.log("[INIT] isAuthenticated:", isAuthenticated);
+    console.log("[INIT] publicKey:", publicKey?.toBase58());
+    console.log("[INIT] insufficientBalance:", insufficientBalance);
 
     if (!formTitle.trim()) {
-      console.warn('[INIT] Validation failed: no title');
-      setToast({ message: 'Please enter a form title before initializing.', type: 'error' });
+      console.warn("[INIT] Validation failed: no title");
+      setToast({
+        message: "Please enter a form title before initializing.",
+        type: "error",
+      });
       return;
     }
     if (questions.length < 2) {
-      console.warn('[INIT] Validation failed: less than 2 questions');
-      setToast({ message: 'Please add at least 2 questions before initializing.', type: 'error' });
+      console.warn("[INIT] Validation failed: less than 2 questions");
+      setToast({
+        message: "Please add at least 2 questions before initializing.",
+        type: "error",
+      });
       return;
     }
 
-    const questionTypesNeedingLabel = ['short_text', 'long_text', 'multiple_choice', 'checkbox', 'dropdown', 'multi_select', 'number', 'email', 'phone', 'link', 'linear_scale', 'matrix', 'rating'];
-    const questionTypesNeedingOptions = ['multiple_choice', 'checkbox', 'dropdown', 'multi_select'];
+    const questionTypesNeedingLabel = [
+      "short_text",
+      "long_text",
+      "multiple_choice",
+      "checkbox",
+      "dropdown",
+      "multi_select",
+      "number",
+      "email",
+      "phone",
+      "link",
+      "linear_scale",
+      "matrix",
+      "rating",
+    ];
+    const questionTypesNeedingOptions = [
+      "multiple_choice",
+      "checkbox",
+      "dropdown",
+      "multi_select",
+    ];
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (questionTypesNeedingLabel.includes(q.type) && !q.label.trim()) {
-        console.warn('[INIT] Validation failed: question', i + 1, 'needs label');
-        setToast({ message: `Question ${i + 1} needs a label.`, type: 'error' });
+        console.warn(
+          "[INIT] Validation failed: question",
+          i + 1,
+          "needs label",
+        );
+        setToast({
+          message: `Question ${i + 1} needs a label.`,
+          type: "error",
+        });
         return;
       }
-      if (questionTypesNeedingOptions.includes(q.type) && q.options.length === 0) {
-        console.warn('[INIT] Validation failed: question', i + 1, 'needs options');
-        setToast({ message: `Question ${i + 1} needs at least one option.`, type: 'error' });
+      if (
+        questionTypesNeedingOptions.includes(q.type) &&
+        q.options.length === 0
+      ) {
+        console.warn(
+          "[INIT] Validation failed: question",
+          i + 1,
+          "needs options",
+        );
+        setToast({
+          message: `Question ${i + 1} needs at least one option.`,
+          type: "error",
+        });
         return;
       }
     }
 
     if (!isAuthenticated || !publicKey || !signTransaction) {
-      console.warn('[INIT] Validation failed: wallet not connected or not authenticated');
-      setToast({ message: 'Please connect your wallet and sign in first.', type: 'error' });
+      console.warn(
+        "[INIT] Validation failed: wallet not connected or not authenticated",
+      );
+      setToast({
+        message: "Please connect your wallet and sign in first.",
+        type: "error",
+      });
       return;
     }
     if (insufficientBalance) {
-      console.warn('[INIT] Validation failed: insufficient balance');
-      setToast({ message: 'Insufficient wallet balance to cover the Escrow Reservoir Pool.', type: 'error' });
+      console.warn("[INIT] Validation failed: insufficient balance");
+      setToast({
+        message:
+          "Insufficient wallet balance to cover the Escrow Reservoir Pool.",
+        type: "error",
+      });
       return;
     }
 
@@ -1569,14 +1938,18 @@ export default function FormBuilder() {
 
     try {
       const surveyId = `survey_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      console.log('[INIT] surveyId:', surveyId);
+      console.log("[INIT] surveyId:", surveyId);
 
-      console.log('[INIT] Fetching recent blockhash');
+      console.log("[INIT] Fetching recent blockhash");
       const { blockhash } = await connection.getRecentBlockhash();
-      console.log('[INIT] blockhash:', blockhash);
+      console.log("[INIT] blockhash:", blockhash);
 
-      console.log('[INIT] Calling buildInitTx');
-      const { tx: txBase64, surveyPda, escrowPda } = await buildInitTx({
+      console.log("[INIT] Calling buildInitTx");
+      const {
+        tx: txBase64,
+        surveyPda,
+        escrowPda,
+      } = await buildInitTx({
         surveyId,
         rewardPoolSol: reward.rewardPool,
         rewardType: reward.rewardType,
@@ -1584,27 +1957,34 @@ export default function FormBuilder() {
         creator: publicKey.toBase58(),
         blockhash,
       });
-      console.log('[INIT] buildInitTx returned, surveyPda:', surveyPda, 'escrowPda:', escrowPda);
+      console.log(
+        "[INIT] buildInitTx returned, surveyPda:",
+        surveyPda,
+        "escrowPda:",
+        escrowPda,
+      );
 
-      console.log('[INIT] Deserializing transaction');
+      console.log("[INIT] Deserializing transaction");
       const txBuffer = Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0));
       const tx = Transaction.from(txBuffer);
       tx.feePayer = publicKey;
       tx.recentBlockhash = blockhash;
 
-      console.log('[INIT] Requesting wallet signature');
+      console.log("[INIT] Requesting wallet signature");
       const signed = await signTransaction(tx);
-      console.log('[INIT] Signed transaction');
+      console.log("[INIT] Signed transaction");
 
-      console.log('[INIT] Sending transaction');
-      const txSignature = await connection.sendRawTransaction(signed.serialize());
-      console.log('[INIT] txSignature:', txSignature);
+      console.log("[INIT] Sending transaction");
+      const txSignature = await connection.sendRawTransaction(
+        signed.serialize(),
+      );
+      console.log("[INIT] txSignature:", txSignature);
 
-      console.log('[INIT] Confirming transaction');
-      await connection.confirmTransaction(txSignature, 'confirmed');
-      console.log('[INIT] Transaction confirmed');
+      console.log("[INIT] Confirming transaction");
+      await connection.confirmTransaction(txSignature, "confirmed");
+      console.log("[INIT] Transaction confirmed");
 
-      console.log('[INIT] Registering form on backend');
+      console.log("[INIT] Registering form on backend");
       await createForm({
         title: formTitle.trim(),
         questions: questions.map((q) => ({
@@ -1637,33 +2017,65 @@ export default function FormBuilder() {
       });
 
       localStorage.removeItem(DRAFT_KEY);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      console.error('[INIT] ERROR:', err);
-      if (err instanceof Error && err.message.includes('Validation failed')) {
+      console.error("[INIT] ERROR:", err);
+      if (err instanceof Error && err.message.includes("Validation failed")) {
         try {
-          const errorData = JSON.parse(err.message.split(': ')[1] || '{}');
+          const errorData = JSON.parse(err.message.split(": ")[1] || "{}");
           const firstError = errorData.errors?.[0];
           if (firstError) {
-            const field = firstError.path?.replace('/', '').replace(/\//g, ' ') || 'field';
-            setToast({ message: `Invalid ${field}: ${firstError.message}`, type: 'error' });
+            const field =
+              firstError.path?.replace("/", "").replace(/\//g, " ") || "field";
+            setToast({
+              message: `Invalid ${field}: ${firstError.message}`,
+              type: "error",
+            });
           } else {
-            setToast({ message: 'Please check your form data and try again.', type: 'error' });
+            setToast({
+              message: "Please check your form data and try again.",
+              type: "error",
+            });
           }
         } catch {
-          setToast({ message: 'Please check your form data and try again.', type: 'error' });
+          setToast({
+            message: "Please check your form data and try again.",
+            type: "error",
+          });
         }
+      } else if (err instanceof ApiError && err.code === "TRANSACTION_FAILED") {
+        setToast({
+          message:
+            "Initial on-chain setup failed. Make sure your wallet has enough SOL and try again.",
+          type: "error",
+        });
       } else {
-        setToast({ message: err instanceof Error ? err.message : 'Failed to initialize campaign', type: 'error' });
+        setToast({
+          message:
+            err instanceof Error
+              ? err.message
+              : "Failed to initialize campaign",
+          type: "error",
+        });
       }
     } finally {
-      console.log('[INIT] Finished (success or error)');
+      console.log("[INIT] Finished (success or error)");
       setInitializing(false);
     }
-  }, [formTitle, questions, reward, isAuthenticated, insufficientBalance, navigate, publicKey, signTransaction, connection]);
+  }, [
+    formTitle,
+    questions,
+    reward,
+    isAuthenticated,
+    insufficientBalance,
+    navigate,
+    publicKey,
+    signTransaction,
+    connection,
+  ]);
 
   const openDraftModal = () => {
-    setDraftName(formTitle.trim() || 'Untitled');
+    setDraftName(formTitle.trim() || "Untitled");
     setDraftModalOpen(true);
   };
 
@@ -1671,14 +2083,17 @@ export default function FormBuilder() {
     if (!draftName.trim()) return;
     saveDraft(draftName.trim(), formTitle, questions, reward);
     setDraftModalOpen(false);
-    setToast({ message: `Draft "${draftName.trim()}" saved`, type: 'success' });
+    setToast({ message: `Draft "${draftName.trim()}" saved`, type: "success" });
   };
 
   return (
     <div className="flex h-screen flex-col bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#3D444D] bg-[#151B23]/50 px-4">
         <div>
-          <Link to="/dashboard" className="inline-flex items-center gap-1.5 font-mono text-[10px] text-[#656C76] uppercase tracking-wider transition-colors hover:text-[#F0F6F6]">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] text-[#656C76] uppercase tracking-wider transition-colors hover:text-[#F0F6F6]"
+          >
             <ArrowLeft className="h-3 w-3" />
             Workspace Dashboard
           </Link>
@@ -1688,18 +2103,22 @@ export default function FormBuilder() {
             DRAFT CONFIG
           </span>
         </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={openDraftModal}
-              className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
-            >
-              <Save className="h-3 w-3" />
-              Save Draft
-            </button>
-            <button
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openDraftModal}
+            className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+          >
+            <Save className="h-3 w-3" />
+            Save Draft
+          </button>
+          <button
             onClick={() => {
               if (!formTitle.trim()) {
-                setToast({ message: 'Enter a form title above, then preview your survey.', type: 'error' });
+                setToast({
+                  message:
+                    "Enter a form title above, then preview your survey.",
+                  type: "error",
+                });
                 return;
               }
               setShowPreview(true);
@@ -1720,7 +2139,7 @@ export default function FormBuilder() {
                 Initializing...
               </>
             ) : (
-              '[ Initialize Campaign ]'
+              "[ Initialize Campaign ]"
             )}
           </button>
         </div>
@@ -1731,9 +2150,9 @@ export default function FormBuilder() {
         <div
           className={cn(
             "fixed left-1/2 top-20 z-50 -translate-x-1/2 animate-fadeIn rounded border bg-ok-bg px-4 py-2.5 font-mono text-xs shadow-lg",
-            toast.type === 'error'
-              ? 'border-ok-danger/30 text-ok-danger'
-              : 'border-ok-green/30 text-ok-green',
+            toast.type === "error"
+              ? "border-ok-danger/30 text-ok-danger"
+              : "border-ok-green/30 text-ok-green",
           )}
         >
           {toast.message}
@@ -1758,8 +2177,8 @@ export default function FormBuilder() {
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveDraft();
-                if (e.key === 'Escape') setDraftModalOpen(false);
+                if (e.key === "Enter") handleSaveDraft();
+                if (e.key === "Escape") setDraftModalOpen(false);
               }}
               placeholder="Draft name"
               className="mt-4 w-full rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-sm text-[#F0F6F6] placeholder:text-[#656C76]/50 focus:border-ok-green/40 focus:outline-none"
@@ -1806,9 +2225,18 @@ export default function FormBuilder() {
 
         <div className="hidden w-[300px] shrink-0 border-l border-[#3D444D] bg-[#0D1117] lg:flex lg:flex-col">
           <div className="flex-1 overflow-y-auto">
-            <QuestionSettings question={selectedQuestion} onUpdate={updateQuestion} />
+            <QuestionSettings
+              question={selectedQuestion}
+              onUpdate={updateQuestion}
+            />
           </div>
-          <RewardSettingsPanel settings={reward} onUpdate={(updates) => setReward((prev) => ({ ...prev, ...updates }))} balanceWarning={balanceWarning} />
+          <RewardSettingsPanel
+            settings={reward}
+            onUpdate={(updates) =>
+              setReward((prev) => ({ ...prev, ...updates }))
+            }
+            balanceWarning={balanceWarning}
+          />
         </div>
       </div>
 
@@ -1823,9 +2251,15 @@ export default function FormBuilder() {
 
       {showMobilePicker && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobilePicker(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowMobilePicker(false)}
+          />
           <div className="absolute inset-x-0 bottom-0 max-h-[75vh] rounded-t border-t border-[#3D444D] bg-[#0D1117] animate-slideUp">
-            <LeftPanel onAdd={addQuestion} onMobileClose={() => setShowMobilePicker(false)} />
+            <LeftPanel
+              onAdd={addQuestion}
+              onMobileClose={() => setShowMobilePicker(false)}
+            />
           </div>
         </div>
       )}
@@ -1860,7 +2294,10 @@ function PreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded border border-[#3D444D] bg-[#0D1117] shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#3D444D] bg-[#151B23]/90 backdrop-blur-md px-5 py-3">
@@ -1888,12 +2325,21 @@ function PreviewModal({
           {/* Title */}
           <div>
             <h1 className="font-mono text-lg font-medium text-[#F0F6F6]">
-              {title || 'Untitled Form'}
+              {title || "Untitled Form"}
             </h1>
             <p className="mt-1 font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
-              {questions.length} question{questions.length !== 1 ? 's' : ''}
+              {questions.length} question{questions.length !== 1 ? "s" : ""}
               {reward.rewardPool > 0 && (
-                <> &middot; <img src={solanaLogo} alt="SOL" className="inline-block h-3 w-3 align-middle" /> {reward.rewardPool} reward pool</>
+                <>
+                  {" "}
+                  &middot;{" "}
+                  <img
+                    src={solanaLogo}
+                    alt="SOL"
+                    className="inline-block h-3 w-3 align-middle"
+                  />{" "}
+                  {reward.rewardPool} reward pool
+                </>
               )}
             </p>
           </div>
@@ -1909,11 +2355,11 @@ function PreviewModal({
                   )}
                 </p>
                 <span className="shrink-0 rounded border border-[#3D444D] bg-[#0D1117] px-2 py-0.5 font-mono text-[9px] text-[#656C76] uppercase">
-                  {current.type.replace(/_/g, ' ')}
+                  {current.type.replace(/_/g, " ")}
                 </span>
               </div>
 
-              {current.type === 'short_text' && (
+              {current.type === "short_text" && (
                 <input
                   disabled
                   placeholder={current.placeholder || "Short text answer..."}
@@ -1921,7 +2367,7 @@ function PreviewModal({
                 />
               )}
 
-              {current.type === 'long_text' && (
+              {current.type === "long_text" && (
                 <textarea
                   disabled
                   placeholder={current.placeholder || "Long text answer..."}
@@ -1930,29 +2376,50 @@ function PreviewModal({
                 />
               )}
 
-              {(current.type === 'multiple_choice' || current.type === 'dropdown') && (
+              {(current.type === "multiple_choice" ||
+                current.type === "dropdown") && (
                 <div className="space-y-1.5">
-                  {(current.options.length > 0 ? current.options : ['Option 1', 'Option 2', 'Option 3']).map((opt, i) => (
-                    <label key={i} className="flex items-center gap-2.5 rounded border border-[#3D444D]/50 px-3 py-2 font-mono text-[10px] text-[#9198A1] cursor-not-allowed">
-                      <input type="radio" disabled className="accent-ok-green" />
+                  {(current.options.length > 0
+                    ? current.options
+                    : ["Option 1", "Option 2", "Option 3"]
+                  ).map((opt, i) => (
+                    <label
+                      key={i}
+                      className="flex items-center gap-2.5 rounded border border-[#3D444D]/50 px-3 py-2 font-mono text-[10px] text-[#9198A1] cursor-not-allowed"
+                    >
+                      <input
+                        type="radio"
+                        disabled
+                        className="accent-ok-green"
+                      />
                       {opt}
                     </label>
                   ))}
                 </div>
               )}
 
-              {current.type === 'checkbox' && (
+              {current.type === "checkbox" && (
                 <div className="space-y-1.5">
-                  {(current.options.length > 0 ? current.options : ['Option A', 'Option B']).map((opt, i) => (
-                    <label key={i} className="flex items-center gap-2.5 rounded border border-[#3D444D]/50 px-3 py-2 font-mono text-[10px] text-[#9198A1] cursor-not-allowed">
-                      <input type="checkbox" disabled className="accent-ok-green" />
+                  {(current.options.length > 0
+                    ? current.options
+                    : ["Option A", "Option B"]
+                  ).map((opt, i) => (
+                    <label
+                      key={i}
+                      className="flex items-center gap-2.5 rounded border border-[#3D444D]/50 px-3 py-2 font-mono text-[10px] text-[#9198A1] cursor-not-allowed"
+                    >
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="accent-ok-green"
+                      />
                       {opt}
                     </label>
                   ))}
                 </div>
               )}
 
-              {current.type === 'number' && (
+              {current.type === "number" && (
                 <input
                   disabled
                   placeholder="0"
@@ -1960,7 +2427,7 @@ function PreviewModal({
                 />
               )}
 
-              {current.type === 'rating' && (
+              {current.type === "rating" && (
                 <div className="flex items-center gap-2">
                   {Array.from({ length: current.ratingMax || 5 }, (_, i) => (
                     <span
@@ -1973,7 +2440,7 @@ function PreviewModal({
                 </div>
               )}
 
-              {current.type === 'linear_scale' && (
+              {current.type === "linear_scale" && (
                 <div>
                   <div className="flex items-center gap-2">
                     {Array.from({ length: current.ratingMax || 5 }, (_, i) => (
@@ -1985,14 +2452,23 @@ function PreviewModal({
                       </span>
                     ))}
                   </div>
-                  <div className="flex w-fit justify-between" style={{ width: `${(current.ratingMax || 5) * 40 + (current.ratingMax || 5 - 1) * 8}px` }}>
-                    <span className="font-mono text-[9px] text-[#656C76]">{current.lowLabel || 'Disagree'}</span>
-                    <span className="font-mono text-[9px] text-[#656C76]">{current.highLabel || 'Agree'}</span>
+                  <div
+                    className="flex w-fit justify-between"
+                    style={{
+                      width: `${(current.ratingMax || 5) * 40 + (current.ratingMax || 5 - 1) * 8}px`,
+                    }}
+                  >
+                    <span className="font-mono text-[9px] text-[#656C76]">
+                      {current.lowLabel || "Disagree"}
+                    </span>
+                    <span className="font-mono text-[9px] text-[#656C76]">
+                      {current.highLabel || "Agree"}
+                    </span>
                   </div>
                 </div>
               )}
 
-              {current.type === 'email' && (
+              {current.type === "email" && (
                 <input
                   disabled
                   placeholder={current.placeholder || "email@example.com"}
@@ -2000,7 +2476,7 @@ function PreviewModal({
                 />
               )}
 
-              {current.type === 'date' && (
+              {current.type === "date" && (
                 <input
                   type="date"
                   disabled
@@ -2012,8 +2488,12 @@ function PreviewModal({
 
           {!current && questions.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <p className="font-mono text-xs text-[#9198A1]">No questions yet</p>
-              <p className="font-mono text-[10px] text-[#656C76]">Add questions in the builder to see a preview</p>
+              <p className="font-mono text-xs text-[#9198A1]">
+                No questions yet
+              </p>
+              <p className="font-mono text-[10px] text-[#656C76]">
+                Add questions in the builder to see a preview
+              </p>
             </div>
           )}
 
@@ -2029,7 +2509,9 @@ function PreviewModal({
               </button>
               <button
                 disabled={currentIndex === questions.length - 1}
-                onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+                onClick={() =>
+                  setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
+                }
                 className="inline-flex items-center gap-1.5 rounded bg-ok-green px-3 py-1.5 font-mono text-[10px] font-semibold text-[#0D1117] transition-all hover:bg-[#10C97A] disabled:opacity-30"
               >
                 Next

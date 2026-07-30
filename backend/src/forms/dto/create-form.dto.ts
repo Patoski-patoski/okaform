@@ -23,7 +23,10 @@ export const CreateFormSchema = Type.Object({
   ),
   rewardPool: Type.Number({ minimum: 0 }),
   maxResponses: Type.Number({ minimum: 1 }),
-  rewardType: Type.Union([Type.Literal('weighted'), Type.Literal('lottery')]),
+  rewardType: Type.Union([
+    Type.Literal('weighted'),
+    Type.Literal('lucky_draw'),
+  ]),
   numWinners: Type.Optional(Type.Number({ minimum: 1 })),
   minWalletAge: Type.Optional(Type.Number({ minimum: 0 })),
   minSolBalance: Type.Optional(Type.Number({ minimum: 0 })),

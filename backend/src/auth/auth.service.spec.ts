@@ -14,6 +14,14 @@ import { NonceExpiredException } from '../common/exceptions/auth/nonce-expired.e
 import { InvalidRefreshTokenException } from '../common/exceptions/auth/invalid-refresh-token.exception';
 import { RefreshTokenExpiredException } from '../common/exceptions/auth/refresh-token-expired.exception';
 import { UserNotFoundException } from '../common/exceptions/auth/user-not-found.exception';
+import {
+  jest,
+  describe,
+  beforeEach,
+  afterEach,
+  it,
+  expect,
+} from '@jest/globals';
 
 describe('AuthService', () => {
   let service: AuthService;
