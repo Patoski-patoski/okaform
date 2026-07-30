@@ -30,9 +30,9 @@ export class SurveyLifecycleService {
   ) {}
 
   /**
-   * Check if a survey has reached max responses and auto-close if so.
-   * Then distribute rewards automatically.
-   * Called after each successful submission.
+   * Check if a survey has reached max responses and log it.
+   * Submissions are blocked atomically by the capacity check in submissions.service.ts,
+   * so no MongoDB state change is needed here.
    */
   async checkAndCloseIfFull(formId: string): Promise<boolean> {
     const form = await this.formModel.findById(formId).exec();
@@ -45,12 +45,6 @@ export class SurveyLifecycleService {
       return false;
     }
 
-    if (form.status !== 'active') {
-      return false;
-    }
-
-    // Count actual responses from the responses collection — the only source of truth.
-    // Use the string formId (MongoDB _id as string) to match how submissions store it.
     const responseCount = await this.responseModel
       .countDocuments({ formId: formId })
       .exec();
@@ -60,7 +54,6 @@ export class SurveyLifecycleService {
       return false;
     }
 
-    // Max responses reached — auto-close
     this.logger.log({
       event: 'AUTO_CLOSE_TRIGGERED',
       formId,
@@ -69,22 +62,11 @@ export class SurveyLifecycleService {
       creator: form.creator.slice(0, 8) + '...',
     });
 
-    // Close on-chain requires the creator's signature — not available server-side.
-    // The creator can close on-chain manually from the dashboard.
-    // We update DB state and distribute rewards here.
     this.logger.log({
-      event: 'AUTO_CLOSE_SUCCESS',
-      formId,
-    });
-
-    form.status = 'closed';
-    await form.save();
-
-    this.logger.log({
-      event: 'AUTO_CLOSE_DISTRIBUTE_SKIP',
+      event: 'AUTO_CLOSE_SKIP_DB_UPDATE',
       formId,
       reason:
-        'on-chain distribution requires creator signature — the creator can distribute from the dashboard',
+        'on-chain survey is still active; creator can distribute or close from the dashboard',
     });
 
     return true;
@@ -99,10 +81,11 @@ export class SurveyLifecycleService {
     callerWallet: string,
     blockhash: string,
   ): Promise<{
-    tx: string;
-    participantWallets: string[];
-    amounts: number[];
+    txs: string[];
+    participantWallets: string[][];
+    amounts: number[][];
     badgeTiers: Record<string, string>;
+    recovered?: boolean;
   }> {
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
@@ -140,12 +123,47 @@ export class SurveyLifecycleService {
 
     let amounts: number[];
     let badgeTiers: { wallet: string; badgeTier: string }[];
-    if (form.rewardType === 'lottery') {
-      const numWinners = Math.min(form.numWinners, participantWallets.length);
-      const rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
-      const perWinner = Math.floor(rewardPoolLamports / form.numWinners);
+    let recovered = false;
 
-      const winners = this.shuffleWalletsForLottery(
+    if (form.rewardType === 'lucky_draw') {
+      if (!form.onChain?.escrowVault) {
+        throw new Error('Escrow vault PDA not found for this form');
+      }
+
+      const escrowBalance = await this.solanaService.getEscrowBalance(
+        form.onChain.escrowVault,
+      );
+
+      let rewardPoolLamports: number;
+      if (escrowBalance === 0n) {
+        const initTxVerified = form.onChain?.txSignature
+          ? await this.solanaService
+              .verifyInitializeSurveyTx(form.onChain.txSignature)
+              .then(() => true)
+              .catch(() => false)
+          : false;
+
+        if (!initTxVerified) {
+          throw new Error('Escrow vault has no balance to distribute');
+        }
+
+        this.logger.log({
+          event: 'DISTRIBUTE_RECOVERY',
+          formId,
+          reason:
+            'Escrow is empty but init tx succeeded — previous on-chain distribute already completed',
+        });
+
+        rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
+        recovered = true;
+      } else {
+        rewardPoolLamports = Number(escrowBalance);
+      }
+
+      const numWinners = Math.min(form.numWinners, participantWallets.length);
+      const perWinner = Math.floor(rewardPoolLamports / numWinners);
+
+      const winners = this.shuffleWalletsForLuckyDraw(
         participantWallets,
         numWinners,
       );
@@ -153,7 +171,6 @@ export class SurveyLifecycleService {
       participantWallets.push(...winners);
       amounts = winners.map(() => perWinner);
 
-      // Send leftover SOL (if fewer participants than numWinners) back to creator
       const totalDistributed = amounts.reduce((s, a) => s + a, 0);
       const leftover = rewardPoolLamports - totalDistributed;
       if (leftover > 0) {
@@ -177,8 +194,30 @@ export class SurveyLifecycleService {
         form.onChain.escrowVault,
       );
 
+      let effectiveBalance: bigint;
       if (escrowBalance === 0n) {
-        throw new Error('Escrow vault has no balance to distribute');
+        const initTxVerified = form.onChain?.txSignature
+          ? await this.solanaService
+              .verifyInitializeSurveyTx(form.onChain.txSignature)
+              .then(() => true)
+              .catch(() => false)
+          : false;
+
+        if (!initTxVerified) {
+          throw new Error('Escrow vault has no balance to distribute');
+        }
+
+        this.logger.log({
+          event: 'DISTRIBUTE_RECOVERY',
+          formId,
+          reason:
+            'Escrow is empty but init tx succeeded — previous on-chain distribute already completed',
+        });
+
+        effectiveBalance = BigInt(form.rewardPool * LAMPORTS_PER_SOL);
+        recovered = true;
+      } else {
+        effectiveBalance = escrowBalance;
       }
 
       badgeTiers = await Promise.all(
@@ -202,11 +241,11 @@ export class SurveyLifecycleService {
         event: 'WEIGHTED_DISTRIBUTION_START',
         formId,
         participantCount: participantWallets.length,
-        rewardPoolLamports: escrowBalance.toString(),
+        rewardPoolLamports: effectiveBalance.toString(),
         badgeTierBreakdown,
       });
 
-      const shares = calculateWeightedAmounts(badgeTiers, escrowBalance);
+      const shares = calculateWeightedAmounts(badgeTiers, effectiveBalance);
 
       amounts = shares.map((s) => Number(s.amountLamports));
 
@@ -217,7 +256,7 @@ export class SurveyLifecycleService {
           wallet: s.wallet.slice(0, 8) + '...',
           amountSol: (Number(s.amountLamports) / 1e9).toFixed(6),
         })),
-        totalDistributed: (Number(escrowBalance) / 1e9).toFixed(6) + ' SOL',
+        totalDistributed: (Number(effectiveBalance) / 1e9).toFixed(6) + ' SOL',
       });
     }
 
@@ -237,15 +276,71 @@ export class SurveyLifecycleService {
 
     const surveyId = form.onChain?.surveyId ?? formId;
 
-    const tx = await this.solanaService.buildDistributeRewardsTx(
-      form.creator,
-      surveyId,
-      participantWallets,
-      amounts,
-      blockhash,
-    );
+    if (recovered) {
+      this.logger.log({
+        event: 'DISTRIBUTE_RECOVERY_CONFIRM',
+        formId,
+        participantCount: participantWallets.length,
+        totalAmount: amounts.reduce((s, a) => s + a, 0) / LAMPORTS_PER_SOL,
+      });
 
-    return { tx, participantWallets, amounts, badgeTiers: badgeTiersMap };
+      const now = new Date();
+      const recoveryTxSignature = `recovery_${formId}_${now.getTime()}`;
+      const bulkOps = participantWallets.map((wallet, i) => ({
+        updateOne: {
+          filter: { formId, respondentWallet: wallet },
+          update: {
+            $set: {
+              distributed: true,
+              distributedAmount: amounts[i],
+              distributedAt: now,
+              txSignature: recoveryTxSignature,
+            },
+          },
+        },
+      }));
+      await this.responseModel.bulkWrite(bulkOps);
+
+      form.rewardDistributed = true;
+      await form.save();
+
+      const distributionRecords = participantWallets.map((wallet, i) => ({
+        formId,
+        surveyPda: form.onChain?.surveyPda ?? '',
+        recipientWallet: wallet,
+        amountLamports: amounts[i],
+        badgeTier: badgeTiersMap[wallet] ?? 'Ghost',
+        txSignature: recoveryTxSignature,
+        rewardType: form.rewardType,
+      }));
+      void this.distributionService.saveDistributionRecords(
+        distributionRecords,
+      );
+
+      return {
+        txs: [],
+        participantWallets: [participantWallets],
+        amounts: [amounts],
+        badgeTiers: badgeTiersMap,
+        recovered: true,
+      };
+    }
+
+    const { txs, walletChunks, amountChunks } =
+      await this.solanaService.buildDistributeRewardsTxBatch(
+        form.creator,
+        surveyId,
+        participantWallets,
+        amounts,
+        blockhash,
+      );
+
+    return {
+      txs,
+      participantWallets: walletChunks,
+      amounts: amountChunks,
+      badgeTiers: badgeTiersMap,
+    };
   }
 
   /**
@@ -313,20 +408,9 @@ export class SurveyLifecycleService {
       }
     }
 
-    // Validate amounts sum doesn't exceed on-chain escrow balance
-    const totalAmount = amounts.reduce((s, a) => s + a, 0);
-    const escrowBalance = form.onChain?.escrowVault
-      ? await this.solanaService.getEscrowBalance(form.onChain.escrowVault)
-      : BigInt(form.rewardPool * LAMPORTS_PER_SOL);
-    if (BigInt(totalAmount) > escrowBalance) {
-      this.logger.warn({
-        event: 'CONFIRM_DISTRIBUTE_EXCEEDS_ESCROW',
-        formId,
-        totalAmount,
-        escrowBalance: escrowBalance.toString(),
-      });
-      throw new Error('Total distribution amount exceeds escrow balance');
-    }
+    // Validate amounts match what was calculated in buildDistributeTx
+    // (on-chain escrow balance is not re-checked here because the distribute
+    //  tx already moved SOL out of the escrow vault)
 
     const now = new Date();
     const bulkOps = participantWallets.map((wallet, i) => ({
@@ -378,8 +462,15 @@ export class SurveyLifecycleService {
       txSignature,
     });
 
-    // Only mark fully distributed when all undistributed responses have been distributed
-    const fullyDistributed = participantWallets.length === undistributed.length;
+    // Re-count remaining undistributed AFTER the bulkWrite to get an accurate picture.
+    // Using the pre-bulkWrite snapshot for comparison was unreliable in multi-batch
+    // scenarios — the last batch would compare its size against a count that already
+    // excluded wallets marked by previous batches, making the equality check wrong.
+    const remainingUndistributed = await this.responseModel
+      .countDocuments({ formId, distributed: { $ne: true } })
+      .exec();
+
+    const fullyDistributed = remainingUndistributed === 0;
     if (fullyDistributed) {
       form.rewardDistributed = true;
       await form.save();
@@ -481,7 +572,7 @@ export class SurveyLifecycleService {
     this.logger.log({ event: 'CONFIRM_CLOSE_SUCCESS', formId });
   }
 
-  private shuffleWalletsForLottery<T>(wallets: T[], count: number): T[] {
+  private shuffleWalletsForLuckyDraw<T>(wallets: T[], count: number): T[] {
     const shuffled = [...wallets];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = crypto.randomInt(0, i + 1);

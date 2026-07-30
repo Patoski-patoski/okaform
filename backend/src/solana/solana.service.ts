@@ -11,24 +11,40 @@ import {
 import * as anchor from '@coral-xyz/anchor';
 import { InvalidWalletException } from '../common/exceptions/solana/invalid-wallet.exception';
 import { RpcErrorException } from '../common/exceptions/solana/rpc-error.exception';
+import { TransactionFailedException } from '../common/exceptions/solana/transaction-failed.exception';
 import okaformIdl from './idl/okaform.json';
 
 const PAGE_SIZE = 1000;
 const MAX_SIGNATURES = 10000;
+
+/**
+ * Maximum number of recipient accounts per distributeRewards transaction.
+ * Solana transactions are capped at ~1232 bytes; each remainingAccount adds
+ * ~32 bytes for the pubkey plus overhead, so 10 is a safe conservative limit.
+ */
+export const MAX_DISTRIBUTE_RECIPIENTS_PER_TX = 10;
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
 
 interface CacheEntry<T> {
   value: T;
   expiresAt: number;
 }
 
-export type RewardType = 'weighted' | 'lottery';
+export type RewardType = 'weighted' | 'lucky_draw';
 
 type RewardTypeArg =
-  { weighted: Record<string, never> } | { lottery: Record<string, never> };
+  { weighted: Record<string, never> } | { luckyDraw: Record<string, never> };
 
 function toRewardTypeArg(rewardType: RewardType): RewardTypeArg {
   if (rewardType === 'weighted') return { weighted: {} };
-  return { lottery: {} };
+  return { luckyDraw: {} };
 }
 
 function toLamportsBn(lamports: number): anchor.BN {
@@ -250,6 +266,10 @@ export class SolanaService {
    * Build an unsigned distributeRewards transaction for the frontend to sign.
    * Returns the serialized transaction as base64.
    */
+  /**
+   * Build a single distributeRewards transaction for one batch (slice) of
+   * recipients. The caller is responsible for chunking wallets/amounts.
+   */
   async buildDistributeRewardsTx(
     creatorWallet: string,
     surveyId: string,
@@ -307,6 +327,63 @@ export class SolanaService {
       });
       throw new RpcErrorException('buildDistributeRewardsTx');
     }
+  }
+
+  /**
+   * Build one distributeRewards transaction per batch of recipients.
+   * Recipients are chunked into groups of MAX_DISTRIBUTE_RECIPIENTS_PER_TX
+   * so that no single transaction exceeds Solana's ~1232-byte size limit.
+   *
+   * All transactions share the same blockhash — the frontend should fetch a
+   * fresh blockhash before each transaction it submits.
+   */
+  async buildDistributeRewardsTxBatch(
+    creatorWallet: string,
+    surveyId: string,
+    allWallets: string[],
+    allAmounts: number[],
+    blockhash: string,
+  ): Promise<{
+    txs: string[];
+    walletChunks: string[][];
+    amountChunks: number[][];
+  }> {
+    const walletChunks = chunkArray(
+      allWallets,
+      MAX_DISTRIBUTE_RECIPIENTS_PER_TX,
+    );
+    const amountChunks = chunkArray(
+      allAmounts,
+      MAX_DISTRIBUTE_RECIPIENTS_PER_TX,
+    );
+
+    this.logger.log({
+      event: 'BUILD_DISTRIBUTE_TX_BATCH',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      totalRecipients: allWallets.length,
+      batchCount: walletChunks.length,
+    });
+
+    const txs: string[] = [];
+    for (let i = 0; i < walletChunks.length; i++) {
+      const walletBatch = walletChunks[i];
+      const amountBatch = amountChunks[i];
+      if (!walletBatch || !amountBatch) {
+        throw new RpcErrorException('buildDistributeRewardsTxBatch');
+      }
+
+      const serialised = await this.buildDistributeRewardsTx(
+        creatorWallet,
+        surveyId,
+        walletBatch,
+        amountBatch,
+        blockhash,
+      );
+      txs.push(serialised);
+    }
+
+    return { txs, walletChunks, amountChunks };
   }
 
   /**
@@ -499,5 +576,39 @@ export class SolanaService {
       });
       return null;
     }
+  }
+
+  async verifyInitializeSurveyTx(txSignature: string): Promise<void> {
+    const tx = await this.connection.getTransaction(txSignature, {
+      commitment: 'confirmed',
+    });
+
+    if (!tx) {
+      this.logger.warn({
+        event: 'INIT_TX_NOT_FOUND',
+        txSignature,
+      });
+      throw new TransactionFailedException(
+        txSignature,
+        'Initialize survey transaction not found on-chain.',
+      );
+    }
+
+    if (tx.meta?.err) {
+      this.logger.warn({
+        event: 'INIT_TX_FAILED',
+        txSignature,
+        error: tx.meta.err,
+      });
+      throw new TransactionFailedException(
+        txSignature,
+        `Initialize survey transaction failed: ${JSON.stringify(tx.meta.err)}`,
+      );
+    }
+
+    this.logger.log({
+      event: 'INIT_TX_VERIFIED',
+      txSignature,
+    });
   }
 }

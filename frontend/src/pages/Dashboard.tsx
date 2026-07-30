@@ -48,7 +48,15 @@ import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
 import DraftsView from "@/components/Dashboard/DraftsView";
 import DistributionTab from "@/components/DistributionTab";
-import { getForms, getSubmissions, getFormById, buildCloseTx, confirmClose, buildDistributeTx, confirmDistribute } from "@/lib/forms";
+import {
+  getForms,
+  getSubmissions,
+  getFormById,
+  buildCloseTx,
+  confirmClose,
+  buildDistributeTx,
+  confirmDistribute,
+} from "@/lib/forms";
 import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -68,7 +76,7 @@ interface Survey {
   responses: number;
   maxResponses: number;
   rewardPool: number;
-  rewardType: "weighted" | "lottery";
+  rewardType: "weighted" | "lucky_draw";
   createdAt: string;
   rewardDistributed: boolean;
 }
@@ -115,7 +123,9 @@ function Sidebar({
     void connection.getBalance(publicKey).then((lamports) => {
       if (!cancelled) setBalance(lamports);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [connected, publicKey, connection]);
 
   const handleCopyAddress = (e: React.MouseEvent) => {
@@ -172,14 +182,16 @@ function Sidebar({
                 "group flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 active
                   ? "bg-ok-green/10 text-ok-green shadow-[inset_2px_0_0_0_var(--color-ok-green)]"
-                  : "text-[#656C76] hover:bg-[#151B23]/50 hover:text-[#F0F6F6] hover:shadow-[inset_2px_0_0_0_var(--color-ok-border)]"
+                  : "text-[#656C76] hover:bg-[#151B23]/50 hover:text-[#F0F6F6] hover:shadow-[inset_2px_0_0_0_var(--color-ok-border)]",
               )}
             >
-              <item.icon 
+              <item.icon
                 className={cn(
-                  "h-4 w-4 transition-colors", 
-                  active ? "text-ok-green" : "text-[#656C76] group-hover:text-[#9198A1]"
-                )} 
+                  "h-4 w-4 transition-colors",
+                  active
+                    ? "text-ok-green"
+                    : "text-[#656C76] group-hover:text-[#9198A1]",
+                )}
               />
               {item.label}
             </button>
@@ -241,7 +253,7 @@ function Sidebar({
             >
               <Wallet className="h-4 w-4 text-[#9198A1]" />
               <span className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
-                {copied ? 'Copied!' : truncateAddress(wallet ?? '')}
+                {copied ? "Copied!" : truncateAddress(wallet ?? "")}
               </span>
             </button>
             <button
@@ -261,7 +273,9 @@ function Sidebar({
               >
                 <Wallet className="h-4 w-4 text-[#9198A1]" />
                 <span className="truncate font-mono text-xs font-medium text-[#F0F6F6]">
-                  {copied ? 'Copied!' : (user?.username ?? truncateAddress(wallet ?? ''))}
+                  {copied
+                    ? "Copied!"
+                    : (user?.username ?? truncateAddress(wallet ?? ""))}
                 </span>
               </button>
               <button
@@ -276,15 +290,21 @@ function Sidebar({
               </button>
             </div>
             <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-2">
-              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Reputation</span>
+              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+                Reputation
+              </span>
               <Badge tier={tier} className="scale-90 origin-right" />
             </div>
             {balance !== null && (
               <div className="flex items-center justify-between border-t border-[#3D444D]/30 pt-2">
-                <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Balance</span>
+                <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+                  Balance
+                </span>
                 <span className="flex items-center gap-1 text-xs text-ok-text">
                   <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
-                  <span className="font-mono">{(balance / 1_000_000_000).toFixed(2)}</span>
+                  <span className="font-mono">
+                    {(balance / 1_000_000_000).toFixed(2)}
+                  </span>
                 </span>
               </div>
             )}
@@ -308,15 +328,23 @@ function StatsRow({
   lifetimeSurveys: number;
   totalSolDistributed: number;
 }) {
-  const totalPercent = totalMaxResponses > 0 ? Math.round((totalResponses / totalMaxResponses) * 100) : 0;
+  const totalPercent =
+    totalMaxResponses > 0
+      ? Math.round((totalResponses / totalMaxResponses) * 100)
+      : 0;
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Hero Stat: The Pulse (Spans 2 columns) */}
       <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40 p-6 lg:col-span-2">
         {/* Decorative corner */}
-        <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-             style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
+        <div
+          className="absolute right-0 top-0 h-12 w-12 opacity-10"
+          style={{
+            backgroundImage:
+              "linear-gradient(225deg, transparent 50%, #14F195 50%)",
+          }}
+        />
 
         <div className="flex items-start justify-between">
           <div>
@@ -329,24 +357,26 @@ function StatsRow({
                 SYS // LIVE
               </span>
             </div>
-              <p className="mt-4 font-mono text-xs text-[#656C76] uppercase tracking-wider">
-                Active Responses
+            <p className="mt-4 font-mono text-xs text-[#656C76] uppercase tracking-wider">
+              Active Responses
+            </p>
+            <div className="mt-1 flex items-baseline gap-3">
+              <p className="font-mono text-4xl font-bold tracking-tight text-[#F0F6F6]">
+                {totalResponses}
               </p>
-              <div className="mt-1 flex items-baseline gap-3">
-                <p className="font-mono text-4xl font-bold tracking-tight text-[#F0F6F6]">
-                  {totalResponses}
+              {totalMaxResponses > 0 && (
+                <p className="font-mono text-sm text-[#656C76]">
+                  / {totalMaxResponses} cap
                 </p>
-                {totalMaxResponses > 0 && (
-                  <p className="font-mono text-sm text-[#656C76]">/ {totalMaxResponses} cap</p>
-                )}
-              </div>
+              )}
+            </div>
           </div>
-          
+
           <div className="flex h-10 w-10 items-center justify-center rounded border border-ok-green/20 bg-ok-green/10">
             <Activity className="h-4 w-4 text-ok-green" />
           </div>
         </div>
-        
+
         {/* Progress */}
         <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-[#3D444D]">
           <div
@@ -364,8 +394,13 @@ function StatsRow({
       {/* Secondary Stats */}
       <div className="flex flex-col gap-4">
         <div className="relative flex-1 overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4">
-          <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #A371F7 50%)' }} />
+          <div
+            className="absolute right-0 top-0 h-8 w-8 opacity-10"
+            style={{
+              backgroundImage:
+                "linear-gradient(225deg, transparent 50%, #A371F7 50%)",
+            }}
+          />
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
               Total SOL Distributed
@@ -380,8 +415,13 @@ function StatsRow({
         </div>
 
         <div className="relative flex-1 overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4">
-          <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
+          <div
+            className="absolute right-0 top-0 h-8 w-8 opacity-10"
+            style={{
+              backgroundImage:
+                "linear-gradient(225deg, transparent 50%, #14F195 50%)",
+            }}
+          />
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
               Lifetime Surveys
@@ -415,16 +455,23 @@ function SurveysTable({
   return (
     <div className="relative overflow-hidden rounded border border-[#3D444D]/80 bg-[#151B23]/20">
       {/* Decorative corner */}
-      <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-           style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
+      <div
+        className="absolute right-0 top-0 h-12 w-12 opacity-10"
+        style={{
+          backgroundImage:
+            "linear-gradient(225deg, transparent 50%, #3D444D 50%)",
+        }}
+      />
 
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[#3D444D] px-5 py-4">
         <h2 className="font-mono text-sm text-[#F0F6F6] flex items-center gap-2">
-          <FileText className="h-4 w-4 text-ok-green" />
-          [ My Surveys ]
+          <FileText className="h-4 w-4 text-ok-green" />[ My Surveys ]
         </h2>
-        <Link to="/create" className={cn(buttonVariants({ variant: "primary", size: "sm" }))}>
+        <Link
+          to="/create"
+          className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+        >
           <PlusCircle className="h-3.5 w-3.5" />
           Create Survey
         </Link>
@@ -436,7 +483,9 @@ function SurveysTable({
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="h-10 w-10 text-[#656C76]/30 mb-4" />
             <p className="font-mono text-sm text-[#9198A1]">No surveys yet</p>
-            <p className="mt-1 text-xs text-[#656C76]">Create your first survey to get started</p>
+            <p className="mt-1 text-xs text-[#656C76]">
+              Create your first survey to get started
+            </p>
             <Link to="/create" className="mt-4">
               <Button variant="primary" size="sm">
                 <PlusCircle className="h-3.5 w-3.5" />
@@ -465,79 +514,83 @@ function SurveysTable({
                 >
                   <td className="whitespace-nowrap px-5 py-4 font-mono text-xs font-medium text-[#F0F6F6]">
                     {survey.title}
-                </td>
-                <td className="px-5 py-4">
-                  <StatusPill status={survey.status} />
-                </td>
-                <td className="whitespace-nowrap px-5 py-4 font-mono text-xs text-[#9198A1]">
-                  <span className="text-[#F0F6F6]">{survey.responses}</span> / {survey.maxResponses}
-                </td>
-                <td className="px-5 py-4">
-                  <SOLAmount
-                    amount={survey.rewardPool}
-                    unit="sol"
-                    className="text-xs font-mono"
-                  />
-                </td>
-                <td className="px-5 py-4">
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider",
-                      survey.rewardType === "weighted"
-                        ? "border-ok-green/25 bg-ok-green/10 text-ok-green"
-                        : "border-ok-purple/25 bg-ok-purple/10 text-ok-purple"
-                    )}
-                  >
-                    {survey.rewardType === "weighted" ? "Weighted" : "Lottery"}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-5 py-4 font-mono text-[10px] text-[#656C76]">
-                  {survey.createdAt}
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-2 opacity-80 transition-opacity group-hover:opacity-100">
-                    <button
-                      onClick={() => onSelect(survey.id)}
-                      className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-2.5 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-ok-green/40 hover:text-[#F0F6F6]"
+                  </td>
+                  <td className="px-5 py-4">
+                    <StatusPill status={survey.status} />
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 font-mono text-xs text-[#9198A1]">
+                    <span className="text-[#F0F6F6]">{survey.responses}</span> /{" "}
+                    {survey.maxResponses}
+                  </td>
+                  <td className="px-5 py-4">
+                    <SOLAmount
+                      amount={survey.rewardPool}
+                      unit="sol"
+                      className="text-xs font-mono"
+                    />
+                  </td>
+                  <td className="px-5 py-4">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider",
+                        survey.rewardType === "weighted"
+                          ? "border-ok-green/25 bg-ok-green/10 text-ok-green"
+                          : "border-ok-purple/25 bg-ok-purple/10 text-ok-purple",
+                      )}
                     >
-                      <Eye className="h-3 w-3" />
-                      {survey.status === "active" ? "View" : "Results"}
-                    </button>
-                    {survey.status === "active" && !survey.rewardDistributed && (
+                      {survey.rewardType === "weighted"
+                        ? "Weighted"
+                        : "Lucky Draw"}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 font-mono text-[10px] text-[#656C76]">
+                    {survey.createdAt}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2 opacity-80 transition-opacity group-hover:opacity-100">
                       <button
-                        onClick={() => onCloseRequest(survey.id)}
-                        className="inline-flex items-center gap-1.5 rounded border border-ok-danger/20 bg-ok-danger/5 px-2.5 py-1.5 font-mono text-[10px] font-medium text-ok-danger transition-colors hover:bg-ok-danger/15 hover:border-ok-danger/30"
+                        onClick={() => onSelect(survey.id)}
+                        className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-[#0D1117]/60 px-2.5 py-1.5 font-mono text-[10px] font-medium text-[#9198A1] transition-colors hover:border-ok-green/40 hover:text-[#F0F6F6]"
                       >
-                        <XCircle className="h-3 w-3" />
-                        Close
+                        <Eye className="h-3 w-3" />
+                        {survey.status === "active" ? "View" : "Results"}
                       </button>
-                    )}
-                    {!survey.rewardDistributed && (
-                      <button
-                        onClick={() => onDistributeRequest(survey.id)}
-                        disabled={isDistributing}
-                        className="inline-flex items-center gap-1.5 rounded border border-ok-green/20 bg-ok-green/5 px-2.5 py-1.5 font-mono text-[10px] font-medium text-ok-green transition-colors hover:bg-ok-green/15 hover:border-ok-green/30 disabled:opacity-50"
-                      >
-                        {isDistributing ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Gift className="h-3 w-3" />
+                      {survey.status === "active" &&
+                        !survey.rewardDistributed && (
+                          <button
+                            onClick={() => onCloseRequest(survey.id)}
+                            className="inline-flex items-center gap-1.5 rounded border border-ok-danger/20 bg-ok-danger/5 px-2.5 py-1.5 font-mono text-[10px] font-medium text-ok-danger transition-colors hover:bg-ok-danger/15 hover:border-ok-danger/30"
+                          >
+                            <XCircle className="h-3 w-3" />
+                            Close
+                          </button>
                         )}
-                        Distribute
-                      </button>
-                    )}
-                    {survey.rewardDistributed && (
-                      <span className="inline-flex items-center gap-1.5 rounded border border-[#3D444D]/50 bg-[#151B23]/30 px-2.5 py-1.5 font-mono text-[10px] text-[#656C76]">
-                        <CheckCircle2 className="h-3 w-3 text-ok-green/60" />
-                        Distributed
-                      </span>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      {!survey.rewardDistributed && (
+                        <button
+                          onClick={() => onDistributeRequest(survey.id)}
+                          disabled={isDistributing}
+                          className="inline-flex items-center gap-1.5 rounded border border-ok-green/20 bg-ok-green/5 px-2.5 py-1.5 font-mono text-[10px] font-medium text-ok-green transition-colors hover:bg-ok-green/15 hover:border-ok-green/30 disabled:opacity-50"
+                        >
+                          {isDistributing ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Gift className="h-3 w-3" />
+                          )}
+                          Distribute
+                        </button>
+                      )}
+                      {survey.rewardDistributed && (
+                        <span className="inline-flex items-center gap-1.5 rounded border border-[#3D444D]/50 bg-[#151B23]/30 px-2.5 py-1.5 font-mono text-[10px] text-[#656C76]">
+                          <CheckCircle2 className="h-3 w-3 text-ok-green/60" />
+                          Distributed
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
@@ -562,7 +615,7 @@ function CopyableAddress({ address }: { address: string }) {
       className="min-w-0 flex-1 truncate text-left font-mono text-xs text-[#9198A1] cursor-pointer transition-colors hover:text-[#F0F6F6]"
       title="Click to copy"
     >
-      {copied ? 'Copied!' : truncateAddress(address)}
+      {copied ? "Copied!" : truncateAddress(address)}
     </button>
   );
 }
@@ -572,7 +625,8 @@ function ResponsesTab({ formId }: { formId: string }) {
   const [loading, setLoading] = useState(true);
   const [badgeFilter, setBadgeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedResponse, setSelectedResponse] = useState<SubmissionItem | null>(null);
+  const [selectedResponse, setSelectedResponse] =
+    useState<SubmissionItem | null>(null);
   const [questions, setQuestions] = useState<FormDetailQuestion[]>([]);
 
   useEffect(() => {
@@ -591,13 +645,17 @@ function ResponsesTab({ formId }: { formId: string }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [formId]);
 
   const filtered = useMemo(() => {
     let rows = responses;
     if (badgeFilter !== "all") {
-      rows = rows.filter((r) => getBadgeTier(r.scoreAtSubmission) === badgeFilter);
+      rows = rows.filter(
+        (r) => getBadgeTier(r.scoreAtSubmission) === badgeFilter,
+      );
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -618,9 +676,7 @@ function ResponsesTab({ formId }: { formId: string }) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-center">
         <Database className="h-8 w-8 text-[#656C76]/30" />
-        <p className="font-mono text-xs text-[#9198A1]">
-          No responses yet.
-        </p>
+        <p className="font-mono text-xs text-[#9198A1]">No responses yet.</p>
       </div>
     );
   }
@@ -665,7 +721,8 @@ function ResponsesTab({ formId }: { formId: string }) {
                     {q?.label ?? `Question ${i + 1}`}
                   </p>
                   <div className="rounded border border-[#3D444D]/30 bg-[#0D1117]/40 px-3 py-2 font-mono text-xs text-[#9198A1]">
-                    {typeof answer.value === 'string' || typeof answer.value === 'number'
+                    {typeof answer.value === "string" ||
+                    typeof answer.value === "number"
                       ? String(answer.value)
                       : JSON.stringify(answer.value ?? answer)}
                   </div>
@@ -772,7 +829,9 @@ function AnalyticsTab({ formId }: { formId: string }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [formId]);
 
   if (loading) {
@@ -784,9 +843,13 @@ function AnalyticsTab({ formId }: { formId: string }) {
   }
 
   const totalResponses = responses.length;
-  const avgScore = totalResponses > 0
-    ? Math.round(responses.reduce((sum, r) => sum + r.scoreAtSubmission, 0) / totalResponses)
-    : 0;
+  const avgScore =
+    totalResponses > 0
+      ? Math.round(
+          responses.reduce((sum, r) => sum + r.scoreAtSubmission, 0) /
+            totalResponses,
+        )
+      : 0;
   const flaggedCount = responses.filter((r) => r.similarityFlag).length;
 
   return (
@@ -796,12 +859,28 @@ function AnalyticsTab({ formId }: { formId: string }) {
         {[
           { label: "Responses", value: String(totalResponses), icon: Activity },
           { label: "Avg Score", value: String(avgScore), icon: BarChart3 },
-          { label: "Flagged", value: String(flaggedCount), icon: AlertTriangle },
-          { label: "Completion", value: totalResponses > 0 ? "100%" : "0%", icon: CheckCircle2 },
+          {
+            label: "Flagged",
+            value: String(flaggedCount),
+            icon: AlertTriangle,
+          },
+          {
+            label: "Completion",
+            value: totalResponses > 0 ? "100%" : "0%",
+            icon: CheckCircle2,
+          },
         ].map((m) => (
-          <div key={m.label} className="relative overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4">
-            <div className="absolute right-0 top-0 h-8 w-8 opacity-10"
-                 style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
+          <div
+            key={m.label}
+            className="relative overflow-hidden rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-4"
+          >
+            <div
+              className="absolute right-0 top-0 h-8 w-8 opacity-10"
+              style={{
+                backgroundImage:
+                  "linear-gradient(225deg, transparent 50%, #14F195 50%)",
+              }}
+            />
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
                 {m.label}
@@ -925,9 +1004,12 @@ function CloseModal({
 function SurveyDetail({
   survey,
   onBack,
+  distributionRefreshKey,
 }: {
   survey: Survey;
   onBack: () => void;
+  /** Forwarded to DistributionTab so it re-fetches when a distribution completes. */
+  distributionRefreshKey: number;
 }) {
   const [activeTab, setActiveTab] = useState<TabId>("responses");
 
@@ -973,7 +1055,7 @@ function SurveyDetail({
               "relative px-4 py-2.5 font-mono text-xs font-medium transition-colors",
               activeTab === tab.id
                 ? "text-ok-green"
-                : "text-[#9198A1] hover:text-[#F0F6F6]"
+                : "text-[#9198A1] hover:text-[#F0F6F6]",
             )}
           >
             {tab.label}
@@ -987,7 +1069,12 @@ function SurveyDetail({
       {/* Tab content */}
       {activeTab === "responses" && <ResponsesTab formId={survey.id} />}
       {activeTab === "analytics" && <AnalyticsTab formId={survey.id} />}
-      {activeTab === "distribution" && <DistributionTab formId={survey.id} />}
+      {activeTab === "distribution" && (
+        <DistributionTab
+          formId={survey.id}
+          refreshKey={distributionRefreshKey}
+        />
+      )}
       {activeTab === "settings" && <SettingsTab />}
     </div>
   );
@@ -1005,6 +1092,9 @@ export default function Dashboard() {
   const [closeTarget, setCloseTarget] = useState<Survey | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
+  const [distError, setDistError] = useState<string | null>(null);
+  /** Incremented each time a distribution completes — causes DistributionTab to re-fetch. */
+  const [distributionRefreshKey, setDistributionRefreshKey] = useState(0);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -1021,10 +1111,10 @@ export default function Dashboard() {
             responses: f.responseCount,
             maxResponses: f.maxResponses,
             rewardPool: f.rewardPool,
-            rewardType: f.rewardType as "weighted" | "lottery",
+            rewardType: f.rewardType as "weighted" | "lucky_draw",
             createdAt: f.createdAt,
             rewardDistributed: f.rewardDistributed,
-          }))
+          })),
         );
       } catch {
         setSurveys([]);
@@ -1037,7 +1127,7 @@ export default function Dashboard() {
 
   const selectedSurvey = useMemo(
     () => surveys.find((s) => s.id === selectedSurveyId) ?? null,
-    [surveys, selectedSurveyId]
+    [surveys, selectedSurveyId],
   );
 
   const handleNavChange = (id: string) => {
@@ -1084,7 +1174,9 @@ export default function Dashboard() {
       await confirmClose(closeTarget.id);
 
       setSurveys((prev) =>
-        prev.map((s) => (s.id === closeTarget.id ? { ...s, status: "closed" } : s))
+        prev.map((s) =>
+          s.id === closeTarget.id ? { ...s, status: "closed" } : s,
+        ),
       );
       setCloseTarget(null);
     } catch (err) {
@@ -1097,31 +1189,62 @@ export default function Dashboard() {
   const handleDistribute = async (surveyId: string) => {
     if (!publicKey || !signTransaction) return;
     setIsDistributing(true);
+    setDistError(null);
     try {
       const { blockhash } = await connection.getLatestBlockhash();
 
       const result = await buildDistributeTx(surveyId, blockhash);
 
-      const tx = Transaction.from(
-        Uint8Array.from(atob(result.tx), (c) => c.charCodeAt(0)),
-      );
+      if (!result.recovered) {
+        // Loop through every batch sequentially — no manual intervention needed.
+        for (let i = 0; i < result.txs.length; i++) {
+          const batchTxBase64 = result.txs[i];
+          const batchWallets = result.participantWallets[i];
+          const batchAmounts = result.amounts[i];
 
-      tx.feePayer = publicKey;
-      tx.recentBlockhash = blockhash;
+          if (!batchTxBase64 || !batchWallets || !batchAmounts) continue;
 
-      const signed = await signTransaction(tx);
-      const txSignature = await connection.sendRawTransaction(signed.serialize());
+          // Fetch a fresh blockhash per batch so long runs don't hit expiry.
+          const { blockhash: freshBlockhash } =
+            await connection.getLatestBlockhash();
 
-      // Wait for transaction confirmation before marking as distributed
-      await connection.confirmTransaction(txSignature, 'confirmed');
+          const tx = Transaction.from(
+            Uint8Array.from(atob(batchTxBase64), (c) => c.charCodeAt(0)),
+          );
 
-      await confirmDistribute(surveyId, result.participantWallets, result.amounts, txSignature, result.badgeTiers);
+          tx.feePayer = publicKey;
+          tx.recentBlockhash = freshBlockhash;
 
+          const signed = await signTransaction(tx);
+          const txSignature = await connection.sendRawTransaction(
+            signed.serialize(),
+          );
+
+          await connection.confirmTransaction(txSignature, "confirmed");
+
+          await confirmDistribute(
+            surveyId,
+            batchWallets,
+            batchAmounts,
+            txSignature,
+            result.badgeTiers,
+          );
+        }
+      }
+
+      // All batches confirmed — update local state and trigger DistributionTab refresh.
       setSurveys((prev) =>
-        prev.map((s) => (s.id === surveyId ? { ...s, rewardDistributed: true } : s))
+        prev.map((s) =>
+          s.id === surveyId ? { ...s, rewardDistributed: true } : s,
+        ),
       );
+      setDistributionRefreshKey((k) => k + 1);
     } catch (err) {
-      console.error("Failed to distribute rewards:", err);
+      setDistError(
+        err instanceof Error
+          ? err.message
+          : "Distribution failed. Please try again.",
+      );
     } finally {
       setIsDistributing(false);
     }
@@ -1147,10 +1270,12 @@ export default function Dashboard() {
       />
 
       {/* Main content */}
-      <main className={cn(
-        "min-h-screen p-6 transition-all duration-200 lg:p-8",
-        sidebarOpen ? "ml-[240px]" : "ml-0",
-      )}>
+      <main
+        className={cn(
+          "min-h-screen p-6 transition-all duration-200 lg:p-8",
+          sidebarOpen ? "ml-[240px]" : "ml-0",
+        )}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
@@ -1167,7 +1292,10 @@ export default function Dashboard() {
           <div className="space-y-6">
             <StatsRow
               totalResponses={surveys.reduce((sum, s) => sum + s.responses, 0)}
-              totalMaxResponses={surveys.reduce((sum, s) => sum + s.maxResponses, 0)}
+              totalMaxResponses={surveys.reduce(
+                (sum, s) => sum + s.maxResponses,
+                0,
+              )}
               lifetimeSurveys={surveys.length}
               totalSolDistributed={surveys
                 .filter((s) => s.status === "closed")
@@ -1183,10 +1311,29 @@ export default function Dashboard() {
               onDistributeRequest={handleDistribute}
               isDistributing={isDistributing}
             />
+            {distError && (
+              <div className="flex items-start gap-3 rounded border border-ok-danger/20 bg-ok-danger/5 px-4 py-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-ok-danger" />
+                <p className="flex-1 font-mono text-xs text-ok-danger">
+                  {distError}
+                </p>
+                <button
+                  onClick={() => setDistError(null)}
+                  className="text-ok-danger/60 hover:text-ok-danger transition-colors"
+                  aria-label="Dismiss error"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           selectedSurvey && (
-            <SurveyDetail survey={selectedSurvey} onBack={handleBack} />
+            <SurveyDetail
+              survey={selectedSurvey}
+              onBack={handleBack}
+              distributionRefreshKey={distributionRefreshKey}
+            />
           )
         )}
       </main>

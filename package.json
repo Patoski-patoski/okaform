@@ -9,8 +9,12 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.ts": [
-      "bunx eslint --fix",
+    "backend/**/*.ts": [
+      "bunx eslint --config backend/eslint.config.mjs --fix",
+      "bunx prettier --write"
+    ],
+    "frontend/src/**/*.{ts,tsx}": [
+      "bunx eslint --config frontend/eslint.config.js --fix",
       "bunx prettier --write"
     ],
     "*.json": [

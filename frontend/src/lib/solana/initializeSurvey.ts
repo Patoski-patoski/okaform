@@ -10,7 +10,7 @@ const ESCROW_SEED = enc("escrow");
 export interface InitializeSurveyParams {
   surveyId: string;
   rewardPool: number;
-  rewardType: "weighted" | "lottery";
+  rewardType: "weighted" | "lucky_draw";
   maxResponses: number;
 }
 

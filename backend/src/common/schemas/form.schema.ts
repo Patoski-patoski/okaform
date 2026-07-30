@@ -42,7 +42,7 @@ export type QuestionTypeValue =
   | 'recaptcha'
   | 'country';
 
-export type RewardType = 'weighted' | 'lottery';
+export type RewardType = 'weighted' | 'lucky_draw';
 export type FormStatus = 'draft' | 'active' | 'closed';
 
 @Schema({ _id: false })
@@ -129,7 +129,7 @@ export class Form {
   @Prop({ required: true })
   maxResponses!: number;
 
-  @Prop({ type: String, enum: ['weighted', 'lottery'], default: 'weighted' })
+  @Prop({ type: String, enum: ['weighted', 'lucky_draw'], default: 'weighted' })
   rewardType!: RewardType;
 
   @Prop({ default: 1 })

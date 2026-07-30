@@ -68,17 +68,9 @@ export class SubmissionsService {
       );
     }
 
-    // Guard 3: Form must still be active
+    // Guard 3: Form must be active (fast early rejection, not atomic)
     if (form.status !== 'active') {
       throw new FormClosedException(formId);
-    }
-
-    // Guard 3: Form must not be at capacity
-    const responseCount = await this.responseModel
-      .countDocuments({ formId })
-      .exec();
-    if (responseCount >= form.maxResponses) {
-      throw new FormFullException(formId, form.maxResponses);
     }
 
     // Guard 4: No duplicate submissions
@@ -90,7 +82,7 @@ export class SubmissionsService {
       throw new ConflictException('You have already submitted this survey.');
     }
 
-    // Guard 6: Sybil check — wallet age and SOL balance
+    // Guard 5: Sybil check — wallet age and SOL balance (done before atomic section)
     const sybilResult = await this.sybilService.checkEligibility(
       respondentWallet,
       {
@@ -123,6 +115,27 @@ export class SubmissionsService {
         },
         HttpStatus.FORBIDDEN,
       );
+    }
+
+    // Guard 6: Atomic capacity check — only one concurrent request gets through
+    const updatedForm = await this.formModel
+      .findOneAndUpdate(
+        {
+          _id: formId,
+          status: 'active',
+          $expr: { $lt: ['$responseCount', '$maxResponses'] },
+        },
+        { $inc: { responseCount: 1 } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updatedForm) {
+      const current = await this.formModel.findById(formId).lean().exec();
+      if (!current || current.status !== 'active') {
+        throw new FormClosedException(formId);
+      }
+      throw new FormFullException(formId, current.maxResponses);
     }
 
     const doc = await this.responseModel.create({

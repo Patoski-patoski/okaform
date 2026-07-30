@@ -27,7 +27,8 @@ const TIERS = [
     tag: "Permissionless",
     fee: "5%",
     feeLabel: "of reward pool",
-    description: "Any valid wallet can respond. Basic sybil protection included.",
+    description:
+      "Any valid wallet can respond. Basic sybil protection included.",
     metrics: [
       { label: "Filter Layer", value: "Standard" },
       { label: "Response Cap", value: "Unlimited" },
@@ -36,7 +37,7 @@ const TIERS = [
     features: [
       "On-chain escrow",
       "Reputation-weighted distribution",
-      "Lottery mode toggle",
+      "Lucky Draw mode toggle",
       "Wallet age verification",
       "SOL balance check",
       "Response depth scoring",
@@ -95,7 +96,11 @@ const TIERS = [
 ] as const;
 
 const TARGETING_FEES = [
-  { label: "Single token holding", example: "e.g. holds any JUP", cost: "+$30" },
+  {
+    label: "Single token holding",
+    example: "e.g. holds any JUP",
+    cost: "+$30",
+  },
   { label: "Token threshold", example: "e.g. JUP ≥ 50", cost: "+$40–60" },
   { label: "Multi-criteria combined", example: "", cost: "+$60–100" },
   { label: "NFT collection membership", example: "", cost: "+$50–75" },
@@ -163,13 +168,20 @@ function FeeCalculator() {
   return (
     <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40">
       {/* Decorative corner */}
-      <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-           style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
+      <div
+        className="absolute right-0 top-0 h-12 w-12 opacity-10"
+        style={{
+          backgroundImage:
+            "linear-gradient(225deg, transparent 50%, #14F195 50%)",
+        }}
+      />
 
       <div className="p-6 md:p-8">
         <div className="mb-6 flex items-center gap-2 border-b border-[#3D444D]/50 pb-4">
           <Server className="h-4 w-4 text-ok-green" />
-          <span className="font-mono text-xs text-[#656C76]">SYS // COST CALCULATOR</span>
+          <span className="font-mono text-xs text-[#656C76]">
+            SYS // COST CALCULATOR
+          </span>
         </div>
 
         <div className="mb-8 grid gap-4 sm:grid-cols-2">
@@ -214,7 +226,7 @@ function FeeCalculator() {
                   "rounded px-4 py-2 font-mono text-xs transition-all",
                   tier === t
                     ? "bg-ok-green/10 border border-ok-green/30 text-ok-green"
-                    : "border border-[#3D444D] text-[#656C76] hover:text-[#9198A1]"
+                    : "border border-[#3D444D] text-[#656C76] hover:text-[#9198A1]",
                 )}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -229,7 +241,8 @@ function FeeCalculator() {
               Protocol fee
             </span>
             <span className="mt-1 block font-mono text-2xl font-semibold text-ok-green">
-              {protocolFee.toFixed(2)} <span className="text-xs text-[#656C76]">SOL</span>
+              {protocolFee.toFixed(2)}{" "}
+              <span className="text-xs text-[#656C76]">SOL</span>
             </span>
           </div>
           {filterFee > 0 && (
@@ -247,7 +260,8 @@ function FeeCalculator() {
               Escrowed for respondents
             </span>
             <span className="mt-1 block font-mono text-2xl font-semibold text-ok-green">
-              {escrowed.toFixed(2)} <span className="text-xs text-[#656C76]">SOL</span>
+              {escrowed.toFixed(2)}{" "}
+              <span className="text-xs text-[#656C76]">SOL</span>
             </span>
           </div>
           <div className="rounded border border-[#3D444D]/50 bg-[#0D1117]/60 p-4">
@@ -255,7 +269,8 @@ function FeeCalculator() {
               Est. per-respondent earnings
             </span>
             <span className="mt-1 block font-mono text-2xl font-semibold text-ok-green">
-              {perRespondent.toFixed(4)} <span className="text-xs text-[#656C76]">SOL</span>
+              {perRespondent.toFixed(4)}{" "}
+              <span className="text-xs text-[#656C76]">SOL</span>
             </span>
           </div>
         </div>
@@ -280,8 +295,8 @@ export default function Pricing() {
           Simple fees. <span className="text-ok-green">No subscriptions.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[#9198A1]">
-          Okaform charges a protocol fee on reward pools only.
-          You pay when value flows — not before.
+          Okaform charges a protocol fee on reward pools only. You pay when
+          value flows — not before.
         </p>
       </section>
 
@@ -289,22 +304,29 @@ export default function Pricing() {
       <section className="mx-auto max-w-4xl px-8 pb-24">
         <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40">
           {/* Decorative corner */}
-          <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #14F195 50%)' }} />
+          <div
+            className="absolute right-0 top-0 h-12 w-12 opacity-10"
+            style={{
+              backgroundImage:
+                "linear-gradient(225deg, transparent 50%, #14F195 50%)",
+            }}
+          />
 
           <div className="border-l-[3px] border-l-ok-green p-6 md:p-10">
             <div className="mb-4 flex items-center gap-2">
               <Lock className="h-4 w-4 text-ok-green" />
-              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Fee Architecture</span>
+              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+                Fee Architecture
+              </span>
             </div>
             <h2 className="mb-4 text-xl font-medium tracking-tight text-[#F0F6F6]">
               How our fee works
             </h2>
             <p className="mb-6 max-w-2xl text-sm leading-relaxed text-[#9198A1]">
-              When a creator publishes a survey with a 10 SOL reward pool, Okaform
-              deducts a 5% protocol fee (0.5 SOL) at creation. The remaining 9.5 SOL
-              locks in on-chain escrow and distributes automatically to respondents
-              when the survey closes.
+              When a creator publishes a survey with a 10 SOL reward pool,
+              Okaform deducts a 5% protocol fee (0.5 SOL) at creation. The
+              remaining 9.5 SOL locks in on-chain escrow and distributes
+              automatically to respondents when the survey closes.
             </p>
             <FlowDiagram />
           </div>
@@ -323,12 +345,18 @@ export default function Pricing() {
                   "group relative flex flex-col justify-between overflow-hidden rounded border bg-[#151B23]/40 transition-all",
                   isMostPopular
                     ? "border-ok-green/40 shadow-[0_0_30px_rgba(20,241,149,0.04)] bg-[#151B23]/80"
-                    : "border-[#3D444D] hover:border-[#656C76]/60"
+                    : "border-[#3D444D] hover:border-[#656C76]/60",
                 )}
               >
                 {/* Decorative corner */}
-                <div className="absolute right-0 top-0 h-10 w-10 opacity-10 transition-opacity group-hover:opacity-20"
-                     style={{ backgroundImage: isMostPopular ? 'linear-gradient(225deg, transparent 50%, #14F195 50%)' : 'linear-gradient(225deg, transparent 50%, #3D444D 50%)' }} />
+                <div
+                  className="absolute right-0 top-0 h-10 w-10 opacity-10 transition-opacity group-hover:opacity-20"
+                  style={{
+                    backgroundImage: isMostPopular
+                      ? "linear-gradient(225deg, transparent 50%, #14F195 50%)"
+                      : "linear-gradient(225deg, transparent 50%, #3D444D 50%)",
+                  }}
+                />
 
                 <div className="p-6">
                   {/* Tier header */}
@@ -336,14 +364,16 @@ export default function Pricing() {
                     <span className="font-mono text-[10px] text-[#656C76]">
                       SYS // {tier.nodeName}
                     </span>
-                    <span className={cn(
-                      "rounded border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider",
-                      isMostPopular
-                        ? "text-ok-green border-ok-green/20 bg-ok-green/5"
-                        : tier.variant === "terminal"
-                          ? "text-ok-purple border-ok-purple/20 bg-ok-purple/5"
-                          : "text-[#656C76] border-[#3D444D] bg-[#151B23]/40"
-                    )}>
+                    <span
+                      className={cn(
+                        "rounded border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider",
+                        isMostPopular
+                          ? "text-ok-green border-ok-green/20 bg-ok-green/5"
+                          : tier.variant === "terminal"
+                            ? "text-ok-purple border-ok-purple/20 bg-ok-purple/5"
+                            : "text-[#656C76] border-[#3D444D] bg-[#151B23]/40",
+                      )}
+                    >
                       {tier.tag}
                     </span>
                   </div>
@@ -355,7 +385,9 @@ export default function Pricing() {
                         {tier.fee}
                       </span>
                     </div>
-                    <p className="font-mono text-[11px] text-[#656C76]">{tier.feeLabel}</p>
+                    <p className="font-mono text-[11px] text-[#656C76]">
+                      {tier.feeLabel}
+                    </p>
                   </div>
 
                   <p className="mt-4 text-xs leading-relaxed text-[#9198A1]">
@@ -365,9 +397,16 @@ export default function Pricing() {
                   {/* System metrics */}
                   <div className="my-6 space-y-2 rounded border border-[#3D444D]/50 bg-[#0D1117]/60 p-3">
                     {tier.metrics.map((m: TierMetric, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between font-mono text-[10px]">
-                        <span className="text-[#656C76] uppercase">{m.label}:</span>
-                        <span className="text-[#F0F6F6] font-medium">{m.value}</span>
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between font-mono text-[10px]"
+                      >
+                        <span className="text-[#656C76] uppercase">
+                          {m.label}:
+                        </span>
+                        <span className="text-[#F0F6F6] font-medium">
+                          {m.value}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -385,7 +424,9 @@ export default function Pricing() {
                         return (
                           <li key={i} className="flex items-start gap-2.5">
                             <CheckCircle className="h-3.5 w-3.5 shrink-0 text-ok-green" />
-                            <span className={soon ? "text-[#656C76]" : ""}>{text}</span>
+                            <span className={soon ? "text-[#656C76]" : ""}>
+                              {text}
+                            </span>
                             {soon && (
                               <span className="ml-auto shrink-0 rounded border border-[#3D444D] bg-[#0D1117] px-1.5 py-0.5 font-mono text-[9px] text-[#656C76]">
                                 Soon
@@ -406,7 +447,7 @@ export default function Pricing() {
                         "w-full rounded font-mono text-xs py-2.5 transition-all flex items-center justify-center gap-2",
                         isMostPopular
                           ? "bg-ok-green text-[#0D1117] font-semibold hover:bg-[#10C97A] hover:shadow-[0_0_15px_rgba(20,241,149,0.2)]"
-                          : "border border-[#3D444D] text-[#9198A1] hover:border-[#656C76] hover:text-[#F0F6F6] bg-[#0D1117]/60"
+                          : "border border-[#3D444D] text-[#9198A1] hover:border-[#656C76] hover:text-[#F0F6F6] bg-[#0D1117]/60",
                       )}
                     >
                       {tier.cta}
@@ -425,8 +466,8 @@ export default function Pricing() {
         <div className="rounded border border-[#3D444D]/80 bg-[#151B23]/20">
           <div className="border-b border-[#3D444D] px-6 py-4">
             <h3 className="flex items-center gap-2 font-mono text-sm text-[#F0F6F6]">
-              <Database className="h-4 w-4 text-ok-green" />
-              [ Targeting Fee Matrix ]
+              <Database className="h-4 w-4 text-ok-green" />[ Targeting Fee
+              Matrix ]
             </h3>
           </div>
           <div className="p-6">
@@ -451,7 +492,8 @@ export default function Pricing() {
               ))}
             </div>
             <p className="mt-6 font-mono text-[10px] text-[#656C76]">
-              All fees collected at survey creation in SOL at current market rate.
+              All fees collected at survey creation in SOL at current market
+              rate.
             </p>
           </div>
         </div>
@@ -466,21 +508,28 @@ export default function Pricing() {
       <section className="mx-auto max-w-4xl px-8 pb-24">
         <div className="relative overflow-hidden rounded border border-[#3D444D] bg-[#151B23]/40">
           {/* Decorative corner */}
-          <div className="absolute right-0 top-0 h-12 w-12 opacity-10"
-               style={{ backgroundImage: 'linear-gradient(225deg, transparent 50%, #A371F7 50%)' }} />
+          <div
+            className="absolute right-0 top-0 h-12 w-12 opacity-10"
+            style={{
+              backgroundImage:
+                "linear-gradient(225deg, transparent 50%, #A371F7 50%)",
+            }}
+          />
 
           <div className="border-l-[3px] border-l-ok-purple p-6 md:p-10">
             <div className="mb-4 flex items-center gap-2">
               <Shield className="h-4 w-4 text-ok-purple" />
-              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">Respondent Protocol</span>
+              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+                Respondent Protocol
+              </span>
             </div>
             <h2 className="mb-4 text-xl font-medium tracking-tight text-[#F0F6F6]">
               Respondents always pay zero
             </h2>
             <p className="mb-8 max-w-2xl text-sm leading-relaxed text-[#9198A1]">
               Connecting your wallet, submitting a survey, and receiving rewards
-              costs you nothing. All transaction fees are absorbed by the platform.
-              Your only investment is your honest opinion.
+              costs you nothing. All transaction fees are absorbed by the
+              platform. Your only investment is your honest opinion.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               {[
@@ -509,8 +558,8 @@ export default function Pricing() {
       <section className="mx-auto max-w-3xl px-8 pb-24">
         <div className="mb-8 border-b border-[#3D444D] pb-4">
           <h2 className="font-mono text-sm text-[#F0F6F6] flex items-center gap-2">
-            <Zap className="h-4 w-4 text-ok-green" />
-            [ Protocol Parameters (FAQ) ]
+            <Zap className="h-4 w-4 text-ok-green" />[ Protocol Parameters (FAQ)
+            ]
           </h2>
         </div>
         <div className="space-y-3">
@@ -529,7 +578,7 @@ export default function Pricing() {
                 <ChevronDown
                   className={cn(
                     "h-4 w-4 shrink-0 text-[#656C76] transition-transform duration-200",
-                    openFaq === i && "rotate-180"
+                    openFaq === i && "rotate-180",
                   )}
                 />
               </button>

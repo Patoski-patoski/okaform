@@ -10,7 +10,7 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { Badge } from "@/components/okaform";
+import { Badge, tierFromLabel } from "@/components/okaform";
 import { formatRelativeTime } from "@/lib/utils";
 
 function exportCSV(records: DistributionRecord[], formId: string) {
@@ -77,9 +77,14 @@ function SkeletonRow() {
 
 interface DistributionTabProps {
   formId: string;
+  /** Increment this from the parent after a successful distribution to trigger a re-fetch. */
+  refreshKey?: number;
 }
 
-export default function DistributionTab({ formId }: DistributionTabProps) {
+export default function DistributionTab({
+  formId,
+  refreshKey,
+}: DistributionTabProps) {
   const [records, setRecords] = useState<DistributionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +100,11 @@ export default function DistributionTab({ formId }: DistributionTabProps) {
       })
       .catch((err) => {
         if (!cancelled)
-          setError(err instanceof Error ? err.message : "Failed to load distribution records");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load distribution records",
+          );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -104,7 +113,7 @@ export default function DistributionTab({ formId }: DistributionTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [formId]);
+  }, [formId, refreshKey]);
 
   if (loading) {
     return (
@@ -115,7 +124,13 @@ export default function DistributionTab({ formId }: DistributionTabProps) {
         <table className="w-full">
           <thead className="bg-ok-surface font-mono text-[10px] uppercase tracking-wider text-ok-dim border-b border-ok-border">
             <tr>
-              {["Recipient Wallet", "Badge", "Amount", "Tx Signature", "Time"].map((h) => (
+              {[
+                "Recipient Wallet",
+                "Badge",
+                "Amount",
+                "Tx Signature",
+                "Time",
+              ].map((h) => (
                 <th key={h} className="px-4 py-2.5 text-left font-medium">
                   {h}
                 </th>
@@ -155,8 +170,7 @@ export default function DistributionTab({ formId }: DistributionTabProps) {
     );
   }
 
-  const totalSol =
-    records.reduce((sum, r) => sum + r.amountLamports, 0) / 1e9;
+  const totalSol = records.reduce((sum, r) => sum + r.amountLamports, 0) / 1e9;
 
   return (
     <div className="space-y-4">
@@ -186,13 +200,17 @@ export default function DistributionTab({ formId }: DistributionTabProps) {
       <table className="w-full">
         <thead className="bg-ok-surface font-mono text-[10px] uppercase tracking-wider text-ok-dim border-b border-ok-border">
           <tr>
-            {["Recipient Wallet", "Badge", "Amount", "Tx Signature", "Time"].map(
-              (h) => (
-                <th key={h} className="px-4 py-2.5 text-left font-medium">
-                  {h}
-                </th>
-              ),
-            )}
+            {[
+              "Recipient Wallet",
+              "Badge",
+              "Amount",
+              "Tx Signature",
+              "Time",
+            ].map((h) => (
+              <th key={h} className="px-4 py-2.5 text-left font-medium">
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -205,7 +223,7 @@ export default function DistributionTab({ formId }: DistributionTabProps) {
                 <CopyableWallet wallet={record.recipientWallet} />
               </td>
               <td className="px-4 py-3">
-                <Badge tier={record.badgeTier.toLowerCase() as "grey" | "blue" | "green" | "gold" | "diamond"} />
+                <Badge tier={tierFromLabel(record.badgeTier)} />
               </td>
               <td className="px-4 py-3 font-mono text-xs font-bold text-ok-green">
                 ◎ {(record.amountLamports / 1e9).toFixed(4)}

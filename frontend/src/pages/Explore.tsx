@@ -44,7 +44,7 @@ interface SurveyListing {
   protocolColor: string;
   title: string;
   rewardPool: number;
-  rewardType: "weighted" | "lottery";
+  rewardType: "weighted" | "lucky_draw";
   numWinners?: number;
   responses: number;
   maxResponses: number;
@@ -57,9 +57,18 @@ interface SurveyListing {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 const ORG_COLORS = [
-  '#14f195', '#f7931a', '#8b5cf6', '#3b82f6',
-  '#4ade80', '#ff7b9c', '#a78bfa', '#f472b6',
-  '#06b6d4', '#e879f9', '#fb923c', '#34d399',
+  "#14f195",
+  "#f7931a",
+  "#8b5cf6",
+  "#3b82f6",
+  "#4ade80",
+  "#ff7b9c",
+  "#a78bfa",
+  "#f472b6",
+  "#06b6d4",
+  "#e879f9",
+  "#fb923c",
+  "#34d399",
 ];
 
 function orgToColor(org: string): string {
@@ -67,31 +76,43 @@ function orgToColor(org: string): string {
   for (let i = 0; i < org.length; i++) {
     hash = org.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return ORG_COLORS[Math.abs(hash) % ORG_COLORS.length] ?? '#999';
+  return ORG_COLORS[Math.abs(hash) % ORG_COLORS.length] ?? "#999";
 }
 
-function deriveStatus(closesAt: string | null): SurveyListing['status'] {
-  if (!closesAt) return 'active';
+function deriveStatus(closesAt: string | null): SurveyListing["status"] {
+  if (!closesAt) return "active";
   const diff = new Date(closesAt).getTime() - Date.now();
-  if (diff <= 0) return 'closed';
-  if (diff < 24 * 60 * 60 * 1000) return 'ending_soon';
-  return 'active';
+  if (diff <= 0) return "closed";
+  if (diff < 24 * 60 * 60 * 1000) return "ending_soon";
+  return "active";
 }
 
-function buildRequirements(minWalletAge: number, minSolBalance: number): Requirement[] {
+function buildRequirements(
+  minWalletAge: number,
+  minSolBalance: number,
+): Requirement[] {
   const reqs: Requirement[] = [];
   if (minWalletAge > 0) {
-    reqs.push({ type: 'wallet_age', label: `Wallet age > ${minWalletAge} days` });
+    reqs.push({
+      type: "wallet_age",
+      label: `Wallet age > ${minWalletAge} days`,
+    });
   }
   if (minSolBalance > 0) {
-    reqs.push({ type: 'min_sol', label: `Min ${minSolBalance} SOL` });
+    reqs.push({ type: "min_sol", label: `Min ${minSolBalance} SOL` });
   }
   return reqs;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-const filterOptions = ["All", "Open to All", "Token Gated", "High Reward", "Ending Soon"] as const;
+const filterOptions = [
+  "All",
+  "Open to All",
+  "Token Gated",
+  "High Reward",
+  "Ending Soon",
+] as const;
 type FilterLabel = (typeof filterOptions)[number];
 
 type SortKey = "latest" | "highest_reward" | "most_responses" | "ending_soon";
@@ -110,13 +131,30 @@ function formatTimeRemaining(date: string | null): string {
 
 function StatusPill({ status }: { status: SurveyListing["status"] }) {
   const config = {
-    active: { dot: "bg-ok-green", text: "text-ok-green border-ok-green/20 bg-ok-green/5", label: "Active" },
-    ending_soon: { dot: "bg-ok-warning", text: "text-ok-warning border-ok-warning/20 bg-ok-warning/5", label: "Ending" },
-    closed: { dot: "bg-[#656C76]", text: "text-[#656C76] border-[#3D444D] bg-transparent", label: "Ended" },
+    active: {
+      dot: "bg-ok-green",
+      text: "text-ok-green border-ok-green/20 bg-ok-green/5",
+      label: "Active",
+    },
+    ending_soon: {
+      dot: "bg-ok-warning",
+      text: "text-ok-warning border-ok-warning/20 bg-ok-warning/5",
+      label: "Ending",
+    },
+    closed: {
+      dot: "bg-[#656C76]",
+      text: "text-[#656C76] border-[#3D444D] bg-transparent",
+      label: "Ended",
+    },
   }[status];
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider", config.text)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider",
+        config.text,
+      )}
+    >
       <span className={cn("h-1 w-1 rounded-full animate-pulse", config.dot)} />
       {config.label}
     </span>
@@ -127,7 +165,11 @@ function ProtocolLogo({ name, color }: { name: string; color: string }) {
   return (
     <div
       className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#3D444D] text-[11px] font-mono font-bold transition-all group-hover:scale-105"
-      style={{ backgroundColor: `${color}10`, color, borderColor: `${color}30` }}
+      style={{
+        backgroundColor: `${color}10`,
+        color,
+        borderColor: `${color}30`,
+      }}
     >
       {name.charAt(0).toUpperCase()}
     </div>
@@ -151,7 +193,9 @@ function WalletBadge() {
     void connection.getBalance(publicKey).then((lamports) => {
       if (!cancelled) setBalance(lamports);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [connected, publicKey, connection]);
 
   if (isLoading) {
@@ -206,7 +250,9 @@ function WalletBadge() {
         title="Click to copy"
       >
         <span className="h-2 w-2 rounded-full bg-ok-green" />
-        <span className="font-mono text-xs text-[#F0F6F6]">{copied ? 'Copied!' : label}</span>
+        <span className="font-mono text-xs text-[#F0F6F6]">
+          {copied ? "Copied!" : label}
+        </span>
       </button>
       <span className="h-4 w-px bg-[#3D444D]" />
       <Badge tier={tier} className="text-xs" />
@@ -215,13 +261,18 @@ function WalletBadge() {
           <span className="h-4 w-px bg-[#3D444D]" />
           <span className="flex items-center gap-1 text-xs text-[#9198A1]">
             <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />
-            <span className="font-mono">{(balance / 1_000_000_000).toFixed(2)}</span>
+            <span className="font-mono">
+              {(balance / 1_000_000_000).toFixed(2)}
+            </span>
           </span>
         </>
       )}
       <span className="h-4 w-px bg-[#3D444D]" />
       <button
-        onClick={() => { logout(); disconnect(); }}
+        onClick={() => {
+          logout();
+          disconnect();
+        }}
         className="flex items-center gap-1 font-mono text-xs text-[#9198A1] transition-colors hover:text-ok-danger cursor-pointer"
         title="Disconnect"
       >
@@ -243,7 +294,9 @@ interface SurveyCardProps {
  */
 function SurveyCard({ survey }: SurveyCardProps) {
   const isOpen = survey.status !== "closed";
-  const responsePercent = Math.round((survey.responses / survey.maxResponses) * 100);
+  const responsePercent = Math.round(
+    (survey.responses / survey.maxResponses) * 100,
+  );
 
   // Generate notched visual progress bar [|||||.....]
   const renderNotchedProgress = () => {
@@ -256,7 +309,7 @@ function SurveyCard({ survey }: SurveyCardProps) {
             key={i}
             className={cn(
               "transition-colors duration-300",
-              i < filledNotches ? "text-ok-green font-bold" : "text-[#3D444D]"
+              i < filledNotches ? "text-ok-green font-bold" : "text-[#3D444D]",
             )}
           >
             |
@@ -273,7 +326,7 @@ function SurveyCard({ survey }: SurveyCardProps) {
         "group relative flex flex-col justify-between overflow-hidden rounded border bg-[#151B23]/40 p-5 transition-all duration-300",
         isOpen
           ? "border-[#3D444D] hover:border-ok-green/40 hover:bg-[#151B23]/70 hover:shadow-[0_0_25px_rgba(20,241,149,0.03)]"
-          : "border-[#3D444D]/30 opacity-40 pointer-events-none grayscale"
+          : "border-[#3D444D]/30 opacity-40 pointer-events-none grayscale",
       )}
     >
       {/* Concluded overlay stamp */}
@@ -285,7 +338,14 @@ function SurveyCard({ survey }: SurveyCardProps) {
         </div>
       )}
       {/* Background Micro-Grid Decorative Line */}
-      <div className="absolute right-0 top-0 h-16 w-16 opacity-[0.02] transition-opacity group-hover:opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(var(--tw-gradient-stops), #14F195 1px, transparent 1px)', backgroundSize: '4px 4px' }} />
+      <div
+        className="absolute right-0 top-0 h-16 w-16 opacity-[0.02] transition-opacity group-hover:opacity-[0.08]"
+        style={{
+          backgroundImage:
+            "radial-gradient(var(--tw-gradient-stops), #14F195 1px, transparent 1px)",
+          backgroundSize: "4px 4px",
+        }}
+      />
 
       {/* Card Header: Node Diagnostic Bar */}
       <div>
@@ -329,7 +389,9 @@ function SurveyCard({ survey }: SurveyCardProps) {
                   key={i}
                   className={cn(
                     "inline-flex items-center gap-1 rounded bg-[#0D1117] border border-[#3D444D]/80 px-2 py-0.5 font-mono text-[10px]",
-                    req.type === "token_hold" ? "text-ok-purple border-ok-purple/20" : "text-[#9198A1]"
+                    req.type === "token_hold"
+                      ? "text-ok-purple border-ok-purple/20"
+                      : "text-[#9198A1]",
                   )}
                 >
                   {req.type === "token_hold" ? (
@@ -368,14 +430,20 @@ function SurveyCard({ survey }: SurveyCardProps) {
             <Lock className="h-3.5 w-3.5 text-[#656C76]" />
             <span>Closes:</span>
           </div>
-          <span className={cn(
-            "text-[10px]",
-            survey.status === "ending_soon" ? "text-ok-warning" : survey.status === "closed" ? "text-[#656C76]" : "text-[#F0F6F6]"
-          )}>
+          <span
+            className={cn(
+              "text-[10px]",
+              survey.status === "ending_soon"
+                ? "text-ok-warning"
+                : survey.status === "closed"
+                  ? "text-[#656C76]"
+                  : "text-[#F0F6F6]",
+            )}
+          >
             {formatTimeRemaining(survey.closesAt)}
           </span>
         </div>
-        
+
         {/* Dynamic bar wrapper */}
         <div className="flex items-center justify-between rounded bg-[#0D1117] px-3 py-1.5 border border-[#3D444D]/40">
           {renderNotchedProgress()}
@@ -387,7 +455,9 @@ function SurveyCard({ survey }: SurveyCardProps) {
         {/* Card Footer: Escrow details and action trigger */}
         <div className="mt-4 flex items-center justify-between border-t border-[#3D444D]/50 pt-4">
           <div className="flex flex-col">
-            <span className="font-mono text-xs text-[#656C76] uppercase tracking-wider">Escrowed Rewards</span>
+            <span className="font-mono text-xs text-[#656C76] uppercase tracking-wider">
+              Escrowed Rewards
+            </span>
             <div className="flex items-center gap-1">
               <Lock className="h-3 w-3 text-ok-green/80" />
               <span className="font-display font-mono text-base font-semibold text-ok-green">
@@ -397,7 +467,9 @@ function SurveyCard({ survey }: SurveyCardProps) {
           </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[9px] text-[#656C76] uppercase tracking-wider text-right hidden sm:block">
-              {survey.rewardType === "weighted" ? "Weighted Yield" : "Lottery Draw"}
+              {survey.rewardType === "weighted"
+                ? "Weighted Yield"
+                : "Lucky Draw"}
             </span>
             <div className="flex h-8 w-8 items-center justify-center rounded border border-[#3D444D] bg-[#0D1117] transition-all group-hover:border-ok-green/50 group-hover:bg-ok-green/5">
               <ArrowRight className="h-4 w-4 text-[#656C76] transition-transform group-hover:translate-x-0.5 group-hover:text-ok-green" />
@@ -420,12 +492,16 @@ function SurveyRow({ survey }: SurveyCardProps) {
       to={isOpen ? `/form/${survey.id}` : "#"}
       className={cn(
         "group flex flex-col gap-4 border-b border-[#3D444D]/40 py-3.5 font-mono text-xs transition-all hover:bg-[#151B23]/30 px-4 md:flex-row md:items-center md:justify-between md:gap-6",
-        !isOpen && "opacity-30 pointer-events-none"
+        !isOpen && "opacity-30 pointer-events-none",
       )}
     >
       <div className="flex flex-1 items-center gap-4 min-w-0">
-        <span className="text-[#656C76] shrink-0 font-mono">[{survey.id.toUpperCase()}]</span>
-        <span className="text-ok-green shrink-0 font-semibold">{survey.rewardPool.toFixed(1)} SOL</span>
+        <span className="text-[#656C76] shrink-0 font-mono">
+          [{survey.id.toUpperCase()}]
+        </span>
+        <span className="text-ok-green shrink-0 font-semibold">
+          {survey.rewardPool.toFixed(1)} SOL
+        </span>
         <span className="text-[#9198A1] shrink-0">{survey.protocol}</span>
         <span className="text-[#3D444D] shrink-0">|</span>
         <span className="text-[#F0F6F6] truncate group-hover:text-ok-green transition-colors font-medium">
@@ -436,11 +512,15 @@ function SurveyRow({ survey }: SurveyCardProps) {
       <div className="flex items-center justify-between gap-6 shrink-0 border-t border-[#3D444D]/20 pt-2 md:border-0 md:pt-0">
         <div className="flex items-center gap-2 text-[#656C76]">
           <Users className="h-3 w-3" />
-          <span>{survey.responses}/{survey.maxResponses}</span>
+          <span>
+            {survey.responses}/{survey.maxResponses}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <StatusPill status={survey.status} />
-          <span className="text-[#9198A1] text-[11px]">{isOpen ? formatTimeRemaining(survey.closesAt) : "Concluded"}</span>
+          <span className="text-[#9198A1] text-[11px]">
+            {isOpen ? formatTimeRemaining(survey.closesAt) : "Concluded"}
+          </span>
           <ArrowRight className="h-3.5 w-3.5 text-[#3D444D] transition-transform group-hover:translate-x-0.5 group-hover:text-ok-green" />
         </div>
       </div>
@@ -472,18 +552,19 @@ export default function Explore() {
             data.map((f: ExploreFormItem) => ({
               id: f.id,
               title: f.title,
-              protocol: f.organization || 'Unknown',
+              protocol: f.organization || "Unknown",
               protocolColor: orgToColor(f.organization || f.id),
               rewardPool: f.rewardPool,
-              rewardType: f.rewardType as 'weighted' | 'lottery',
+              rewardType: f.rewardType as "weighted" | "lucky_draw",
               numWinners: f.numWinners,
               responses: f.responses,
               maxResponses: f.maxResponses,
               closesAt: f.closesAt,
-              status: f.status === 'closed' ? 'closed' : deriveStatus(f.closesAt),
+              status:
+                f.status === "closed" ? "closed" : deriveStatus(f.closesAt),
               requirements: buildRequirements(f.minWalletAge, f.minSolBalance),
               previewQuestion: f.previewQuestion || undefined,
-            }))
+            })),
           );
         }
       })
@@ -493,7 +574,9 @@ export default function Explore() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -501,8 +584,8 @@ export default function Explore() {
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) fetchData();
     };
-    window.addEventListener('pageshow', onPageShow);
-    return () => window.removeEventListener('pageshow', onPageShow);
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, [fetchData]);
 
   const sortOptions: { label: string; value: SortKey }[] = [
@@ -520,14 +603,16 @@ export default function Explore() {
       list = list.filter(
         (s) =>
           s.title.toLowerCase().includes(q) ||
-          s.protocol.toLowerCase().includes(q)
+          s.protocol.toLowerCase().includes(q),
       );
     }
 
     if (activeFilter === "Open to All") {
       list = list.filter((s) => s.requirements.length === 0);
     } else if (activeFilter === "Token Gated") {
-      list = list.filter((s) => s.requirements.some((r) => r.type === "token_hold"));
+      list = list.filter((s) =>
+        s.requirements.some((r) => r.type === "token_hold"),
+      );
     } else if (activeFilter === "High Reward") {
       list = list.filter((s) => s.rewardPool >= 30);
     } else if (activeFilter === "Ending Soon") {
@@ -555,7 +640,7 @@ export default function Explore() {
 
   const displayed = useMemo(
     () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount]
+    [filtered, visibleCount],
   );
 
   return (
@@ -594,45 +679,62 @@ export default function Explore() {
       <div className="mx-auto max-w-5xl px-8 pt-16 pb-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
-            <span className="font-mono text-xs text-ok-green tracking-wider uppercase">[ Public Index ]</span>
+            <span className="font-mono text-xs text-ok-green tracking-wider uppercase">
+              [ Public Index ]
+            </span>
             <h1 className="text-3xl font-medium tracking-tight text-[#F0F6F6] sm:text-4xl">
               Verified Campaigns
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-[#9198A1]">
-              Cryptographically audited community parameters directly tied to the Solana account ledger.
+              Cryptographically audited community parameters directly tied to
+              the Solana account ledger.
             </p>
           </div>
         </div>
 
         {/* Technical HUD Telemetry Strip */}
-          <div className="mt-8 grid grid-cols-2 gap-4 rounded border border-[#3D444D]/60 bg-[#151B23]/30 p-4 font-mono sm:grid-cols-4">
-            <div className="border-r border-[#3D444D]/40 last:border-0 pr-4">
-              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Active Escrows</span>
-              <span className="text-sm font-semibold text-[#F0F6F6] flex items-center gap-1.5 mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-ok-green animate-pulse" />
-                {!loading ? `${surveys.filter((s) => s.status !== 'closed').length} / ${surveys.length} Nodes Active` : '...'}
-              </span>
-            </div>
-            <div className="sm:border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
-              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Total Pool Value</span>
-              <span className="text-sm font-semibold text-ok-green mt-0.5">
-                {!loading ? `${surveys.reduce((sum, s) => sum + s.rewardPool, 0).toFixed(2)} SOL` : '...'}
-              </span>
-            </div>
-            <div className="border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
-              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Audited Signatures</span>
-              <span className="text-sm font-semibold text-[#F0F6F6] mt-0.5">
-                {!loading ? `${surveys.reduce((sum, s) => sum + s.responses, 0).toLocaleString()} Handshakes` : '...'}
-              </span>
-            </div>
-            <div className="pr-4 pl-4 last:border-0">
-              <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">Oracle Sync</span>
-              <span className="text-sm font-semibold text-ok-purple flex items-center gap-1.5 mt-0.5">
-                <Activity className="h-3.5 w-3.5 animate-spin" />
-                Mainnet-Beta
-              </span>
-            </div>
+        <div className="mt-8 grid grid-cols-2 gap-4 rounded border border-[#3D444D]/60 bg-[#151B23]/30 p-4 font-mono sm:grid-cols-4">
+          <div className="border-r border-[#3D444D]/40 last:border-0 pr-4">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">
+              Active Escrows
+            </span>
+            <span className="text-sm font-semibold text-[#F0F6F6] flex items-center gap-1.5 mt-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-ok-green animate-pulse" />
+              {!loading
+                ? `${surveys.filter((s) => s.status !== "closed").length} / ${surveys.length} Nodes Active`
+                : "..."}
+            </span>
           </div>
+          <div className="sm:border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">
+              Total Pool Value
+            </span>
+            <span className="text-sm font-semibold text-ok-green mt-0.5">
+              {!loading
+                ? `${surveys.reduce((sum, s) => sum + s.rewardPool, 0).toFixed(2)} SOL`
+                : "..."}
+            </span>
+          </div>
+          <div className="border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">
+              Audited Signatures
+            </span>
+            <span className="text-sm font-semibold text-[#F0F6F6] mt-0.5">
+              {!loading
+                ? `${surveys.reduce((sum, s) => sum + s.responses, 0).toLocaleString()} Handshakes`
+                : "..."}
+            </span>
+          </div>
+          <div className="pr-4 pl-4 last:border-0">
+            <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">
+              Oracle Sync
+            </span>
+            <span className="text-sm font-semibold text-ok-purple flex items-center gap-1.5 mt-0.5">
+              <Activity className="h-3.5 w-3.5 animate-spin" />
+              Mainnet-Beta
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* ─── FILTER STICKY HUD BAR ──────────────────────────────────────────── */}
@@ -640,7 +742,6 @@ export default function Explore() {
         <div className="mx-auto max-w-5xl px-8 py-3.5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-1 flex-wrap items-center gap-5">
-              
               {/* Search Vector */}
               <div className="relative w-full sm:w-60">
                 <Search className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#656C76]" />
@@ -671,7 +772,7 @@ export default function Explore() {
                       "rounded px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-all",
                       activeFilter === f
                         ? "bg-ok-green/10 text-ok-green border border-ok-green/20"
-                        : "text-[#656C76] border border-transparent hover:text-[#F0F6F6]"
+                        : "text-[#656C76] border border-transparent hover:text-[#F0F6F6]",
                     )}
                   >
                     {f}
@@ -682,14 +783,15 @@ export default function Explore() {
 
             {/* Sorting & Layout Toggles */}
             <div className="flex items-center justify-between gap-4 border-t border-[#3D444D]/40 pt-3 md:border-t-0 md:pt-0">
-              
               {/* Layout Engine Switch */}
               <div className="flex items-center gap-1 rounded bg-[#151B23] p-1 border border-[#3D444D]/50">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={cn(
                     "p-1 rounded transition-colors",
-                    viewMode === "grid" ? "bg-[#0D1117] text-ok-green" : "text-[#656C76] hover:text-[#9198A1]"
+                    viewMode === "grid"
+                      ? "bg-[#0D1117] text-ok-green"
+                      : "text-[#656C76] hover:text-[#9198A1]",
                   )}
                   title="Tactical Grid Modules"
                 >
@@ -699,7 +801,9 @@ export default function Explore() {
                   onClick={() => setViewMode("list")}
                   className={cn(
                     "p-1 rounded transition-colors",
-                    viewMode === "list" ? "bg-[#0D1117] text-ok-green" : "text-[#656C76] hover:text-[#9198A1]"
+                    viewMode === "list"
+                      ? "bg-[#0D1117] text-ok-green"
+                      : "text-[#656C76] hover:text-[#9198A1]",
                   )}
                   title="Compact Log Stream"
                 >
@@ -734,7 +838,7 @@ export default function Explore() {
                             "w-full px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wide transition-colors border-b border-[#3D444D]/40 last:border-0",
                             sortKey === opt.value
                               ? "bg-ok-green/5 text-ok-green"
-                              : "text-[#9198A1] hover:bg-[#0D1117] hover:text-[#F0F6F6]"
+                              : "text-[#9198A1] hover:bg-[#0D1117] hover:text-[#F0F6F6]",
                           )}
                         >
                           {opt.label}
@@ -775,12 +879,14 @@ export default function Explore() {
           <div className="flex flex-col items-center gap-3 py-32 text-center rounded border border-dashed border-[#3D444D]">
             <ShieldAlert className="h-6 w-6 text-[#656C76] animate-pulse" />
             <h3 className="text-base font-medium text-[#F0F6F6] font-mono">
-              {surveys.length === 0 ? '[ NO CAMPAIGNS DEPLOYED ]' : '[ ZERO MATCHING DATA BLOCKS ]'}
+              {surveys.length === 0
+                ? "[ NO CAMPAIGNS DEPLOYED ]"
+                : "[ ZERO MATCHING DATA BLOCKS ]"}
             </h3>
             <p className="text-sm text-[#9198A1] max-w-xs">
               {surveys.length === 0
-                ? 'No surveys have been deployed yet. Create the first one!'
-                : 'No database blocks match the active sorting / filter parameters.'}
+                ? "No surveys have been deployed yet. Create the first one!"
+                : "No database blocks match the active sorting / filter parameters."}
             </p>
             <button
               onClick={() => {

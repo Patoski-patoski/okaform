@@ -207,7 +207,7 @@ describe("okaform-program", () => {
         .initializeSurvey(
           maxId,
           new anchor.BN(MAX_REWARD_POOL),
-          { lottery: {} },
+          { luckyDraw: {} },
           1000
         )
         .accountsPartial({
@@ -223,7 +223,7 @@ describe("okaform-program", () => {
         maxSurveyPda
       );
       expect(surveyAccount.rewardPool.toNumber()).to.equal(MAX_REWARD_POOL);
-      expect(surveyAccount.rewardType).to.deep.equal({ lottery: {} });
+      expect(surveyAccount.rewardType).to.deep.equal({ luckyDraw: {} });
     });
   });
 
@@ -770,7 +770,7 @@ describe("okaform-program", () => {
       expect(surveyAccount.isActive).to.be.false;
     });
 
-    it("distributes lottery mock as equal split", async () => {
+    it("distributes lucky draw mock as equal split", async () => {
       const creator = Keypair.generate();
       await airdrop(creator.publicKey, 15 * LAMPORTS_PER_SOL);
 
@@ -779,13 +779,13 @@ describe("okaform-program", () => {
       await airdrop(r1.publicKey, 5 * LAMPORTS_PER_SOL);
       await airdrop(r2.publicKey, 5 * LAMPORTS_PER_SOL);
 
-      const surveyId = Buffer.from("dist-lottery");
+      const surveyId = Buffer.from("dist-lucky-draw");
       const surveyPda = getSurveyPda(creator.publicKey, surveyId);
       const escrowPda = getEscrowPda(surveyPda);
       const rewardPool = 8 * LAMPORTS_PER_SOL;
 
       await program.methods
-        .initializeSurvey(surveyId, new anchor.BN(rewardPool), { lottery: {} }, 10)
+        .initializeSurvey(surveyId, new anchor.BN(rewardPool), { luckyDraw: {} }, 10)
         .accountsPartial({
           creator: creator.publicKey,
           survey: surveyPda,

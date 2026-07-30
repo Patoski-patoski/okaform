@@ -102,6 +102,8 @@ export class FormsService {
       rewardType: dto.rewardType,
     });
 
+    await this.solanaService.verifyInitializeSurveyTx(dto.initTxSignature);
+
     const doc = await this.formModel.create({
       title: dto.title,
       questions: dto.questions,
@@ -197,22 +199,29 @@ export class FormsService {
       count: forms.length,
     });
 
-    return forms.map((form) => ({
-      id: String(form._id),
-      title: form.title,
-      status: this.deriveStatus(form.closesAt, form.status),
-      organization: form.organization,
-      rewardPool: form.rewardPool,
-      rewardType: form.rewardType,
-      numWinners: form.numWinners,
-      responses: countMap.get(String(form._id)) ?? 0,
-      maxResponses: form.maxResponses,
-      closesAt: form.closesAt?.toISOString() ?? null,
-      previewQuestion: form.previewQuestion,
-      minWalletAge: form.minWalletAge,
-      minSolBalance: form.minSolBalance,
-      createdAt: form.createdAt?.toISOString() ?? new Date().toISOString(),
-    }));
+    return forms.map((form) => {
+      const responses = countMap.get(String(form._id)) ?? 0;
+
+      return {
+        id: String(form._id),
+        title: form.title,
+        status:
+          responses >= form.maxResponses
+            ? ('closed' as const)
+            : this.deriveStatus(form.closesAt, form.status),
+        organization: form.organization,
+        rewardPool: form.rewardPool,
+        rewardType: form.rewardType,
+        numWinners: form.numWinners,
+        responses,
+        maxResponses: form.maxResponses,
+        closesAt: form.closesAt?.toISOString() ?? null,
+        previewQuestion: form.previewQuestion,
+        minWalletAge: form.minWalletAge,
+        minSolBalance: form.minSolBalance,
+        createdAt: form.createdAt?.toISOString() ?? new Date().toISOString(),
+      };
+    });
   }
 
   async getFormsByCreator(creator: string): Promise<FormListItem[]> {
@@ -243,20 +252,27 @@ export class FormsService {
 
     const countMap = new Map(counts.map((c) => [c._id, c.count]));
 
-    return forms.map((form) => ({
-      id: String(form._id),
-      title: form.title,
-      status: this.deriveStatus(form.closesAt, form.status),
-      organization: form.organization,
-      rewardPool: form.rewardPool,
-      maxResponses: form.maxResponses,
-      responseCount: countMap.get(String(form._id)) ?? 0,
-      rewardType: form.rewardType,
-      createdAt: form.createdAt ?? new Date(),
-      closesAt: form.closesAt?.toISOString() ?? null,
-      previewQuestion: form.previewQuestion,
-      rewardDistributed: form.rewardDistributed ?? false,
-    }));
+    return forms.map((form) => {
+      const responseCount = countMap.get(String(form._id)) ?? 0;
+
+      return {
+        id: String(form._id),
+        title: form.title,
+        status:
+          responseCount >= form.maxResponses
+            ? ('closed' as const)
+            : this.deriveStatus(form.closesAt, form.status),
+        organization: form.organization,
+        rewardPool: form.rewardPool,
+        maxResponses: form.maxResponses,
+        responseCount,
+        rewardType: form.rewardType,
+        createdAt: form.createdAt ?? new Date(),
+        closesAt: form.closesAt?.toISOString() ?? null,
+        previewQuestion: form.previewQuestion,
+        rewardDistributed: form.rewardDistributed ?? false,
+      };
+    });
   }
 
   async getFormById(formId: string): Promise<FormDetail> {
@@ -279,7 +295,10 @@ export class FormsService {
       id: String(form._id),
       title: form.title,
       creator: form.creator,
-      status: this.deriveStatus(form.closesAt, form.status),
+      status:
+        responseCount >= form.maxResponses
+          ? ('closed' as const)
+          : this.deriveStatus(form.closesAt, form.status),
       organization: form.organization,
       rewardPool: form.rewardPool,
       maxResponses: form.maxResponses,
@@ -383,10 +402,11 @@ export class FormsService {
     callerWallet: string,
     blockhash: string,
   ): Promise<{
-    tx: string;
-    participantWallets: string[];
-    amounts: number[];
+    txs: string[];
+    participantWallets: string[][];
+    amounts: number[][];
     badgeTiers: Record<string, string>;
+    recovered?: boolean;
   }> {
     const form = await this.formModel.findById(formId).lean().exec();
 

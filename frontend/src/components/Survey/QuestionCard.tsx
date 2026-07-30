@@ -53,11 +53,14 @@ export function QuestionCard({
       {question.type === "number" && (
         <div className="pl-7">
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
             placeholder={question.placeholder || "0"}
             value={typeof answer === "string" ? answer : ""}
-            onChange={(e) => onChange(question.id, e.target.value)}
-            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            onChange={(e) =>
+              onChange(question.id, e.target.value.replace(/[^0-9]/g, ""))
+            }
+            className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text placeholder:text-ok-muted/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
           />
         </div>
       )}
@@ -142,9 +145,10 @@ export function QuestionCard({
                   <span
                     className={cn(
                       "font-mono text-[11px]",
-                      countWords(typeof answer === "string" ? answer : "") < question.minWords
+                      countWords(typeof answer === "string" ? answer : "") <
+                        question.minWords
                         ? "text-ok-danger/70"
-                        : "text-ok-green/70"
+                        : "text-ok-green/70",
                     )}
                   >
                     min {question.minWords}
@@ -157,9 +161,10 @@ export function QuestionCard({
                   <span
                     className={cn(
                       "font-mono text-[11px]",
-                      countWords(typeof answer === "string" ? answer : "") > question.maxWords
+                      countWords(typeof answer === "string" ? answer : "") >
+                        question.maxWords
                         ? "text-ok-danger/70"
-                        : "text-ok-muted/50"
+                        : "text-ok-muted/50",
                     )}
                   >
                     max {question.maxWords}
@@ -170,18 +175,22 @@ export function QuestionCard({
                 className={cn(
                   "font-mono text-[11px] tabular-nums",
                   (() => {
-                    const words = countWords(typeof answer === "string" ? answer : "");
+                    const words = countWords(
+                      typeof answer === "string" ? answer : "",
+                    );
                     const min = question.minWords ?? 0;
                     const max = question.maxWords ?? Infinity;
                     if (words < min) return "text-ok-danger/70";
                     if (words > max) return "text-ok-danger/70";
                     if (min > 0 && words >= min) return "text-ok-green/70";
                     return "text-ok-muted/50";
-                  })()
+                  })(),
                 )}
               >
                 {countWords(typeof answer === "string" ? answer : "")}{" "}
-                {countWords(typeof answer === "string" ? answer : "") === 1 ? "word" : "words"}
+                {countWords(typeof answer === "string" ? answer : "") === 1
+                  ? "word"
+                  : "words"}
               </span>
             </div>
           )}
@@ -202,7 +211,7 @@ export function QuestionCard({
                   "flex w-full items-center gap-3 rounded-[var(--radius-ok)] border px-4 py-3 text-left text-sm transition-all",
                   selected
                     ? "border-l-[3px] border-l-ok-green border-ok-green/30 bg-ok-green/5 text-ok-text"
-                    : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text"
+                    : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text",
                 )}
               >
                 <span
@@ -210,7 +219,7 @@ export function QuestionCard({
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
                     selected
                       ? "border-ok-green bg-ok-green"
-                      : "border-ok-muted/30"
+                      : "border-ok-muted/30",
                   )}
                 >
                   {selected && (
@@ -232,7 +241,9 @@ export function QuestionCard({
             onChange={(e) => onChange(question.id, e.target.value)}
             className="w-full rounded-[var(--radius-ok)] border border-ok-border bg-ok-bg px-4 py-3 text-sm text-ok-text focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
           >
-            <option value="" disabled>Select an option</option>
+            <option value="" disabled>
+              Select an option
+            </option>
             {question.options.map((opt) => (
               <option key={opt.id} value={opt.label}>
                 {opt.label}
@@ -246,7 +257,8 @@ export function QuestionCard({
       {question.type === "checkbox" && question.options && (
         <div className="space-y-2 pl-7">
           {question.options.map((opt) => {
-            const selected = Array.isArray(answer) && answer.includes(opt.label);
+            const selected =
+              Array.isArray(answer) && answer.includes(opt.label);
             return (
               <button
                 key={opt.id}
@@ -262,7 +274,7 @@ export function QuestionCard({
                   "flex w-full items-center gap-3 rounded-[var(--radius-ok)] border px-4 py-3 text-left text-sm transition-all",
                   selected
                     ? "border-l-[3px] border-l-ok-green border-ok-green/30 bg-ok-green/5 text-ok-text"
-                    : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text"
+                    : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text",
                 )}
               >
                 <span
@@ -270,7 +282,7 @@ export function QuestionCard({
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px]",
                     selected
                       ? "border-ok-green bg-ok-green"
-                      : "border-ok-muted/30"
+                      : "border-ok-muted/30",
                   )}
                 >
                   {selected && (
@@ -303,7 +315,9 @@ export function QuestionCard({
           {Array.isArray(answer) && answer.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {answer.map((selectedLabel) => {
-                const opt = question.options!.find((o) => o.label === selectedLabel);
+                const opt = question.options!.find(
+                  (o) => o.label === selectedLabel,
+                );
                 if (!opt) return null;
                 return (
                   <span
@@ -315,7 +329,10 @@ export function QuestionCard({
                       type="button"
                       onClick={() => {
                         const current = Array.isArray(answer) ? answer : [];
-                        onChange(question.id, current.filter((v) => v !== selectedLabel));
+                        onChange(
+                          question.id,
+                          current.filter((v) => v !== selectedLabel),
+                        );
                       }}
                       className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-ok-green/20"
                     >
@@ -330,7 +347,8 @@ export function QuestionCard({
           {/* Available options */}
           <div className="flex flex-wrap gap-2">
             {question.options.map((opt) => {
-              const selected = Array.isArray(answer) && answer.includes(opt.label);
+              const selected =
+                Array.isArray(answer) && answer.includes(opt.label);
               return (
                 <button
                   key={opt.id}
@@ -346,7 +364,7 @@ export function QuestionCard({
                     "rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
                     selected
                       ? "border-ok-green/30 bg-ok-green/10 text-ok-green"
-                      : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text"
+                      : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text",
                   )}
                 >
                   {opt.label}
@@ -360,29 +378,31 @@ export function QuestionCard({
       {/* Rating (star) */}
       {question.type === "rating" && (
         <div className="flex items-center gap-2 pl-7">
-          {Array.from({ length: question.ratingMax || 5 }, (_, i) => i + 1).map((num) => {
-            const isSelected = answer === String(num);
-            return (
-              <button
-                key={num}
-                type="button"
-                onClick={() => onChange(question.id, String(num))}
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok)] border transition-all duration-150",
-                  isSelected
-                    ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
-                    : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text"
-                )}
-              >
-                <Star
+          {Array.from({ length: question.ratingMax || 5 }, (_, i) => i + 1).map(
+            (num) => {
+              const isSelected = answer === String(num);
+              return (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => onChange(question.id, String(num))}
                   className={cn(
-                    "h-4 w-4",
-                    isSelected && "fill-ok-green text-ok-green"
+                    "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok)] border transition-all duration-150",
+                    isSelected
+                      ? "border-ok-green/40 bg-ok-green/10 text-ok-green"
+                      : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text",
                   )}
-                />
-              </button>
-            );
-          })}
+                >
+                  <Star
+                    className={cn(
+                      "h-4 w-4",
+                      isSelected && "fill-ok-green text-ok-green",
+                    )}
+                  />
+                </button>
+              );
+            },
+          )}
           {typeof answer === "string" && answer && (
             <span className="ml-1 font-mono text-xs text-ok-muted">
               {answer}/{question.ratingMax || 5}
@@ -395,7 +415,10 @@ export function QuestionCard({
       {question.type === "linear_scale" && (
         <div className="pl-7 mt-1 w-fit">
           <div className="flex items-center gap-3">
-            {Array.from({ length: question.ratingMax || 5 }, (_, i) => i + 1).map((num) => {
+            {Array.from(
+              { length: question.ratingMax || 5 },
+              (_, i) => i + 1,
+            ).map((num) => {
               const isSelected = answer === String(num);
               return (
                 <button
@@ -406,7 +429,7 @@ export function QuestionCard({
                     "flex h-10 w-10 items-center justify-center rounded-[var(--radius-ok)] border text-sm font-medium transition-all duration-150",
                     isSelected
                       ? "border-ok-green/40 bg-ok-green/10 text-ok-green shadow-[0_0_12px_rgba(20,241,149,0.2)]"
-                      : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text"
+                      : "border-ok-border bg-ok-bg text-ok-muted hover:border-ok-green/20 hover:text-ok-text",
                   )}
                 >
                   {num}
@@ -415,8 +438,12 @@ export function QuestionCard({
             })}
           </div>
           <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-ok-dim/60">{question.lowLabel || "Disagree"}</span>
-            <span className="text-[10px] text-ok-dim/60">{question.highLabel || "Agree"}</span>
+            <span className="text-[10px] text-ok-dim/60">
+              {question.lowLabel || "Disagree"}
+            </span>
+            <span className="text-[10px] text-ok-dim/60">
+              {question.highLabel || "Agree"}
+            </span>
           </div>
         </div>
       )}

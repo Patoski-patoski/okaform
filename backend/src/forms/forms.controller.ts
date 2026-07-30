@@ -87,7 +87,13 @@ export class FormsController {
     @Param('id') id: string,
     @CurrentUser() user: UserProfile,
     @Body(new TypeBoxValidationPipe(BuildCloseTxSchema)) dto: BuildCloseTxDto,
-  ): Promise<{ tx: string; participantWallets: string[]; amounts: number[] }> {
+  ): Promise<{
+    txs: string[];
+    participantWallets: string[][];
+    amounts: number[][];
+    badgeTiers: Record<string, string>;
+    recovered?: boolean;
+  }> {
     return await this.formsService.buildDistributeTx(
       id,
       user.wallet,

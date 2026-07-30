@@ -19,7 +19,7 @@ export interface CreateFormPayload {
   }[];
   rewardPool: number;
   maxResponses: number;
-  rewardType: "weighted" | "lottery";
+  rewardType: "weighted" | "lucky_draw";
   numWinners?: number;
   minWalletAge?: number;
   minSolBalance?: number;
@@ -114,7 +114,7 @@ export async function createForm(
 export async function buildInitTx(payload: {
   surveyId: string;
   rewardPoolSol: number;
-  rewardType: "weighted" | "lottery";
+  rewardType: "weighted" | "lucky_draw";
   maxResponses: number;
   creator: string;
   blockhash: string;
@@ -153,10 +153,14 @@ export async function confirmClose(formId: string): Promise<void> {
 }
 
 export interface BuildDistributeTxResult {
-  tx: string;
-  participantWallets: string[];
-  amounts: number[];
+  /** One base64-serialised Solana transaction per batch of recipients. */
+  txs: string[];
+  /** Recipient wallet addresses for each batch (parallel to txs). */
+  participantWallets: string[][];
+  /** Lamport amounts for each batch (parallel to txs). */
+  amounts: number[][];
   badgeTiers: Record<string, string>;
+  recovered?: boolean;
 }
 
 export async function buildDistributeTx(
