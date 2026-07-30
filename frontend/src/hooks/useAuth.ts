@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { UserProfile } from "@/lib/auth";
 
 export interface AuthContextValue {
   user: UserProfile | null;
@@ -7,13 +8,6 @@ export interface AuthContextValue {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<UserProfile>) => void;
-}
-
-export interface UserProfile {
-  id: string;
-  wallet: string;
-  username?: string;
-  globalScore?: number;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
