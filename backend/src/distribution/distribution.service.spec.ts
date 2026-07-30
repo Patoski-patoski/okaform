@@ -123,6 +123,39 @@ describe('DistributionService', () => {
     });
   });
 
+  describe('onApplicationInit', () => {
+    it('should drop stale txSignature_1 index if it exists', async () => {
+      recordModel.collection.indexes.mockResolvedValue([
+        { name: 'txSignature_1' },
+        { name: '_id_' },
+      ]);
+
+      await service.onApplicationInit();
+
+      expect(recordModel.collection.dropIndex).toHaveBeenCalledWith(
+        'txSignature_1',
+      );
+      expect(recordModel.syncIndexes).toHaveBeenCalled();
+    });
+
+    it('should not attempt to drop txSignature_1 if it does not exist', async () => {
+      recordModel.collection.indexes.mockResolvedValue([{ name: '_id_' }]);
+
+      await service.onApplicationInit();
+
+      expect(recordModel.collection.dropIndex).not.toHaveBeenCalled();
+      expect(recordModel.syncIndexes).toHaveBeenCalled();
+    });
+
+    it('should not throw if index operations fail', async () => {
+      recordModel.collection.indexes.mockRejectedValue(
+        new Error('Index fetch failed'),
+      );
+
+      await expect(service.onApplicationInit()).resolves.toBeUndefined();
+    });
+  });
+
   describe('getDistributionByForm', () => {
     it('should return records sorted by distributedAt descending', async () => {
       const mockFind = {

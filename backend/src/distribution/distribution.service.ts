@@ -121,8 +121,6 @@ export class DistributionService implements OnApplicationInit {
 
   async onApplicationInit(): Promise<void> {
     try {
-      await this.recordModel.syncIndexes();
-
       const indexes = await this.recordModel.collection.indexes();
       const staleIndex = indexes.find((idx) => idx.name === 'txSignature_1');
       if (staleIndex) {
@@ -130,6 +128,7 @@ export class DistributionService implements OnApplicationInit {
         this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
       }
 
+      await this.recordModel.syncIndexes();
       this.logger.log({ event: 'DISTRIBUTION_INDEXES_SYNCED' });
     } catch (error) {
       this.logger.warn({

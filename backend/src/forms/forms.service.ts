@@ -172,6 +172,12 @@ export class FormsService {
     if (!closesAtStr) return;
 
     const closesAt = new Date(closesAtStr);
+    if (isNaN(closesAt.getTime())) {
+      throw new InvalidExpirationException(
+        'Survey expiration date is not a valid date.',
+      );
+    }
+
     const now = new Date();
     const oneDayInMs = 24 * 60 * 60 * 1000;
     const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
