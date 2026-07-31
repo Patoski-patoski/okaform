@@ -70,7 +70,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string }> {
     const cookies = req.cookies as
-      Record<string, string | undefined> | undefined;
+      | Record<string, string | undefined>
+      | undefined;
 
     const token = cookies?.refreshToken;
     if (!token) {
@@ -88,7 +89,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
     const cookies = req.cookies as
-      Record<string, string | undefined> | undefined;
+      | Record<string, string | undefined>
+      | undefined;
 
     const token = cookies?.refreshToken;
     if (token) {
