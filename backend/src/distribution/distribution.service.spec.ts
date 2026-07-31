@@ -123,14 +123,14 @@ describe('DistributionService', () => {
     });
   });
 
-  describe('onApplicationInit', () => {
+  describe('onModuleInit', () => {
     it('should drop stale txSignature_1 index if it exists', async () => {
       recordModel.collection.indexes.mockResolvedValue([
         { name: 'txSignature_1' },
         { name: '_id_' },
       ]);
 
-      await service.onApplicationInit();
+      await service.onModuleInit();
 
       expect(recordModel.collection.dropIndex).toHaveBeenCalledWith(
         'txSignature_1',
@@ -141,7 +141,7 @@ describe('DistributionService', () => {
     it('should not attempt to drop txSignature_1 if it does not exist', async () => {
       recordModel.collection.indexes.mockResolvedValue([{ name: '_id_' }]);
 
-      await service.onApplicationInit();
+      await service.onModuleInit();
 
       expect(recordModel.collection.dropIndex).not.toHaveBeenCalled();
       expect(recordModel.syncIndexes).toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe('DistributionService', () => {
         new Error('Index fetch failed'),
       );
 
-      await expect(service.onApplicationInit()).resolves.toBeUndefined();
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
     });
   });
 
