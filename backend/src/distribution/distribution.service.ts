@@ -120,21 +120,35 @@ export class DistributionService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    let hasStaleIndex = false;
     try {
-      const indexes = (await this.recordModel.collection.indexes()) as Array<{
-        name: string;
-      }>;
-      const staleIndex = indexes.find((idx) => idx.name === 'txSignature_1');
-      if (staleIndex) {
+      const indexes = await this.recordModel.collection.indexes();
+      hasStaleIndex = indexes.some((idx) => idx.name === 'txSignature_1');
+    } catch (error) {
+      this.logger.warn({
+        event: 'ON_INIT_INDEX_FETCH_FAILED',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (hasStaleIndex) {
+      try {
         await this.recordModel.collection.dropIndex('txSignature_1');
         this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
+      } catch (error) {
+        this.logger.warn({
+          event: 'ON_INIT_INDEX_DROP_FAILED',
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
+    }
 
+    try {
       await this.recordModel.syncIndexes();
       this.logger.log({ event: 'DISTRIBUTION_INDEXES_SYNCED' });
     } catch (error) {
       this.logger.warn({
-        event: 'ON_INIT_INDEX_FAILED',
+        event: 'ON_INIT_INDEX_SYNC_FAILED',
         error: error instanceof Error ? error.message : String(error),
       });
     }
