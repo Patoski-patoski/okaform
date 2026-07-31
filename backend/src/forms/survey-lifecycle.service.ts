@@ -130,38 +130,17 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault PDA not found for this form');
       }
 
-      const escrowBalance = await this.solanaService.getEscrowBalance(
-        form.onChain.escrowVault,
-      );
-
-      let rewardPoolLamports: number;
-      if (escrowBalance === 0n) {
-        const initTxVerified = form.onChain?.txSignature
-          ? await this.solanaService
-              .verifyInitializeSurveyTx(form.onChain.txSignature)
-              .then(() => true)
-              .catch(() => false)
-          : false;
-
-        if (!initTxVerified) {
-          throw new Error('Escrow vault has no balance to distribute');
-        }
-
-        this.logger.log({
-          event: 'DISTRIBUTE_RECOVERY',
+      const { rewardPoolLamports, recovered: recoveredFlag } =
+        await this.resolveDistributableLamports(
           formId,
-          reason:
-            'Escrow is empty but init tx succeeded — previous on-chain distribute already completed',
-        });
-
-        rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
-        recovered = true;
-      } else {
-        rewardPoolLamports = Number(escrowBalance);
-      }
+          form.onChain.escrowVault,
+          form.rewardPool,
+          form.onChain?.txSignature,
+        );
+      recovered = recoveredFlag;
 
       const numWinners = Math.min(form.numWinners, participantWallets.length);
-      const perWinner = Math.floor(rewardPoolLamports / numWinners);
+      const perWinner = Math.floor(Number(rewardPoolLamports) / numWinners);
 
       const winners = this.shuffleWalletsForLuckyDraw(
         participantWallets,
@@ -172,7 +151,7 @@ export class SurveyLifecycleService {
       amounts = winners.map(() => perWinner);
 
       const totalDistributed = amounts.reduce((s, a) => s + a, 0);
-      const leftover = rewardPoolLamports - totalDistributed;
+      const leftover = Number(rewardPoolLamports) - totalDistributed;
       if (leftover > 0) {
         participantWallets.push(form.creator);
         amounts.push(leftover);
@@ -190,35 +169,14 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault PDA not found for this form');
       }
 
-      const escrowBalance = await this.solanaService.getEscrowBalance(
-        form.onChain.escrowVault,
-      );
-
-      let effectiveBalance: bigint;
-      if (escrowBalance === 0n) {
-        const initTxVerified = form.onChain?.txSignature
-          ? await this.solanaService
-              .verifyInitializeSurveyTx(form.onChain.txSignature)
-              .then(() => true)
-              .catch(() => false)
-          : false;
-
-        if (!initTxVerified) {
-          throw new Error('Escrow vault has no balance to distribute');
-        }
-
-        this.logger.log({
-          event: 'DISTRIBUTE_RECOVERY',
+      const { rewardPoolLamports: effectiveBalance, recovered: recoveredFlag } =
+        await this.resolveDistributableLamports(
           formId,
-          reason:
-            'Escrow is empty but init tx succeeded — previous on-chain distribute already completed',
-        });
-
-        effectiveBalance = BigInt(form.rewardPool * LAMPORTS_PER_SOL);
-        recovered = true;
-      } else {
-        effectiveBalance = escrowBalance;
-      }
+          form.onChain.escrowVault,
+          form.rewardPool,
+          form.onChain?.txSignature,
+        );
+      recovered = recoveredFlag;
 
       badgeTiers = await Promise.all(
         participantWallets.map(async (wallet) => {
@@ -720,6 +678,54 @@ export class SurveyLifecycleService {
       formId,
       txSignature,
     });
+  }
+
+  /**
+   * Resolve the distributable lamports for a survey.
+   * If the escrow is empty (already swept on-chain), fall back to the declared
+   * reward pool after verifying the init tx. Otherwise cap at the declared
+   * reward pool so the rent-exemption buffer stays in escrow for close_escrow.
+   */
+  private async resolveDistributableLamports(
+    formId: string,
+    escrowVault: string,
+    rewardPool: number,
+    txSignature?: string,
+  ): Promise<{ rewardPoolLamports: bigint; recovered: boolean }> {
+    const escrowBalance =
+      await this.solanaService.getEscrowBalance(escrowVault);
+
+    if (escrowBalance === 0n) {
+      const initTxVerified = txSignature
+        ? await this.solanaService
+            .verifyInitializeSurveyTx(txSignature)
+            .then(() => true)
+            .catch(() => false)
+        : false;
+
+      if (!initTxVerified) {
+        throw new Error('Escrow vault has no balance to distribute');
+      }
+
+      this.logger.log({
+        event: 'DISTRIBUTE_RECOVERY',
+        formId,
+        reason:
+          'Escrow is empty but init tx succeeded — previous on-chain distribute already completed',
+      });
+
+      return {
+        rewardPoolLamports: BigInt(Math.round(rewardPool * LAMPORTS_PER_SOL)),
+        recovered: true,
+      };
+    }
+
+    const declaredPool = BigInt(Math.round(rewardPool * LAMPORTS_PER_SOL));
+    return {
+      rewardPoolLamports:
+        escrowBalance > declaredPool ? declaredPool : escrowBalance,
+      recovered: false,
+    };
   }
 
   private shuffleWalletsForLuckyDraw<T>(wallets: T[], count: number): T[] {
