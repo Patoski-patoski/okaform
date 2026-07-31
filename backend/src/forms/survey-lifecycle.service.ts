@@ -157,7 +157,11 @@ export class SurveyLifecycleService {
         rewardPoolLamports = form.rewardPool * LAMPORTS_PER_SOL;
         recovered = true;
       } else {
-        rewardPoolLamports = Number(escrowBalance);
+        const declaredPool = form.rewardPool * LAMPORTS_PER_SOL;
+        rewardPoolLamports =
+          Number(escrowBalance) > declaredPool
+            ? declaredPool
+            : Number(escrowBalance);
       }
 
       const numWinners = Math.min(form.numWinners, participantWallets.length);
@@ -217,7 +221,9 @@ export class SurveyLifecycleService {
         effectiveBalance = BigInt(form.rewardPool * LAMPORTS_PER_SOL);
         recovered = true;
       } else {
-        effectiveBalance = escrowBalance;
+        const declaredPool = BigInt(form.rewardPool * LAMPORTS_PER_SOL);
+        effectiveBalance =
+          escrowBalance > declaredPool ? declaredPool : escrowBalance;
       }
 
       badgeTiers = await Promise.all(

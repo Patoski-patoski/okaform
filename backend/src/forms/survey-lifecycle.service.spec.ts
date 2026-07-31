@@ -265,6 +265,69 @@ describe('SurveyLifecycleService', () => {
         service.buildDistributeTx('nonexistent', creator, blockhash),
       ).rejects.toThrow('Form not found');
     });
+
+    it('should cap weighted distribution at the declared reward pool when escrow holds a rent buffer', async () => {
+      const rentBufferLamports = 890_880;
+      solanaService.getEscrowBalance.mockResolvedValue(
+        BigInt(10 * LAMPORTS_PER_SOL + rentBufferLamports),
+      );
+
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'weighted',
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc', escrowVault: 'escrow123' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(5)),
+      });
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      const amts = result.amounts[0];
+      const totalDistributed = amts.reduce((s, a) => s + a, 0);
+      expect(totalDistributed).toBe(10 * LAMPORTS_PER_SOL);
+      expect(totalDistributed).toBeLessThan(
+        10 * LAMPORTS_PER_SOL + rentBufferLamports,
+      );
+    });
+
+    it('should cap lucky-draw distribution at the declared reward pool when escrow holds a rent buffer', async () => {
+      const rentBufferLamports = 890_880;
+      solanaService.getEscrowBalance.mockResolvedValue(
+        BigInt(10 * LAMPORTS_PER_SOL + rentBufferLamports),
+      );
+
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'closed',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lucky_draw',
+          numWinners: 3,
+          closesAt: new Date('2020-01-01'),
+          onChain: { surveyId: 'survey_abc', escrowVault: 'escrow123' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(10)),
+      });
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      const amts = result.amounts[0];
+      const totalDistributed = amts.reduce((s, a) => s + a, 0);
+      expect(totalDistributed).toBe(10 * LAMPORTS_PER_SOL);
+      expect(totalDistributed).toBeLessThan(
+        10 * LAMPORTS_PER_SOL + rentBufferLamports,
+      );
+    });
   });
 
   describe('buildCloseEscrowTx', () => {
