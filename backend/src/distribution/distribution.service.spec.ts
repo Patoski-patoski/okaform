@@ -154,6 +154,28 @@ describe('DistributionService', () => {
 
       await expect(service.onModuleInit()).resolves.toBeUndefined();
     });
+
+    it('should still sync indexes if dropping the stale index fails', async () => {
+      recordModel.collection.indexes.mockResolvedValue([
+        { name: 'txSignature_1' },
+      ]);
+      recordModel.collection.dropIndex.mockRejectedValue(
+        new Error('Index drop failed'),
+      );
+
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+
+      expect(recordModel.collection.dropIndex).toHaveBeenCalledWith(
+        'txSignature_1',
+      );
+      expect(recordModel.syncIndexes).toHaveBeenCalled();
+    });
+
+    it('should not throw if syncIndexes fails', async () => {
+      recordModel.syncIndexes.mockRejectedValue(new Error('Index sync failed'));
+
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+    });
   });
 
   describe('getDistributionByForm', () => {
