@@ -50,6 +50,8 @@ import {
   confirmClose,
   buildDistributeTx,
   confirmDistribute,
+  buildCloseEscrowTx,
+  confirmCloseEscrow,
 } from "@/lib/forms";
 import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
 
@@ -1227,7 +1229,37 @@ export default function Dashboard() {
         }
       }
 
-      // All batches confirmed — update local state and trigger DistributionTab refresh.
+      // All batches confirmed — sweep the escrow rent buffer back to the creator
+      // and close the escrow PDA so it gets reaped on-chain.
+      try {
+        const { blockhash: escrowBlockhash } =
+          await connection.getLatestBlockhash();
+
+        const { tx: escrowTxBase64 } = await buildCloseEscrowTx(
+          surveyId,
+          escrowBlockhash,
+        );
+
+        const escrowTx = Transaction.from(
+          Uint8Array.from(atob(escrowTxBase64), (c) => c.charCodeAt(0)),
+        );
+
+        escrowTx.feePayer = publicKey;
+        escrowTx.recentBlockhash = escrowBlockhash;
+
+        const signedEscrowTx = await signTransaction(escrowTx);
+        const escrowTxSignature = await connection.sendRawTransaction(
+          signedEscrowTx.serialize(),
+        );
+        await connection.confirmTransaction(escrowTxSignature, "confirmed");
+
+        await confirmCloseEscrow(surveyId, escrowTxSignature);
+      } catch (escrowErr) {
+        // Distribution succeeded — escrow close is non-critical cleanup.
+        console.error("Failed to close escrow:", escrowErr);
+      }
+
+      // Update local state and trigger DistributionTab refresh.
       setSurveys((prev) =>
         prev.map((s) =>
           s.id === surveyId ? { ...s, rewardDistributed: true } : s,

@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-okaform_program = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"
+okaform = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"
 
 [programs.devnet]
-okaform_program = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"
+okaform = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V"
 
 [registry]
 url = "https://api.apr.dev"

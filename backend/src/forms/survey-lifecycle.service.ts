@@ -612,6 +612,116 @@ export class SurveyLifecycleService {
     this.logger.log({ event: 'CONFIRM_CLOSE_SUCCESS', formId });
   }
 
+  /**
+   * Build an unsigned closeEscrow transaction for the creator to sign.
+   * Sweeps the remaining escrow balance (rent-exemption buffer) back to the
+   * creator after rewards have been distributed, so the escrow PDA can be reaped.
+   */
+  async buildCloseEscrowTx(
+    formId: string,
+    callerWallet: string,
+    blockhash: string,
+  ): Promise<{ tx: string }> {
+    const form = await this.formModel.findById(formId).exec();
+
+    if (!form) {
+      this.logger.warn({
+        event: 'BUILD_CLOSE_ESCROW_FORM_NOT_FOUND',
+        formId,
+      });
+      throw new Error('Form not found');
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'BUILD_CLOSE_ESCROW_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new Error('Only the form creator can close the escrow');
+    }
+
+    if (!form.rewardDistributed) {
+      this.logger.warn({
+        event: 'BUILD_CLOSE_ESCROW_SKIP',
+        formId,
+        reason: 'rewards not distributed yet',
+      });
+      throw new Error(
+        'Rewards must be distributed before the escrow can be closed',
+      );
+    }
+
+    if (form.escrowClosed) {
+      this.logger.warn({
+        event: 'BUILD_CLOSE_ESCROW_ALREADY_CLOSED',
+        formId,
+      });
+      throw new Error('Escrow has already been closed for this survey');
+    }
+
+    this.logger.log({
+      event: 'BUILD_CLOSE_ESCROW_TX',
+      formId,
+      creator: form.creator.slice(0, 8) + '...',
+    });
+
+    const surveyId = form.onChain?.surveyId ?? formId;
+    return this.solanaService.buildCloseEscrowTx(
+      callerWallet,
+      surveyId,
+      blockhash,
+    );
+  }
+
+  /**
+   * Confirm the escrow has been closed after the on-chain transaction has been
+   * sent. Verifies the transaction on-chain and marks the escrow as closed.
+   */
+  async confirmCloseEscrow(
+    formId: string,
+    callerWallet: string,
+    txSignature: string,
+  ): Promise<void> {
+    const form = await this.formModel.findById(formId).exec();
+
+    if (!form) {
+      this.logger.warn({
+        event: 'CONFIRM_CLOSE_ESCROW_FORM_NOT_FOUND',
+        formId,
+      });
+      throw new Error('Form not found');
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'CONFIRM_CLOSE_ESCROW_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new Error('Only the form creator can close the escrow');
+    }
+
+    if (form.escrowClosed) {
+      this.logger.warn({
+        event: 'CONFIRM_CLOSE_ESCROW_ALREADY_CLOSED',
+        formId,
+      });
+      throw new Error('Escrow has already been closed for this survey');
+    }
+
+    await this.solanaService.verifyCloseEscrowTx(txSignature);
+
+    form.escrowClosed = true;
+    await form.save();
+
+    this.logger.log({
+      event: 'CONFIRM_CLOSE_ESCROW_SUCCESS',
+      formId,
+      txSignature,
+    });
+  }
+
   private shuffleWalletsForLuckyDraw<T>(wallets: T[], count: number): T[] {
     const shuffled = [...wallets];
     for (let i = shuffled.length - 1; i > 0; i--) {

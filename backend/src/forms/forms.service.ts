@@ -519,4 +519,69 @@ export class FormsService {
       isLastBatch,
     );
   }
+
+  /**
+   * Build an unsigned closeEscrow transaction for the frontend to sign.
+   * Only the form creator can call this, and only after rewards are distributed.
+   */
+  async buildCloseEscrowTx(
+    formId: string,
+    callerWallet: string,
+    blockhash: string,
+  ): Promise<{ tx: string }> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'BUILD_CLOSE_ESCROW_TX_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can close the escrow.',
+      );
+    }
+
+    return this.surveyLifecycleService.buildCloseEscrowTx(
+      formId,
+      callerWallet,
+      blockhash,
+    );
+  }
+
+  /**
+   * Confirm the escrow has been closed after the on-chain transaction has been sent.
+   */
+  async confirmCloseEscrow(
+    formId: string,
+    callerWallet: string,
+    txSignature: string,
+  ): Promise<void> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'CONFIRM_CLOSE_ESCROW_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can close the escrow.',
+      );
+    }
+
+    await this.surveyLifecycleService.confirmCloseEscrow(
+      formId,
+      callerWallet,
+      txSignature,
+    );
+  }
 }

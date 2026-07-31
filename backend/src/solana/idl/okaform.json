@@ -8,6 +8,68 @@
   },
   "instructions": [
     {
+      "name": "close_escrow",
+      "discriminator": [139, 171, 94, 146, 191, 91, 144, 50],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "survey.creator",
+                "account": "SurveyAccount"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "beneficiary",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
       "name": "close_survey",
       "discriminator": [116, 246, 232, 201, 239, 102, 75, 153],
       "accounts": [
@@ -381,6 +443,11 @@
       "code": 6009,
       "name": "CreatorCannotBeRespondent",
       "msg": "Survey creator cannot be a respondent on their own survey"
+    },
+    {
+      "code": 6010,
+      "name": "EscrowAlreadyClosed",
+      "msg": "Escrow has already been closed"
     }
   ],
   "types": [

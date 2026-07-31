@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -111,7 +111,7 @@ export function calculateWeightedAmounts(
 }
 
 @Injectable()
-export class DistributionService implements OnApplicationInit {
+export class DistributionService implements OnModuleInit {
   private readonly logger = new Logger(DistributionService.name);
 
   constructor(
@@ -119,48 +119,22 @@ export class DistributionService implements OnApplicationInit {
     private recordModel: Model<DistributionRecordDocument>,
   ) {}
 
-  async onApplicationInit(): Promise<void> {
+  async onModuleInit(): Promise<void> {
     try {
-      let indexes: Array<{ name: string }>;
-      try {
-        indexes = await this.recordModel.collection.indexes();
-      } catch (err) {
-        this.logger.warn({
-          event: 'INDEX_FETCH_FAILED',
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return;
-      }
-
+      const indexes = (await this.recordModel.collection.indexes()) as Array<{
+        name: string;
+      }>;
       const staleIndex = indexes.find((idx) => idx.name === 'txSignature_1');
       if (staleIndex) {
-        try {
-          await this.recordModel.collection.dropIndex('txSignature_1');
-          this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
-        } catch (err) {
-          this.logger.warn({
-            event: 'INDEX_DROP_FAILED',
-            indexName: 'txSignature_1',
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+        await this.recordModel.collection.dropIndex('txSignature_1');
+        this.logger.log({ event: 'DROPPED_STALE_TX_SIGNATURE_INDEX' });
       }
 
-      try {
-        await this.recordModel.syncIndexes();
-      } catch (err) {
-        this.logger.warn({
-          event: 'INDEX_SYNC_FAILED',
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return;
-      }
-
+      await this.recordModel.syncIndexes();
       this.logger.log({ event: 'DISTRIBUTION_INDEXES_SYNCED' });
     } catch (error) {
       this.logger.warn({
         event: 'ON_INIT_INDEX_FAILED',
-        operation: 'onApplicationInit',
         error: error instanceof Error ? error.message : String(error),
       });
     }

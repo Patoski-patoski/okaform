@@ -194,6 +194,26 @@ export async function confirmDistribute(
   });
 }
 
+export async function buildCloseEscrowTx(
+  formId: string,
+  blockhash: string,
+): Promise<{ tx: string }> {
+  return api<{ tx: string }>(`/forms/${formId}/build-close-escrow-tx`, {
+    method: "POST",
+    body: JSON.stringify({ blockhash }),
+  });
+}
+
+export async function confirmCloseEscrow(
+  formId: string,
+  txSignature: string,
+): Promise<void> {
+  return api<void>(`/forms/${formId}/confirm-close-escrow`, {
+    method: "POST",
+    body: JSON.stringify({ txSignature }),
+  });
+}
+
 export interface SubmitResponsePayload {
   answers: Record<string, unknown>[];
   respondentWallet: string;

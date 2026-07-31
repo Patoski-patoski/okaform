@@ -22,4 +22,6 @@ pub enum OkaformError {
     InvalidRewardType,
     #[msg("Survey creator cannot be a respondent on their own survey")]
     CreatorCannotBeRespondent,
+    #[msg("Escrow has already been closed")]
+    EscrowAlreadyClosed,
 }

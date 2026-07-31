@@ -16,6 +16,8 @@ describe('SurveyLifecycleService', () => {
   let solanaService: {
     buildDistributeRewardsTxBatch: jest.Mock;
     buildDistributeRewardsTx: jest.Mock;
+    buildCloseEscrowTx: jest.Mock;
+    verifyCloseEscrowTx: jest.Mock;
     fetchRespondentBadgeTier: jest.Mock;
     getEscrowBalance: jest.Mock;
   };
@@ -30,6 +32,10 @@ describe('SurveyLifecycleService', () => {
     responseModel = { find: jest.fn() };
     solanaService = {
       buildDistributeRewardsTx: jest.fn(),
+      buildCloseEscrowTx: jest
+        .fn()
+        .mockResolvedValue({ tx: 'escrow-close-tx' }),
+      verifyCloseEscrowTx: jest.fn().mockResolvedValue(undefined),
       buildDistributeRewardsTxBatch: jest
         .fn()
         .mockImplementation(
@@ -258,6 +264,138 @@ describe('SurveyLifecycleService', () => {
       await expect(
         service.buildDistributeTx('nonexistent', creator, blockhash),
       ).rejects.toThrow('Form not found');
+    });
+  });
+
+  describe('buildCloseEscrowTx', () => {
+    const creator = 'CreatorWallet1111111111111111111111111111111111';
+    const blockhash = 'blockhash123';
+
+    it('should build a close escrow tx when rewards are distributed', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: true,
+          escrowClosed: false,
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      const result = await service.buildCloseEscrowTx('f1', creator, blockhash);
+
+      expect(solanaService.buildCloseEscrowTx).toHaveBeenCalledWith(
+        creator,
+        'survey_abc',
+        blockhash,
+      );
+      expect(result).toEqual({ tx: 'escrow-close-tx' });
+    });
+
+    it('should reject when rewards have not been distributed', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: false,
+          escrowClosed: false,
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      await expect(
+        service.buildCloseEscrowTx('f1', creator, blockhash),
+      ).rejects.toThrow('Rewards must be distributed');
+    });
+
+    it('should reject when escrow is already closed', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: true,
+          escrowClosed: true,
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      await expect(
+        service.buildCloseEscrowTx('f1', creator, blockhash),
+      ).rejects.toThrow('Escrow has already been closed');
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: true,
+          escrowClosed: false,
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      await expect(
+        service.buildCloseEscrowTx(
+          'f1',
+          'SomeOther1111111111111111111111111111111111',
+          blockhash,
+        ),
+      ).rejects.toThrow('Only the form creator can close the escrow');
+    });
+  });
+
+  describe('confirmCloseEscrow', () => {
+    const creator = 'CreatorWallet1111111111111111111111111111111111';
+
+    it('should verify the tx and mark escrow closed', async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: true,
+          escrowClosed: false,
+          onChain: { surveyId: 'survey_abc' },
+          save,
+        }),
+      );
+
+      await service.confirmCloseEscrow('f1', creator, 'txsig123');
+
+      expect(solanaService.verifyCloseEscrowTx).toHaveBeenCalledWith(
+        'txsig123',
+      );
+      expect(save).toHaveBeenCalled();
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: true,
+          escrowClosed: false,
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      await expect(
+        service.confirmCloseEscrow(
+          'f1',
+          'SomeOther1111111111111111111111111111111111',
+          'txsig123',
+        ),
+      ).rejects.toThrow('Only the form creator can close the escrow');
+    });
+
+    it('should reject when escrow is already closed', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          creator,
+          rewardDistributed: true,
+          escrowClosed: true,
+          onChain: { surveyId: 'survey_abc' },
+        }),
+      );
+
+      await expect(
+        service.confirmCloseEscrow('f1', creator, 'txsig123'),
+      ).rejects.toThrow('Escrow has already been closed');
     });
   });
 });

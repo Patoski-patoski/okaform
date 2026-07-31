@@ -162,6 +162,9 @@ export class Form {
   @Prop({ default: false })
   rewardDistributed!: boolean;
 
+  @Prop({ default: false })
+  escrowClosed!: boolean;
+
   @Prop({ type: OnChainDataSchema, default: null })
   onChain?: OnChainData;
 }
