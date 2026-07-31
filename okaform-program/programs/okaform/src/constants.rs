@@ -11,5 +11,8 @@ use anchor_lang::prelude::*;
 pub mod authority {
     use super::*;
 
-    declare_id!("FQtMrhPXc6taxXPvMZGjqUDKuDwneBZZX4XdCFFtALWp");
+    pub const ID: Pubkey = Pubkey::new_from_array([
+        214, 34, 12, 77, 222, 61, 202, 75, 38, 138, 21, 105, 187, 153, 157, 216,
+        154, 56, 205, 82, 153, 53, 32, 237, 127, 246, 128, 205, 114, 49, 43, 197,
+    ]);
 }

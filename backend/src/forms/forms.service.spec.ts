@@ -92,6 +92,10 @@ describe('FormsService', () => {
           useValue: {
             buildCloseTx: jest.fn(),
             confirmClose: jest.fn(),
+            buildCloseEscrowTx: jest.fn().mockResolvedValue({
+              tx: 'escrow-close-tx',
+            }),
+            confirmCloseEscrow: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -565,6 +569,93 @@ describe('FormsService', () => {
       const result = await service.getExploreForms();
 
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('buildCloseEscrowTx', () => {
+    it('should delegate to SurveyLifecycleService for the creator', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ creator: 'wallet123' }),
+      });
+      const lifecycle = module.get<SurveyLifecycleService>(
+        SurveyLifecycleService,
+      );
+      const spy = jest
+        .spyOn(lifecycle, 'buildCloseEscrowTx')
+        .mockResolvedValue({ tx: 'escrow-close-tx' });
+
+      const result = await service.buildCloseEscrowTx(
+        'form123',
+        'wallet123',
+        'blockhash123',
+      );
+
+      expect(spy).toHaveBeenCalledWith('form123', 'wallet123', 'blockhash123');
+      expect(result).toEqual({ tx: 'escrow-close-tx' });
+    });
+
+    it('should throw FormNotFoundException when form does not exist', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(
+        service.buildCloseEscrowTx('nope', 'wallet123', 'blockhash123'),
+      ).rejects.toThrow(FormNotFoundException);
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ creator: 'wallet123' }),
+      });
+
+      await expect(
+        service.buildCloseEscrowTx('form123', 'other123', 'blockhash123'),
+      ).rejects.toThrow('Only the form creator can close the escrow.');
+    });
+  });
+
+  describe('confirmCloseEscrow', () => {
+    it('should delegate to SurveyLifecycleService for the creator', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ creator: 'wallet123' }),
+      });
+      const lifecycle = module.get<SurveyLifecycleService>(
+        SurveyLifecycleService,
+      );
+      const spy = jest
+        .spyOn(lifecycle, 'confirmCloseEscrow')
+        .mockResolvedValue(undefined);
+
+      await service.confirmCloseEscrow('form123', 'wallet123', 'txsig123');
+
+      expect(spy).toHaveBeenCalledWith('form123', 'wallet123', 'txsig123');
+    });
+
+    it('should throw FormNotFoundException when form does not exist', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(
+        service.confirmCloseEscrow('nope', 'wallet123', 'txsig123'),
+      ).rejects.toThrow(FormNotFoundException);
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ creator: 'wallet123' }),
+      });
+
+      await expect(
+        service.confirmCloseEscrow('form123', 'other123', 'txsig123'),
+      ).rejects.toThrow('Only the form creator can close the escrow.');
     });
   });
 });

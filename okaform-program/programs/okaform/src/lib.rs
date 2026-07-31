@@ -64,4 +64,11 @@ pub mod okaform {
     ) -> Result<()> {
         process_distribute_rewards(ctx, survey_id, amounts)
     }
+
+    pub fn close_escrow(
+        ctx: Context<CloseEscrow>,
+        survey_id: Vec<u8>,
+    ) -> Result<()> {
+        process_close_escrow(ctx, survey_id)
+    }
 }

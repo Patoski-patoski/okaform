@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { OkaformProgram } from "../target/types/okaform_program";
+import { Okaform } from "../target/types/okaform";
 import { PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { expect } from "chai";
 
@@ -11,7 +11,7 @@ describe("okaform-program", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace
-    .okaformProgram as Program<OkaformProgram>;
+    .okaform as Program<Okaform>;
   const creator = Keypair.generate();
   const respondent = Keypair.generate();
 
@@ -875,6 +875,118 @@ describe("okaform-program", () => {
         expect.fail("Should have thrown NoParticipants error");
       } catch (err: any) {
         expect(err.toString()).to.contain("NoParticipants");
+      }
+    });
+  });
+
+  describe("close_escrow", () => {
+    it("sweeps the remaining rent-exemption balance back to the creator", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 15 * LAMPORTS_PER_SOL);
+
+      const r1 = Keypair.generate();
+      await airdrop(r1.publicKey, 5 * LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("close-escrow-test");
+      const surveyPda = getSurveyPda(creator.publicKey, surveyId);
+      const escrowPda = getEscrowPda(surveyPda);
+      const rewardPool = 5 * LAMPORTS_PER_SOL;
+
+      await program.methods
+        .initializeSurvey(surveyId, new anchor.BN(rewardPool), { weighted: {} }, 10)
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+
+      const escrowBefore = await provider.connection.getBalance(escrowPda);
+      expect(escrowBefore).to.be.greaterThan(rewardPool);
+
+      // Distribute the entire reward pool, leaving only the rent buffer.
+      await program.methods
+        .distributeRewards(surveyId, [new anchor.BN(rewardPool)])
+        .accountsPartial({
+          creator: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .remainingAccounts([
+          { pubkey: r1.publicKey, isSigner: false, isWritable: true },
+        ])
+        .signers([creator])
+        .rpc();
+
+      const escrowRemaining = await provider.connection.getBalance(escrowPda);
+      expect(escrowRemaining).to.be.greaterThan(0);
+
+      const creatorBefore = await provider.connection.getBalance(
+        creator.publicKey,
+      );
+
+      await program.methods
+        .closeEscrow(surveyId)
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          beneficiary: creator.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+
+      const creatorAfter = await provider.connection.getBalance(
+        creator.publicKey,
+      );
+      // Minus the close_escrow transaction fee (~5000 lamports).
+      expect(creatorAfter - creatorBefore).to.be.greaterThan(
+        escrowRemaining - 10000,
+      );
+
+      const escrowAfter = await provider.connection.getBalance(escrowPda);
+      expect(escrowAfter).to.equal(0);
+    });
+
+    it("rejects closing an escrow while the survey is still active", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("close-escrow-active");
+      const surveyPda = getSurveyPda(creator.publicKey, surveyId);
+      const escrowPda = getEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurvey(surveyId, new anchor.BN(1 * LAMPORTS_PER_SOL), { weighted: {} }, 10)
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+
+      try {
+        await program.methods
+          .closeEscrow(surveyId)
+          .accountsPartial({
+            signer: creator.publicKey,
+            survey: surveyPda,
+            escrowVault: escrowPda,
+            beneficiary: creator.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([creator])
+          .rpc();
+
+        expect.fail("Should have thrown SurveyNotActive error");
+      } catch (err: any) {
+        expect(err.toString()).to.contain("SurveyNotActive");
       }
     });
   });

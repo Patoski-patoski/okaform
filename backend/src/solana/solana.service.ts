@@ -267,7 +267,59 @@ export class SolanaService {
    * Returns the serialized transaction as base64.
    */
   /**
-   * Build a single distributeRewards transaction for one batch (slice) of
+   * Build an unsigned closeEscrow transaction for the creator to sign.
+   * Sweeps any remaining escrow balance (rent-exemption buffer) back to the
+   * survey creator after rewards have been distributed, then the escrow
+   * account is reaped by the runtime once its balance reaches zero.
+   */
+  async buildCloseEscrowTx(
+    creatorWallet: string,
+    surveyId: string,
+    blockhash: string,
+  ): Promise<{ tx: string }> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveEscrowVault(surveyPda);
+
+    this.logger.log({
+      event: 'BUILD_CLOSE_ESCROW_TX',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      surveyPda: surveyPda.toBase58(),
+    });
+
+    try {
+      const tx = await this.program.methods
+        .closeEscrow(Buffer.from(surveyIdBytes))
+        .accounts({
+          signer: creatorPubkey,
+          survey: surveyPda,
+          escrowVault,
+          beneficiary: creatorPubkey,
+          systemProgram: SystemProgram.programId,
+        })
+        .transaction();
+
+      tx.feePayer = creatorPubkey;
+      tx.recentBlockhash = blockhash;
+
+      return {
+        tx: tx.serialize({ requireAllSignatures: false }).toString('base64'),
+      };
+    } catch (error) {
+      this.logger.error({
+        event: 'BUILD_CLOSE_ESCROW_TX_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('buildCloseEscrowTx');
+    }
+  }
+
+  /**
+   * Get a signed distributeRewards transaction for one batch (slice) of
    * recipients. The caller is responsible for chunking wallets/amounts.
    */
   async buildDistributeRewardsTx(
@@ -608,6 +660,43 @@ export class SolanaService {
 
     this.logger.log({
       event: 'INIT_TX_VERIFIED',
+      txSignature,
+    });
+  }
+
+  /**
+   * Verify a closeEscrow transaction landed on-chain without errors.
+   */
+  async verifyCloseEscrowTx(txSignature: string): Promise<void> {
+    const tx = await this.connection.getTransaction(txSignature, {
+      commitment: 'confirmed',
+    });
+
+    if (!tx) {
+      this.logger.warn({
+        event: 'CLOSE_ESCROW_TX_NOT_FOUND',
+        txSignature,
+      });
+      throw new TransactionFailedException(
+        txSignature,
+        'Close escrow transaction not found on-chain.',
+      );
+    }
+
+    if (tx.meta?.err) {
+      this.logger.warn({
+        event: 'CLOSE_ESCROW_TX_FAILED',
+        txSignature,
+        error: tx.meta.err,
+      });
+      throw new TransactionFailedException(
+        txSignature,
+        `Close escrow transaction failed: ${JSON.stringify(tx.meta.err)}`,
+      );
+    }
+
+    this.logger.log({
+      event: 'CLOSE_ESCROW_TX_VERIFIED',
       txSignature,
     });
   }

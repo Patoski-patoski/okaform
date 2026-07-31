@@ -25,6 +25,8 @@ import { BuildCloseTxSchema } from './dto/build-close-tx.dto';
 import type { BuildCloseTxDto } from './dto/build-close-tx.dto';
 import { ConfirmDistributeSchema } from './dto/confirm-distribute.dto';
 import type { ConfirmDistributeDto } from './dto/confirm-distribute.dto';
+import { ConfirmCloseEscrowSchema } from './dto/confirm-close-escrow.dto';
+import type { ConfirmCloseEscrowDto } from './dto/confirm-close-escrow.dto';
 import { TypeBoxValidationPipe } from '../common/pipes/typebox-validation.pipe';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -119,6 +121,38 @@ export class FormsController {
       dto.txSignature,
       dto.badgeTiers,
       dto.isLastBatch,
+    );
+  }
+
+  @Post(':id/build-close-escrow-tx')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async buildCloseEscrowTx(
+    @Param('id') id: string,
+    @CurrentUser() user: UserProfile,
+    @Body(new TypeBoxValidationPipe(BuildCloseTxSchema)) dto: BuildCloseTxDto,
+  ): Promise<{ tx: string }> {
+    return await this.formsService.buildCloseEscrowTx(
+      id,
+      user.wallet,
+      dto.blockhash,
+    );
+  }
+
+  @Post(':id/confirm-close-escrow')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async confirmCloseEscrow(
+    @Param('id') id: string,
+    @CurrentUser() user: UserProfile,
+    @Body(new TypeBoxValidationPipe(ConfirmCloseEscrowSchema))
+    dto: ConfirmCloseEscrowDto,
+  ): Promise<void> {
+    await this.formsService.confirmCloseEscrow(
+      id,
+      user.wallet,
+      dto.txSignature,
     );
   }
 
