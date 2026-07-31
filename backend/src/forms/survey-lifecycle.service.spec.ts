@@ -292,9 +292,6 @@ describe('SurveyLifecycleService', () => {
       const amts = result.amounts[0];
       const totalDistributed = amts.reduce((s, a) => s + a, 0);
       expect(totalDistributed).toBe(10 * LAMPORTS_PER_SOL);
-      expect(totalDistributed).toBeLessThan(
-        10 * LAMPORTS_PER_SOL + rentBufferLamports,
-      );
     });
 
     it('should cap lucky-draw distribution at the declared reward pool when escrow holds a rent buffer', async () => {
@@ -324,9 +321,6 @@ describe('SurveyLifecycleService', () => {
       const amts = result.amounts[0];
       const totalDistributed = amts.reduce((s, a) => s + a, 0);
       expect(totalDistributed).toBe(10 * LAMPORTS_PER_SOL);
-      expect(totalDistributed).toBeLessThan(
-        10 * LAMPORTS_PER_SOL + rentBufferLamports,
-      );
     });
   });
 
