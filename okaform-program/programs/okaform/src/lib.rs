@@ -71,4 +71,12 @@ pub mod okaform {
     ) -> Result<()> {
         process_close_escrow(ctx, survey_id)
     }
+
+    pub fn collect_fee(
+        ctx: Context<CollectFee>,
+        survey_id: Vec<u8>,
+        fee_lamports: u64,
+    ) -> Result<()> {
+        process_collect_fee(ctx, survey_id, fee_lamports)
+    }
 }

@@ -1046,6 +1046,169 @@ describe("okaform-program", () => {
     });
   });
 
+  describe("collect_fee", () => {
+    const authority = (provider.wallet as anchor.Wallet).payer;
+
+    async function initSurvey(
+      creator: Keypair,
+      surveyId: Buffer,
+      rewardPoolLamports: number
+    ) {
+      const surveyPda = getSurveyPda(creator.publicKey, surveyId);
+      const escrowPda = getEscrowPda(surveyPda);
+      await program.methods
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(rewardPoolLamports),
+          { weighted: {} },
+          10
+        )
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+      return { surveyPda, escrowPda };
+    }
+
+    it("transfers the fee from the escrow to the fee wallet", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const feeWallet = Keypair.generate();
+      await airdrop(feeWallet.publicKey, LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-1");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      const feeLamports = 100_000_000; // 0.1 SOL
+      const escrowBefore = await provider.connection.getBalance(escrowPda);
+      const feeWalletBefore = await provider.connection.getBalance(
+        feeWallet.publicKey
+      );
+
+      await program.methods
+        .collectFee(surveyId, new anchor.BN(feeLamports))
+        .accountsPartial({
+          authority: authority.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          feeWallet: feeWallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([authority])
+        .rpc();
+
+      const escrowAfter = await provider.connection.getBalance(escrowPda);
+      const feeWalletAfter = await provider.connection.getBalance(
+        feeWallet.publicKey
+      );
+
+      expect(escrowBefore - escrowAfter).to.equal(feeLamports);
+      expect(feeWalletAfter - feeWalletBefore).to.equal(feeLamports);
+    });
+
+    it("rejects when called by a non-authority signer", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-unauthorized");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      try {
+        await program.methods
+          .collectFee(surveyId, new anchor.BN(100_000_000))
+          .accountsPartial({
+            authority: creator.publicKey,
+            survey: surveyPda,
+            escrowVault: escrowPda,
+            feeWallet: creator.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([creator])
+          .rpc();
+        expect.fail("Should have thrown Unauthorized error");
+      } catch (err: any) {
+        expect(err.toString()).to.contain("Unauthorized");
+      }
+    });
+
+    it("is a no-op when the fee is zero", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const feeWallet = Keypair.generate();
+      await airdrop(feeWallet.publicKey, LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-zero");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      const escrowBefore = await provider.connection.getBalance(escrowPda);
+
+      await program.methods
+        .collectFee(surveyId, new anchor.BN(0))
+        .accountsPartial({
+          authority: authority.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          feeWallet: feeWallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([authority])
+        .rpc();
+
+      const escrowAfter = await provider.connection.getBalance(escrowPda);
+      expect(escrowAfter).to.equal(escrowBefore);
+    });
+
+    it("rejects when the fee exceeds the escrow balance", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const feeWallet = Keypair.generate();
+      await airdrop(feeWallet.publicKey, LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-too-high");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      try {
+        await program.methods
+          .collectFee(surveyId, new anchor.BN(10 * LAMPORTS_PER_SOL))
+          .accountsPartial({
+            authority: authority.publicKey,
+            survey: surveyPda,
+            escrowVault: escrowPda,
+            feeWallet: feeWallet.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([authority])
+          .rpc();
+        expect.fail("Should have thrown InsufficientRewardPool error");
+      } catch (err: any) {
+        expect(err.toString()).to.contain("InsufficientRewardPool");
+      }
+    });
+  });
+
   describe("end-to-end flow", () => {
     it("full survey lifecycle: create, register, verify state", async () => {
       const e2eCreator = Keypair.generate();
