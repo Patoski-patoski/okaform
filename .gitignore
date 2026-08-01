@@ -4,9 +4,10 @@ package-lock.json
 bun.lockb
 .mimocode
 # Environment files
-# .env
+.env
 .env.local
 .env.*.local
+backend-keypair.json
 
 # Build outputs
 dist/
