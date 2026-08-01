@@ -67,6 +67,7 @@ export class SolanaService {
   private readonly cache = new Map<string, CacheEntry<unknown>>();
   private readonly program: anchor.Program;
   private readonly authorityKeypair: Keypair;
+  private readonly protocolAuthorityKeypair: Keypair;
 
   constructor(private readonly config: ConfigService) {
     const rpcUrl = this.config.get<string>('SOLANA_RPC_URL');
@@ -83,6 +84,18 @@ export class SolanaService {
     const secretKey = Buffer.from(JSON.parse(keypairStr));
     this.authorityKeypair = Keypair.fromSecretKey(secretKey);
 
+    // Load the on-chain authority keypair (authority::ID) from env
+    const protocolAuthorityStr = this.config.get<string>('AUTHORITY_KEYPAIR');
+    if (!protocolAuthorityStr) {
+      throw new Error('AUTHORITY_KEYPAIR is not defined');
+    }
+    const protocolAuthoritySecret = Buffer.from(
+      JSON.parse(protocolAuthorityStr),
+    );
+    this.protocolAuthorityKeypair = Keypair.fromSecretKey(
+      protocolAuthoritySecret,
+    );
+
     // Initialize Anchor program
     const provider = new anchor.AnchorProvider(
       this.connection,
@@ -96,11 +109,17 @@ export class SolanaService {
       rpcUrl: rpcUrl.slice(0, 30) + '...',
       programId: okaformIdl.address,
       authority: this.authorityKeypair.publicKey.toBase58().slice(0, 8) + '...',
+      protocolAuthority:
+        this.protocolAuthorityKeypair.publicKey.toBase58().slice(0, 8) + '...',
     });
   }
 
+  /**
+   * Public key of the on-chain protocol authority (authority::ID). Used as the
+   * default protocol fee wallet and for authority-gated operations.
+   */
   getAuthorityPublicKey(): string {
-    return this.authorityKeypair.publicKey.toBase58();
+    return this.protocolAuthorityKeypair.publicKey.toBase58();
   }
 
   private getFromCache<T>(key: string): T | null {
@@ -663,6 +682,68 @@ export class SolanaService {
       event: 'INIT_TX_VERIFIED',
       txSignature,
     });
+  }
+
+  /**
+   * Collect the protocol fee from a survey escrow. Transfers `feeLamports`
+   * from the escrow vault to the configured protocol fee wallet, leaving the
+   * net reward pool for distribution. Gated to authority::ID on-chain.
+   */
+  async collectProtocolFee(
+    feeLamports: number,
+    surveyId: string,
+    surveyPda: string,
+    escrowVault: string,
+  ): Promise<string> {
+    const surveyPubkey = this.validateWallet(surveyPda);
+    const escrowPubkey = this.validateWallet(escrowVault);
+    const feeWalletStr = this.config.get<string>('PROTOCOL_FEE_WALLET');
+    const feeWalletPubkey = this.validateWallet(
+      feeWalletStr ?? this.protocolAuthorityKeypair.publicKey.toBase58(),
+    );
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+
+    this.logger.log({
+      event: 'COLLECT_FEE_START',
+      surveyId: surveyId.slice(0, 16) + '...',
+      surveyPda: surveyPda.slice(0, 8) + '...',
+      feeLamports,
+      feeWallet: feeWalletPubkey.toBase58().slice(0, 8) + '...',
+    });
+
+    try {
+      const txSignature = await this.program.methods
+        .collectFee(Buffer.from(surveyIdBytes), toLamportsBn(feeLamports))
+        .accounts({
+          authority: this.protocolAuthorityKeypair.publicKey,
+          survey: surveyPubkey,
+          escrowVault: escrowPubkey,
+          feeWallet: feeWalletPubkey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([this.protocolAuthorityKeypair])
+        .rpc();
+
+      this.logger.log({
+        event: 'COLLECT_FEE_SUCCESS',
+        surveyId: surveyId.slice(0, 16) + '...',
+        feeLamports,
+        txSignature,
+      });
+
+      return txSignature;
+    } catch (error) {
+      this.logger.error({
+        event: 'COLLECT_FEE_FAILED',
+        surveyId: surveyId.slice(0, 16) + '...',
+        feeLamports,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new TransactionFailedException(
+        'collect_fee',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
 
   /**

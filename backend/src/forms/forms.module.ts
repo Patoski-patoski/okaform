@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FormsController } from './forms.controller';
 import { FormsService } from './forms.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
+import { FeeService } from './fee.service';
 import { Form, FormSchema } from '../common/schemas/form.schema';
 import {
   SurveyResponse,
@@ -21,7 +22,7 @@ import { DistributionModule } from '../distribution/distribution.module';
     DistributionModule,
   ],
   controllers: [FormsController],
-  providers: [FormsService, SurveyLifecycleService],
-  exports: [FormsService, SurveyLifecycleService],
+  providers: [FormsService, SurveyLifecycleService, FeeService],
+  exports: [FormsService, SurveyLifecycleService, FeeService],
 })
 export class FormsModule {}

@@ -123,8 +123,26 @@ export class Form {
   @Prop({ type: [QuestionSchema], default: [] })
   questions!: Question[];
 
-  @Prop({ required: true })
+  @Prop({ default: 0 })
   rewardPool!: number;
+
+  @Prop({ default: 0 })
+  grossRewardPoolLamports!: number;
+
+  @Prop({ default: 0 })
+  netRewardPoolLamports!: number;
+
+  @Prop({ default: 0 })
+  feeLamports!: number;
+
+  @Prop({ default: 0 })
+  feeBps!: number;
+
+  @Prop({ default: '' })
+  feeWallet!: string;
+
+  @Prop({ type: String, default: null })
+  feeTxSignature?: string;
 
   @Prop({ required: true })
   maxResponses!: number;

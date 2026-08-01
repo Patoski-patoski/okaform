@@ -134,7 +134,7 @@ export class SurveyLifecycleService {
         await this.resolveDistributableLamports(
           formId,
           form.onChain.escrowVault,
-          form.rewardPool,
+          this.declaredRewardPoolLamports(form),
           form.onChain?.txSignature,
         );
       recovered = recoveredFlag;
@@ -173,7 +173,7 @@ export class SurveyLifecycleService {
         await this.resolveDistributableLamports(
           formId,
           form.onChain.escrowVault,
-          form.rewardPool,
+          this.declaredRewardPoolLamports(form),
           form.onChain?.txSignature,
         );
       recovered = recoveredFlag;
@@ -683,13 +683,23 @@ export class SurveyLifecycleService {
   /**
    * Resolve the distributable lamports for a survey.
    * If the escrow is empty (already swept on-chain), fall back to the declared
-   * reward pool after verifying the init tx. Otherwise cap at the declared
-   * reward pool so the rent-exemption buffer stays in escrow for close_escrow.
+   * net reward pool after verifying the init tx. Otherwise cap at the declared
+   * net reward pool so the rent-exemption buffer stays in escrow for close_escrow.
    */
+  private declaredRewardPoolLamports(form: Form): bigint {
+    if (
+      form.netRewardPoolLamports !== undefined &&
+      form.netRewardPoolLamports > 0
+    ) {
+      return BigInt(form.netRewardPoolLamports);
+    }
+    return BigInt(Math.round(form.rewardPool * LAMPORTS_PER_SOL));
+  }
+
   private async resolveDistributableLamports(
     formId: string,
     escrowVault: string,
-    rewardPool: number,
+    declaredPoolLamports: bigint,
     txSignature?: string,
   ): Promise<{ rewardPoolLamports: bigint; recovered: boolean }> {
     const escrowBalance =
@@ -715,15 +725,16 @@ export class SurveyLifecycleService {
       });
 
       return {
-        rewardPoolLamports: BigInt(Math.round(rewardPool * LAMPORTS_PER_SOL)),
+        rewardPoolLamports: declaredPoolLamports,
         recovered: true,
       };
     }
 
-    const declaredPool = BigInt(Math.round(rewardPool * LAMPORTS_PER_SOL));
     return {
       rewardPoolLamports:
-        escrowBalance > declaredPool ? declaredPool : escrowBalance,
+        escrowBalance > declaredPoolLamports
+          ? declaredPoolLamports
+          : escrowBalance,
       recovered: false,
     };
   }

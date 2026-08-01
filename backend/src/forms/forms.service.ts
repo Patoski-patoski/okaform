@@ -14,6 +14,9 @@ import { FormNotFoundException } from '../common/exceptions/form/form-not-found.
 import { InvalidExpirationException } from '../common/exceptions/form/invalid-expiration.exception';
 import { SolanaService } from '../solana/solana.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
+import { FeeService } from './fee.service';
+
+const LAMPORTS_PER_SOL = 1_000_000_000;
 
 export interface CreateFormResult {
   id: string;
@@ -89,6 +92,7 @@ export class FormsService {
     private responseModel: Model<SurveyResponse>,
     private readonly solanaService: SolanaService,
     private readonly surveyLifecycleService: SurveyLifecycleService,
+    private readonly feeService: FeeService,
   ) {}
 
   async createForm(
@@ -107,10 +111,52 @@ export class FormsService {
 
     this.validateExpirationDate(dto.closesAt);
 
+    const grossRewardPoolLamports = Math.floor(
+      dto.rewardPool * LAMPORTS_PER_SOL,
+    );
+    const { feeLamports, netRewardPoolLamports } = this.feeService.computeFee(
+      grossRewardPoolLamports,
+    );
+
+    let feeTxSignature: string | null = null;
+    if (feeLamports > 0) {
+      this.logger.log({
+        event: 'FEE_COLLECTION_START',
+        creator: creator.slice(0, 8) + '...',
+        surveyId: dto.surveyId,
+        grossLamports: grossRewardPoolLamports,
+        feeLamports,
+        netLamports: netRewardPoolLamports,
+        feeBps: this.feeService.getFeeBps(),
+        feeWallet: this.feeService.getFeeWallet().slice(0, 8) + '...',
+      });
+
+      feeTxSignature = await this.solanaService.collectProtocolFee(
+        feeLamports,
+        dto.surveyId,
+        dto.surveyPda,
+        dto.escrowPda,
+      );
+
+      this.logger.log({
+        event: 'FEE_COLLECTED',
+        creator: creator.slice(0, 8) + '...',
+        surveyId: dto.surveyId,
+        feeLamports,
+        feeTxSignature,
+      });
+    }
+
     const doc = await this.formModel.create({
       title: dto.title,
       questions: dto.questions,
       rewardPool: dto.rewardPool,
+      grossRewardPoolLamports,
+      netRewardPoolLamports,
+      feeLamports,
+      feeBps: this.feeService.getFeeBps(),
+      feeWallet: this.feeService.getFeeWallet(),
+      feeTxSignature,
       maxResponses: dto.maxResponses,
       rewardType: dto.rewardType,
       numWinners: dto.numWinners ?? 1,

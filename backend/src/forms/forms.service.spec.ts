@@ -7,6 +7,7 @@ import { FormNotFoundException } from '../common/exceptions/form/form-not-found.
 import { InvalidExpirationException } from '../common/exceptions/form/invalid-expiration.exception';
 import { SolanaService } from '../solana/solana.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
+import { FeeService } from './fee.service';
 
 describe('FormsService', () => {
   let service: FormsService;
@@ -74,6 +75,20 @@ describe('FormsService', () => {
               escrowVault: 'escrow123',
               txSignature: 'tx123',
             }),
+            collectProtocolFee: jest.fn().mockResolvedValue('fee-tx123'),
+          },
+        },
+        {
+          provide: FeeService,
+          useValue: {
+            computeFee: jest.fn().mockReturnValue({
+              feeLamports: 0,
+              netRewardPoolLamports: 10_000_000_000,
+            }),
+            getFeeBps: jest.fn().mockReturnValue(0),
+            getFeeWallet: jest
+              .fn()
+              .mockReturnValue('FeeWallet111111111111111111111111111111111111'),
           },
         },
         {
@@ -148,6 +163,114 @@ describe('FormsService', () => {
         escrowVault: 'escrow123',
         txSignature: 'tx123',
       });
+    });
+
+    it('should collect the protocol fee when BPS is greater than zero', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'What is your name?',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+      };
+
+      const feeService = module.get<FeeService>(FeeService);
+      const solanaService = module.get<SolanaService>(SolanaService);
+      feeService.computeFee = jest.fn().mockReturnValue({
+        feeLamports: 50_000_000,
+        netRewardPoolLamports: 9_950_000_000,
+      });
+
+      const mockDoc = {
+        ...mockForm,
+        save: jest.fn().mockResolvedValue(mockForm),
+      };
+      formModel.create.mockResolvedValue(mockDoc);
+
+      await service.createForm(dto, 'wallet123');
+
+      expect(solanaService.collectProtocolFee).toHaveBeenCalledWith(
+        50_000_000,
+        'survey_12345_abc',
+        'pda123',
+        'escrow123',
+      );
+      expect(formModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          grossRewardPoolLamports: 10_000_000_000,
+          netRewardPoolLamports: 9_950_000_000,
+          feeLamports: 50_000_000,
+          feeBps: 0,
+          feeTxSignature: 'fee-tx123',
+        }),
+      );
+    });
+
+    it('should skip fee collection at 0 BPS', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'What is your name?',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+      };
+
+      const solanaService = module.get<SolanaService>(SolanaService);
+      const mockDoc = {
+        ...mockForm,
+        save: jest.fn().mockResolvedValue(mockForm),
+      };
+      formModel.create.mockResolvedValue(mockDoc);
+
+      await service.createForm(dto, 'wallet123');
+
+      expect(solanaService.collectProtocolFee).not.toHaveBeenCalled();
+      expect(formModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeLamports: 0,
+          feeTxSignature: null,
+        }),
+      );
     });
 
     it('should throw when initialize survey tx failed on-chain', async () => {
