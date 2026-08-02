@@ -14,6 +14,7 @@ import { NonceExpiredException } from '../common/exceptions/auth/nonce-expired.e
 import { InvalidRefreshTokenException } from '../common/exceptions/auth/invalid-refresh-token.exception';
 import { RefreshTokenExpiredException } from '../common/exceptions/auth/refresh-token-expired.exception';
 import { UserNotFoundException } from '../common/exceptions/auth/user-not-found.exception';
+import { UnauthorizedException } from '@nestjs/common';
 import {
   jest,
   describe,
@@ -33,6 +34,7 @@ describe('AuthService', () => {
 
   const mockUser: Partial<UserDocument> = {
     _id: { toString: () => 'user123' } as any,
+    id: 'user123',
     wallet: TEST_WALLET,
     username: 'testuser',
     globalScore: 75,
@@ -41,7 +43,9 @@ describe('AuthService', () => {
     siwsNonce: null,
     siwsNonceExpiresAt: null,
     lastLoginAt: null,
-    save: jest.fn(),
+    tokenVersion: 0,
+    tokenFamily: 0,
+    save: jest.fn() as any,
   };
 
   beforeEach(async () => {
@@ -54,6 +58,7 @@ describe('AuthService', () => {
             findOne: jest.fn(),
             findOneAndUpdate: jest.fn(),
             findById: jest.fn(),
+            findByIdAndUpdate: jest.fn(),
           },
         },
         {
@@ -62,6 +67,7 @@ describe('AuthService', () => {
             findOne: jest.fn(),
             findOneAndUpdate: jest.fn(),
             create: jest.fn(),
+            updateMany: jest.fn(),
           },
         },
         {
@@ -221,6 +227,7 @@ describe('AuthService', () => {
         token: 'old-token',
         expiresAt: new Date(Date.now() + 60000),
         userId: 'user123',
+        tokenFamily: 0,
         revokedAt: null,
         save: jest.fn(),
       };
@@ -237,37 +244,47 @@ describe('AuthService', () => {
       expect(mockStoredToken.revokedAt).toBeInstanceOf(Date);
       expect(mockStoredToken.save).toHaveBeenCalled();
     });
-  });
 
-  describe('validateUser', () => {
-    it('should return user profile for valid payload', async () => {
-      userModel.findById.mockResolvedValue(mockUser);
+    it('should detect family mismatch and revoke all tokens', async () => {
+      const mockStoredToken = {
+        token: 'stolen-token',
+        expiresAt: new Date(Date.now() + 60000),
+        userId: 'user123',
+        tokenFamily: 0,
+        revokedAt: null,
+        save: jest.fn(),
+      };
 
-      const result = await service.validateUser({
-        sub: 'user123',
-        wallet: TEST_WALLET,
-      });
+      const userWithMismatch = {
+        ...mockUser,
+        tokenFamily: 1,
+        save: jest.fn(),
+      };
 
-      expect(result.wallet).toBe(TEST_WALLET);
-      expect(result.username).toBe('testuser');
-      expect(result.badgeTier).toBe('Oracle');
+      refreshTokenModel.findOne.mockResolvedValue(mockStoredToken as any);
+      userModel.findById.mockResolvedValue(userWithMismatch);
+      jwtService.sign.mockReturnValue('new-access-token');
+      refreshTokenModel.create.mockResolvedValue({} as any);
+      refreshTokenModel.updateMany.mockResolvedValue({} as any);
+
+      const result = await service.refreshTokens('stolen-token');
+
+      expect(refreshTokenModel.updateMany).toHaveBeenCalledWith(
+        { userId: userWithMismatch._id, revokedAt: null },
+        { revokedAt: expect.any(Date) },
+      );
+      expect(userWithMismatch.tokenVersion).toBe(1);
+      expect(userWithMismatch.tokenFamily).toBe(2);
+      expect(result.accessToken).toBe('new-access-token');
+      expect(result.refreshToken).toBeDefined();
     });
 
-    it('should throw UserNotFoundException if user not found', async () => {
-      userModel.findById.mockResolvedValue(null);
-
-      await expect(
-        service.validateUser({ sub: 'nonexistent', wallet: TEST_WALLET }),
-      ).rejects.toThrow(UserNotFoundException);
-    });
-  });
-
-  describe('refreshTokens', () => {
     it('should throw UserNotFoundException if user not found after token revoke', async () => {
       const mockStoredToken = {
         token: 'old-token',
         expiresAt: new Date(Date.now() + 60000),
         userId: 'nonexistent-user',
+        tokenFamily: 0,
         revokedAt: null,
         save: jest.fn(),
       };
@@ -278,6 +295,74 @@ describe('AuthService', () => {
       await expect(service.refreshTokens('old-token')).rejects.toThrow(
         UserNotFoundException,
       );
+    });
+  });
+
+  describe('issueTokens', () => {
+    it('should include tv in JWT payload', async () => {
+      userModel.findOneAndUpdate.mockResolvedValue(mockUser);
+      jwtService.sign.mockReturnValue('access-token');
+      refreshTokenModel.create.mockResolvedValue({} as any);
+
+      const tokens = await (service as any).issueTokens(mockUser);
+
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ tv: 0 }),
+        expect.any(Object),
+      );
+      expect(tokens.accessToken).toBe('access-token');
+    });
+
+    it('should stamp refresh token with tokenFamily', async () => {
+      userModel.findOneAndUpdate.mockResolvedValue(mockUser);
+      jwtService.sign.mockReturnValue('access-token');
+      refreshTokenModel.create.mockResolvedValue({} as any);
+
+      await (service as any).issueTokens(mockUser);
+
+      expect(refreshTokenModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ tokenFamily: 0 }),
+      );
+    });
+  });
+
+  describe('validateUser', () => {
+    it('should return user profile for valid payload', async () => {
+      userModel.findById.mockResolvedValue(mockUser);
+
+      const result = await service.validateUser({
+        sub: 'user123',
+        wallet: TEST_WALLET,
+        tv: 0,
+      });
+
+      expect(result.wallet).toBe(TEST_WALLET);
+      expect(result.username).toBe('testuser');
+      expect(result.badgeTier).toBe('Oracle');
+      expect(result.id).toBe('user123');
+    });
+
+    it('should throw UserNotFoundException if user not found', async () => {
+      userModel.findById.mockResolvedValue(null);
+
+      await expect(
+        service.validateUser({
+          sub: 'nonexistent',
+          wallet: TEST_WALLET,
+          tv: 0,
+        }),
+      ).rejects.toThrow(UserNotFoundException);
+    });
+
+    it('should throw UnauthorizedException if token version mismatches', async () => {
+      userModel.findById.mockResolvedValue({
+        ...mockUser,
+        tokenVersion: 2,
+      });
+
+      await expect(
+        service.validateUser({ sub: 'user123', wallet: TEST_WALLET, tv: 0 }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -302,8 +387,11 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('should revoke refresh token', async () => {
-      refreshTokenModel.findOneAndUpdate.mockResolvedValue({});
+    it('should revoke refresh token and increment tokenVersion', async () => {
+      refreshTokenModel.findOneAndUpdate.mockResolvedValue({
+        userId: 'user123',
+      });
+      userModel.findById.mockResolvedValue(mockUser);
 
       await service.logout('some-token');
 
@@ -311,6 +399,26 @@ describe('AuthService', () => {
         { token: 'some-token' },
         { revokedAt: expect.any(Date) },
       );
+      expect(userModel.findById).toHaveBeenCalledWith('user123');
+      expect(mockUser.tokenVersion).toBe(1);
+      expect(mockUser.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('logoutAll', () => {
+    it('should revoke all refresh tokens and increment tokenVersion and tokenFamily', async () => {
+      refreshTokenModel.updateMany.mockResolvedValue({} as any);
+      userModel.findByIdAndUpdate.mockResolvedValue({});
+
+      await service.logoutAll('user123');
+
+      expect(refreshTokenModel.updateMany).toHaveBeenCalledWith(
+        { userId: 'user123', revokedAt: null },
+        { revokedAt: expect.any(Date) },
+      );
+      expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith('user123', {
+        $inc: { tokenVersion: 1, tokenFamily: 1 },
+      });
     });
   });
 });

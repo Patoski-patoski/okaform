@@ -16,6 +16,9 @@ export class RefreshToken {
 
   @Prop({ type: Date, default: null })
   revokedAt?: Date | null;
+
+  @Prop({ required: true, default: 0 })
+  tokenFamily!: number;
 }
 
 export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);

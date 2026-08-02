@@ -1,6 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export interface UserProfile {
+  id: string;
   wallet: string;
   username: string | null;
   globalScore: number;
