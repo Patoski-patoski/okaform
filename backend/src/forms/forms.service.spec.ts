@@ -941,6 +941,18 @@ describe('FormsService', () => {
       ).rejects.toThrow(SurveyStillActiveException);
     });
 
+    it('should throw SurveyStillActiveException when survey is not yet closed (draft)', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ ...mockForm, status: 'draft' }),
+      });
+
+      await expect(
+        service.deleteSurveyData('form123', 'wallet123'),
+      ).rejects.toThrow(SurveyStillActiveException);
+      expect(formModel.deleteOne).not.toHaveBeenCalled();
+    });
+
     it('should throw FormNotFoundException when form does not exist', async () => {
       formModel.findById.mockReturnValue({
         lean: jest.fn().mockReturnThis(),

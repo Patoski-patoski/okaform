@@ -733,7 +733,13 @@ export class FormsService {
       );
     }
 
-    if (form.status === 'active') {
+    if (form.status !== 'closed') {
+      this.logger.warn({
+        event: 'DELETE_SURVEY_DATA_BLOCKED',
+        formId,
+        status: form.status,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
       throw new SurveyStillActiveException(formId);
     }
 
