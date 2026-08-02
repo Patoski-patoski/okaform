@@ -25,6 +25,7 @@ export interface CreateFormResult {
   id: string;
   title: string;
   status: string;
+  feeCollected: boolean;
   onChain: {
     surveyId: string;
     surveyPda: string;
@@ -184,29 +185,45 @@ export class FormsService {
           dto.escrowPda,
         );
 
-        await this.formModel
-          .updateOne(
-            { _id: form._id },
-            { $set: { feeTxSignature, feeCollected: true } },
-          )
-          .exec();
+        try {
+          form.set({ feeTxSignature, feeCollected: true });
+          await form.save();
 
-        this.logger.log({
-          event: 'FEE_COLLECTED',
-          creator: creator.slice(0, 8) + '...',
-          surveyId: dto.surveyId,
-          feeLamports,
-          feeTxSignature,
-        });
-      } catch (error) {
-        // Leave the survey with feeCollected: false so the creator can retry
-        // fee collection later. The survey itself stays live.
+          this.logger.log({
+            event: 'FEE_COLLECTED',
+            creator: creator.slice(0, 8) + '...',
+            surveyId: dto.surveyId,
+            feeLamports,
+            feeTxSignature,
+          });
+        } catch (error: unknown) {
+          // Fee was collected on-chain but could not be persisted. Surfacing
+          // this distinctly matters because collect_fee is NOT idempotent —
+          // retrying would take the fee out of the escrow a second time.
+          this.logger.error({
+            event: 'FEE_COLLECTED_PERSIST_FAILED',
+            creator: creator.slice(0, 8) + '...',
+            surveyId: dto.surveyId,
+            feeLamports,
+            feeTxSignature,
+            error,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+          });
+        }
+      } catch (error: unknown) {
+        // Fee collection failed before any on-chain funds moved — safe to
+        // leave feeCollected: false so the creator can retry. The survey
+        // itself stays live.
         this.logger.error({
           event: 'FEE_COLLECTION_FAILED',
           creator: creator.slice(0, 8) + '...',
           surveyId: dto.surveyId,
           feeLamports,
-          error: error instanceof Error ? error.message : String(error),
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
         });
       }
     }
@@ -223,6 +240,7 @@ export class FormsService {
       id: String(form._id),
       title: form.title,
       status: form.status,
+      feeCollected: form.feeCollected ?? false,
       onChain: {
         surveyId: dto.surveyId,
         surveyPda: dto.surveyPda,

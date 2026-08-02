@@ -11,6 +11,13 @@ import {
   confirmCloseEscrow,
 } from "@/lib/forms";
 
+export class WalletNotConnectedError extends Error {
+  constructor() {
+    super("Wallet not connected.");
+    this.name = "WalletNotConnectedError";
+  }
+}
+
 function deserializeTx(base64: string): Transaction {
   return Transaction.from(
     Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)),
@@ -27,7 +34,7 @@ function requireSigner(
   signTransaction: (tx: Transaction) => Promise<Transaction>;
 } {
   if (!publicKey || !signTransaction) {
-    throw new Error("Wallet not connected.");
+    throw new WalletNotConnectedError();
   }
   return { publicKey, signTransaction };
 }
@@ -141,8 +148,10 @@ export function useSurveyLifecycle(): SurveyLifecycleApi {
         await connection.confirmTransaction(escrowTxSignature, "confirmed");
 
         await confirmCloseEscrow(formId, escrowTxSignature);
-      } catch {
-        // Distribution succeeded — escrow close is non-critical cleanup.
+      } catch (err) {
+        // Distribution succeeded — escrow close is non-critical cleanup, but
+        // log it so stuck escrow rent buffers can be swept later.
+        console.error("Failed to close escrow:", err);
       }
     },
     [connection, publicKey, signTransaction],

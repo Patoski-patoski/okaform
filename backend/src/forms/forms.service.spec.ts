@@ -232,8 +232,10 @@ describe('FormsService', () => {
 
       const mockDoc = {
         ...mockForm,
-        save: jest.fn().mockResolvedValue(mockForm),
+        set: jest.fn(),
+        save: jest.fn(),
       };
+      mockDoc.save.mockResolvedValue(mockDoc);
       formModel.create.mockResolvedValue(mockDoc);
 
       await service.createForm(dto, 'wallet123');
@@ -254,10 +256,11 @@ describe('FormsService', () => {
           feeCollected: false,
         }),
       );
-      expect(formModel.updateOne).toHaveBeenCalledWith(
-        { _id: 'form123' },
-        { $set: { feeTxSignature: 'fee-tx123', feeCollected: true } },
-      );
+      expect(mockDoc.set).toHaveBeenCalledWith({
+        feeTxSignature: 'fee-tx123',
+        feeCollected: true,
+      });
+      expect(mockDoc.save).toHaveBeenCalledTimes(2);
     });
 
     it('should skip fee collection at 0 BPS', async () => {
@@ -292,6 +295,7 @@ describe('FormsService', () => {
       const solanaService = module.get<SolanaService>(SolanaService);
       const mockDoc = {
         ...mockForm,
+        set: jest.fn(),
         save: jest.fn().mockResolvedValue(mockForm),
       };
       formModel.create.mockResolvedValue(mockDoc);
@@ -306,7 +310,8 @@ describe('FormsService', () => {
           feeCollected: false,
         }),
       );
-      expect(formModel.updateOne).not.toHaveBeenCalled();
+      expect(mockDoc.set).not.toHaveBeenCalled();
+      expect(mockDoc.save).toHaveBeenCalledTimes(1);
     });
 
     it('should keep the survey with feeCollected false when fee collection fails', async () => {
@@ -350,6 +355,7 @@ describe('FormsService', () => {
 
       const mockDoc = {
         ...mockForm,
+        set: jest.fn(),
         save: jest.fn().mockResolvedValue(mockForm),
       };
       formModel.create.mockResolvedValue(mockDoc);
@@ -357,7 +363,70 @@ describe('FormsService', () => {
       const result = await service.createForm(dto, 'wallet123');
 
       expect(result.id).toBe('form123');
-      expect(formModel.updateOne).not.toHaveBeenCalled();
+      expect(result.feeCollected).toBe(false);
+      expect(mockDoc.set).not.toHaveBeenCalled();
+      expect(mockDoc.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep the survey live when fee persist fails after on-chain collection', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'What is your name?',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+      };
+
+      const feeService = module.get<FeeService>(FeeService);
+      const solanaService = module.get<SolanaService>(SolanaService);
+      feeService.computeFee = jest.fn().mockReturnValue({
+        feeLamports: 50_000_000,
+        netRewardPoolLamports: 9_950_000_000,
+      });
+
+      const mockDoc = {
+        ...mockForm,
+        set: jest.fn(),
+        save: jest.fn(),
+      };
+      mockDoc.save
+        .mockResolvedValueOnce(mockDoc)
+        .mockRejectedValueOnce(new Error('DB connection failed'));
+      formModel.create.mockResolvedValue(mockDoc);
+
+      const result = await service.createForm(dto, 'wallet123');
+
+      expect(result.id).toBe('form123');
+      expect(solanaService.collectProtocolFee).toHaveBeenCalledWith(
+        50_000_000,
+        'survey_12345_abc',
+        'pda123',
+        'escrow123',
+      );
+      expect(mockDoc.set).toHaveBeenCalledWith({
+        feeTxSignature: 'fee-tx123',
+        feeCollected: true,
+      });
     });
 
     it('should throw when initialize survey tx failed on-chain', async () => {
