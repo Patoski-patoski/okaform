@@ -26,6 +26,7 @@ export interface CreateFormResult {
   title: string;
   status: string;
   feeCollected: boolean;
+  feeCollectedOnChain: boolean;
   onChain: {
     surveyId: string;
     surveyPda: string;
@@ -164,6 +165,7 @@ export class FormsService {
     } as Record<string, unknown>);
 
     const form = await doc.save();
+    let feeCollectedOnChain = feeLamports === 0;
 
     if (feeLamports > 0) {
       this.logger.log({
@@ -184,6 +186,8 @@ export class FormsService {
           dto.surveyPda,
           dto.escrowPda,
         );
+
+        feeCollectedOnChain = true;
 
         try {
           form.set({ feeTxSignature, feeCollected: true });
@@ -241,6 +245,7 @@ export class FormsService {
       title: form.title,
       status: form.status,
       feeCollected: form.feeCollected ?? false,
+      feeCollectedOnChain,
       onChain: {
         surveyId: dto.surveyId,
         surveyPda: dto.surveyPda,

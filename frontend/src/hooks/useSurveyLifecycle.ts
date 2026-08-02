@@ -10,13 +10,8 @@ import {
   buildCloseEscrowTx,
   confirmCloseEscrow,
 } from "@/lib/forms";
-
-export class WalletNotConnectedError extends Error {
-  constructor() {
-    super("Wallet not connected.");
-    this.name = "WalletNotConnectedError";
-  }
-}
+import { WalletNotConnectedError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 
 function deserializeTx(base64: string): Transaction {
   return Transaction.from(
@@ -151,7 +146,7 @@ export function useSurveyLifecycle(): SurveyLifecycleApi {
       } catch (err) {
         // Distribution succeeded — escrow close is non-critical cleanup, but
         // log it so stuck escrow rent buffers can be swept later.
-        console.error("Failed to close escrow:", err);
+        logger.error("Failed to close escrow:", err);
       }
     },
     [connection, publicKey, signTransaction],
