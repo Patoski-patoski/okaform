@@ -12,12 +12,13 @@ import { SolanaModule } from './solana/solana.module';
 import { SybilModule } from './sybil/sybil.module';
 import { FormsModule } from './forms/forms.module';
 import { SubmissionsModule } from './submissions/submissions.module';
+import { validateEnv } from './config/env.schema';
 
 const logger = new Logger('AppModule');
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([
       {
         ttl: parseInt(process.env.THROTTLE_TTL ?? '60000', 10),

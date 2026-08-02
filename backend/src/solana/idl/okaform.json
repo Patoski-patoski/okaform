@@ -108,6 +108,72 @@
       ]
     },
     {
+      "name": "collect_fee",
+      "discriminator": [60, 173, 247, 103, 4, 93, 130, 48],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "survey.creator",
+                "account": "SurveyAccount"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fee_wallet",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        },
+        {
+          "name": "fee_lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "distribute_rewards",
       "discriminator": [97, 6, 227, 255, 124, 165, 3, 148],
       "accounts": [

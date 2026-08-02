@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -27,18 +29,22 @@ import { ConfirmDistributeSchema } from './dto/confirm-distribute.dto';
 import type { ConfirmDistributeDto } from './dto/confirm-distribute.dto';
 import { ConfirmCloseEscrowSchema } from './dto/confirm-close-escrow.dto';
 import type { ConfirmCloseEscrowDto } from './dto/confirm-close-escrow.dto';
+import { UpdateSurveySettingsSchema } from './dto/update-survey-settings.dto';
+import type { UpdateSurveySettingsDto } from './dto/update-survey-settings.dto';
 import { TypeBoxValidationPipe } from '../common/pipes/typebox-validation.pipe';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { UserProfile } from '../common/decorators/current-user.decorator';
 import { DistributionService } from '../distribution/distribution.service';
 import type { DistributionRecord } from '../distribution/distribution.schema';
+import { FeeService } from './fee.service';
 
 @Controller('forms')
 export class FormsController {
   constructor(
     private readonly formsService: FormsService,
     private readonly distributionService: DistributionService,
+    private readonly feeService: FeeService,
   ) {}
 
   @Post('build-init-tx')
@@ -165,6 +171,40 @@ export class FormsController {
   @Get('explore')
   async getExploreForms(): Promise<ExploreFormItem[]> {
     return await this.formsService.getExploreForms();
+  }
+
+  @Get('config')
+  getFormConfig(): {
+    protocolFeeBps: number;
+    protocolFeeWallet: string;
+  } {
+    return {
+      protocolFeeBps: this.feeService.getFeeBps(),
+      protocolFeeWallet: this.feeService.getFeeWallet(),
+    };
+  }
+
+  @Patch(':id/settings')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async updateSurveySettings(
+    @Param('id') id: string,
+    @CurrentUser() user: UserProfile,
+    @Body(new TypeBoxValidationPipe(UpdateSurveySettingsSchema))
+    dto: UpdateSurveySettingsDto,
+  ): Promise<FormDetail> {
+    return await this.formsService.updateSurveySettings(id, user.wallet, dto);
+  }
+
+  @Delete(':id/data')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async deleteSurveyData(
+    @Param('id') id: string,
+    @CurrentUser() user: UserProfile,
+  ): Promise<void> {
+    await this.formsService.deleteSurveyData(id, user.wallet);
   }
 
   @Get(':id')

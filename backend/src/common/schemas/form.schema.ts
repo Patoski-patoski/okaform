@@ -120,11 +120,32 @@ export class Form {
   @Prop({ required: true })
   title!: string;
 
+  @Prop({ default: '' })
+  description!: string;
+
   @Prop({ type: [QuestionSchema], default: [] })
   questions!: Question[];
 
-  @Prop({ required: true })
+  @Prop({ default: 0 })
   rewardPool!: number;
+
+  @Prop({ default: 0 })
+  grossRewardPoolLamports!: number;
+
+  @Prop({ default: 0 })
+  netRewardPoolLamports!: number;
+
+  @Prop({ default: 0 })
+  feeLamports!: number;
+
+  @Prop({ default: 0 })
+  feeBps!: number;
+
+  @Prop({ default: '' })
+  feeWallet!: string;
+
+  @Prop({ type: String, default: null })
+  feeTxSignature?: string;
 
   @Prop({ required: true })
   maxResponses!: number;
@@ -164,6 +185,9 @@ export class Form {
 
   @Prop({ default: false })
   escrowClosed!: boolean;
+
+  @Prop({ type: Date, default: null })
+  closedAt?: Date | null;
 
   @Prop({ type: OnChainDataSchema, default: null })
   onChain?: OnChainData;
