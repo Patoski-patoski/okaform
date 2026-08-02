@@ -220,6 +220,11 @@ export class DistributionService implements OnModuleInit {
       .lean()
       .exec();
   }
+
+  async deleteByForm(formId: string): Promise<number> {
+    const result = await this.recordModel.deleteMany({ formId }).exec();
+    return result.deletedCount ?? 0;
+  }
 }
 
 export { badgeTierFromScore };

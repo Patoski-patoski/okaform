@@ -5,9 +5,11 @@ import { Form } from '../common/schemas/form.schema';
 import { SurveyResponse } from '../common/schemas/response.schema';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { InvalidExpirationException } from '../common/exceptions/form/invalid-expiration.exception';
+import { SurveyStillActiveException } from '../common/exceptions/form/survey-still-active.exception';
 import { SolanaService } from '../solana/solana.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
 import { FeeService } from './fee.service';
+import { DistributionService } from '../distribution/distribution.service';
 
 describe('FormsService', () => {
   let service: FormsService;
@@ -16,11 +18,16 @@ describe('FormsService', () => {
     create: jest.Mock;
     find: jest.Mock;
     findById: jest.Mock;
+    deleteOne: jest.Mock;
+  };
+  let distributionService: {
+    deleteByForm: jest.Mock;
   };
 
   const mockForm = {
     _id: 'form123',
     title: 'Test Survey',
+    description: '',
     questions: [
       {
         id: 'q1',
@@ -31,6 +38,11 @@ describe('FormsService', () => {
       },
     ],
     rewardPool: 10,
+    grossRewardPoolLamports: 10_000_000_000,
+    netRewardPoolLamports: 10_000_000_000,
+    feeLamports: 0,
+    feeBps: 0,
+    feeWallet: '',
     maxResponses: 100,
     rewardType: 'weighted',
     numWinners: 1,
@@ -42,6 +54,7 @@ describe('FormsService', () => {
     creator: 'wallet123',
     status: 'active',
     createdAt: new Date('2025-01-01'),
+    closedAt: null,
     onChain: {
       surveyId: 'survey_abc123',
       surveyPda: 'pda123',
@@ -55,6 +68,11 @@ describe('FormsService', () => {
       create: jest.fn(),
       find: jest.fn(),
       findById: jest.fn(),
+      deleteOne: jest.fn(),
+    };
+
+    distributionService = {
+      deleteByForm: jest.fn().mockResolvedValue(0),
     };
 
     module = await Test.createTestingModule({
@@ -100,7 +118,14 @@ describe('FormsService', () => {
             aggregate: jest.fn().mockReturnValue({
               exec: jest.fn().mockResolvedValue([]),
             }),
+            deleteMany: jest.fn().mockReturnValue({
+              exec: jest.fn().mockResolvedValue({ deletedCount: 2 }),
+            }),
           },
+        },
+        {
+          provide: DistributionService,
+          useValue: distributionService,
         },
         {
           provide: SurveyLifecycleService,
@@ -444,6 +469,18 @@ describe('FormsService', () => {
         closesAt: null,
         previewQuestion: '',
         rewardDistributed: false,
+        description: '',
+        creator: 'wallet123',
+        grossRewardPoolLamports: 10_000_000_000,
+        netRewardPoolLamports: 10_000_000_000,
+        feeLamports: 0,
+        feeBps: 0,
+        feeWallet: '',
+        minWalletAge: 0,
+        minSolBalance: 0,
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        closedAt: null,
       });
       expect(formModel.find).toHaveBeenCalledWith({
         creator: 'wallet123',
@@ -575,6 +612,17 @@ describe('FormsService', () => {
         closesAt: null,
         previewQuestion: '',
         rewardDistributed: false,
+        description: '',
+        grossRewardPoolLamports: 10_000_000_000,
+        netRewardPoolLamports: 10_000_000_000,
+        feeLamports: 0,
+        feeBps: 0,
+        feeWallet: '',
+        minWalletAge: 0,
+        minSolBalance: 0,
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        closedAt: null,
         questions: [
           {
             id: 'q1',
@@ -590,8 +638,6 @@ describe('FormsService', () => {
             highLabel: undefined,
           },
         ],
-        minWalletAge: 0,
-        minSolBalance: 0,
       });
       expect(formModel.findById).toHaveBeenCalledWith('form123');
     });
@@ -779,6 +825,162 @@ describe('FormsService', () => {
       await expect(
         service.confirmCloseEscrow('form123', 'other123', 'txsig123'),
       ).rejects.toThrow('Only the form creator can close the escrow.');
+    });
+  });
+
+  describe('updateSurveySettings', () => {
+    it('should update title and description for the creator', async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      const formDoc = {
+        ...mockForm,
+        title: 'Test Survey',
+        description: '',
+        save,
+      };
+      formModel.findById
+        .mockReturnValueOnce({
+          exec: jest.fn().mockResolvedValue(formDoc),
+        })
+        .mockReturnValueOnce({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({
+            ...mockForm,
+            title: 'New Title',
+            description: 'New Desc',
+          }),
+        });
+
+      const result = await service.updateSurveySettings(
+        'form123',
+        'wallet123',
+        { title: 'New Title', description: 'New Desc' },
+      );
+
+      expect(formDoc.title).toBe('New Title');
+      expect(formDoc.description).toBe('New Desc');
+      expect(save).toHaveBeenCalled();
+      expect(result.title).toBe('New Title');
+      expect(result.description).toBe('New Desc');
+    });
+
+    it('should never modify on-chain fields', async () => {
+      const save = jest.fn().mockResolvedValue(undefined);
+      const formDoc = { ...mockForm, save };
+      formModel.findById
+        .mockReturnValueOnce({
+          exec: jest.fn().mockResolvedValue(formDoc),
+        })
+        .mockReturnValueOnce({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue(mockForm),
+        });
+
+      await service.updateSurveySettings('form123', 'wallet123', {
+        description: 'Only desc changed',
+      });
+
+      expect(formDoc.rewardPool).toBe(mockForm.rewardPool);
+      expect(formDoc.onChain).toEqual(mockForm.onChain);
+      expect(formDoc.feeBps).toBe(mockForm.feeBps);
+    });
+
+    it('should throw FormNotFoundException when form does not exist', async () => {
+      formModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(
+        service.updateSurveySettings('nope', 'wallet123', {
+          title: 'New Title',
+        }),
+      ).rejects.toThrow(FormNotFoundException);
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockForm),
+      });
+
+      await expect(
+        service.updateSurveySettings('form123', 'other123', {
+          title: 'New Title',
+        }),
+      ).rejects.toThrow('Only the form creator can update survey settings.');
+    });
+  });
+
+  describe('deleteSurveyData', () => {
+    it('should delete responses, distribution records and the form', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ ...mockForm, status: 'closed' }),
+      });
+      formModel.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      });
+      distributionService.deleteByForm.mockResolvedValue(3);
+
+      const result = await service.deleteSurveyData('form123', 'wallet123');
+
+      expect(result).toEqual({
+        responsesDeleted: 2,
+        distributionRecordsDeleted: 3,
+      });
+      expect(formModel.deleteOne).toHaveBeenCalledWith({ _id: 'form123' });
+      expect(distributionService.deleteByForm).toHaveBeenCalledWith('form123');
+    });
+
+    it('should throw SurveyStillActiveException when survey is still active', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockForm),
+      });
+
+      await expect(
+        service.deleteSurveyData('form123', 'wallet123'),
+      ).rejects.toThrow(SurveyStillActiveException);
+    });
+
+    it('should throw FormNotFoundException when form does not exist', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(
+        service.deleteSurveyData('nope', 'wallet123'),
+      ).rejects.toThrow(FormNotFoundException);
+    });
+
+    it('should reject when called by non-creator', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(mockForm),
+      });
+
+      await expect(
+        service.deleteSurveyData('form123', 'other123'),
+      ).rejects.toThrow('Only the form creator can delete survey data.');
+    });
+
+    it('should not make any Solana calls', async () => {
+      formModel.findById.mockReturnValue({
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ ...mockForm, status: 'closed' }),
+      });
+      formModel.deleteOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+      });
+
+      const solana = module.get<SolanaService>(SolanaService) as unknown as {
+        verifyInitializeSurveyTx: jest.Mock;
+        collectProtocolFee: jest.Mock;
+      };
+
+      await service.deleteSurveyData('form123', 'wallet123');
+
+      expect(solana.verifyInitializeSurveyTx).not.toHaveBeenCalled();
+      expect(solana.collectProtocolFee).not.toHaveBeenCalled();
     });
   });
 });

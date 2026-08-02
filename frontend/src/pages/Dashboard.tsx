@@ -42,6 +42,7 @@ import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
 import DraftsView from "@/components/Dashboard/DraftsView";
 import DistributionTab from "@/components/DistributionTab";
+import SurveySettingsTab from "@/components/Dashboard/SurveySettingsTab";
 import {
   getForms,
   getSubmissions,
@@ -68,6 +69,7 @@ type View = "surveys" | "detail";
 interface Survey {
   id: string;
   title: string;
+  description: string;
   status: StatusType;
   responses: number;
   maxResponses: number;
@@ -75,6 +77,16 @@ interface Survey {
   rewardType: "weighted" | "lucky_draw";
   createdAt: string;
   rewardDistributed: boolean;
+  creator: string;
+  grossRewardPoolLamports: number;
+  netRewardPoolLamports: number;
+  feeLamports: number;
+  feeBps: number;
+  minWalletAge: number;
+  minSolBalance: number;
+  surveyPda: string | null;
+  escrowPda: string | null;
+  closedAt: string | null;
 }
 
 const SIDEBAR_NAV = [
@@ -902,21 +914,6 @@ function AnalyticsTab({ formId }: { formId: string }) {
   );
 }
 
-// ─── Settings tab (placeholder) ────────────────────────────────────────────────
-
-function SettingsTab() {
-  return (
-    <div className="rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-8">
-      <div className="flex flex-col items-center gap-4 py-8 text-center">
-        <Settings className="h-10 w-10 text-[#656C76]/30" />
-        <p className="font-mono text-xs text-[#9198A1]">
-          Survey settings will be available here.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // ─── Close modal ───────────────────────────────────────────────────────────────
 
 function CloseModal({
@@ -1001,11 +998,15 @@ function SurveyDetail({
   survey,
   onBack,
   distributionRefreshKey,
+  onSurveyUpdated,
+  onSurveyDeleted,
 }: {
   survey: Survey;
   onBack: () => void;
   /** Forwarded to DistributionTab so it re-fetches when a distribution completes. */
   distributionRefreshKey: number;
+  onSurveyUpdated: (updated: Survey) => void;
+  onSurveyDeleted: (id: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<TabId>("responses");
 
@@ -1071,7 +1072,13 @@ function SurveyDetail({
           refreshKey={distributionRefreshKey}
         />
       )}
-      {activeTab === "settings" && <SettingsTab />}
+      {activeTab === "settings" && (
+        <SurveySettingsTab
+          survey={survey}
+          onSurveyUpdated={onSurveyUpdated}
+          onSurveyDeleted={() => onSurveyDeleted(survey.id)}
+        />
+      )}
     </div>
   );
 }
@@ -1103,6 +1110,7 @@ export default function Dashboard() {
           forms.map((f) => ({
             id: f.id,
             title: f.title,
+            description: f.description,
             status: f.status as StatusType,
             responses: f.responseCount,
             maxResponses: f.maxResponses,
@@ -1110,6 +1118,16 @@ export default function Dashboard() {
             rewardType: f.rewardType as "weighted" | "lucky_draw",
             createdAt: f.createdAt,
             rewardDistributed: f.rewardDistributed,
+            creator: f.creator,
+            grossRewardPoolLamports: f.grossRewardPoolLamports,
+            netRewardPoolLamports: f.netRewardPoolLamports,
+            feeLamports: f.feeLamports,
+            feeBps: f.feeBps,
+            minWalletAge: f.minWalletAge,
+            minSolBalance: f.minSolBalance,
+            surveyPda: f.surveyPda,
+            escrowPda: f.escrowPda,
+            closedAt: f.closedAt,
           })),
         );
       } catch {
@@ -1360,6 +1378,18 @@ export default function Dashboard() {
               survey={selectedSurvey}
               onBack={handleBack}
               distributionRefreshKey={distributionRefreshKey}
+              onSurveyUpdated={(updated) =>
+                setSurveys((prev) =>
+                  prev.map((s) =>
+                    s.id === updated.id ? { ...s, ...updated } : s,
+                  ),
+                )
+              }
+              onSurveyDeleted={(id) => {
+                setSurveys((prev) => prev.filter((s) => s.id !== id));
+                setView("surveys");
+                setSelectedSurveyId(null);
+              }}
             />
           )
         )}

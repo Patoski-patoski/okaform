@@ -58,6 +58,18 @@ export interface FormListItem {
   closesAt: string | null;
   previewQuestion: string;
   rewardDistributed: boolean;
+  description: string;
+  creator: string;
+  grossRewardPoolLamports: number;
+  netRewardPoolLamports: number;
+  feeLamports: number;
+  feeBps: number;
+  feeWallet: string;
+  minWalletAge: number;
+  minSolBalance: number;
+  surveyPda: string | null;
+  escrowPda: string | null;
+  closedAt: string | null;
 }
 
 export interface FormDetailQuestion {
@@ -75,14 +87,32 @@ export interface FormDetailQuestion {
 }
 
 export interface FormDetail extends FormListItem {
-  creator: string;
   questions: FormDetailQuestion[];
-  minWalletAge: number;
-  minSolBalance: number;
 }
 
 export async function getFormById(formId: string): Promise<FormDetail> {
   return api<FormDetail>(`/forms/${formId}`);
+}
+
+export interface UpdateSurveySettingsPayload {
+  title?: string;
+  description?: string;
+}
+
+export async function updateSurveySettings(
+  formId: string,
+  payload: UpdateSurveySettingsPayload,
+): Promise<FormDetail> {
+  return api<FormDetail>(`/forms/${formId}/settings`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteSurveyData(formId: string): Promise<void> {
+  return api<void>(`/forms/${formId}/data`, {
+    method: "DELETE",
+  });
 }
 
 export interface ExploreFormItem {
@@ -100,6 +130,15 @@ export interface ExploreFormItem {
   minWalletAge: number;
   minSolBalance: number;
   createdAt: string;
+}
+
+export interface FormConfig {
+  protocolFeeBps: number;
+  protocolFeeWallet: string;
+}
+
+export async function getFormConfig(): Promise<FormConfig> {
+  return api<FormConfig>("/forms/config");
 }
 
 export async function createForm(

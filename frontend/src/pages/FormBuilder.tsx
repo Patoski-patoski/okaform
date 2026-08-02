@@ -73,7 +73,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
-import { createForm, buildInitTx } from "@/lib/forms";
+import { createForm, buildInitTx, getFormConfig } from "@/lib/forms";
 import { ApiError } from "@/lib/api";
 import { saveDraft } from "@/lib/drafts";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
@@ -1538,14 +1538,74 @@ function QuestionSettings({
 
 // ─── Reward settings ───────────────────────────────────────────────────────────
 
+function FeeBreakdown({
+  depositSol,
+  feeBps,
+}: {
+  depositSol: number;
+  feeBps: number;
+}) {
+  const feePct = feeBps / 100;
+  const feeSol = depositSol * (feeBps / 10000);
+  const netSol = depositSol - feeSol;
+  const fmt = (n: number) => n.toFixed(3);
+
+  return (
+    <div className="space-y-1.5 rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/40 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] uppercase tracking-wider text-ok-dim">
+          You deposit
+        </span>
+        <span className="font-mono text-[11px] font-medium text-ok-text">
+          ◎ {fmt(depositSol)} SOL
+        </span>
+      </div>
+
+      {feeBps > 0 ? (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] uppercase tracking-wider text-ok-dim">
+            Protocol fee ({feePct}%)
+          </span>
+          <span className="font-mono text-[11px] font-medium text-ok-danger">
+            -{fmt(feeSol)} SOL
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] uppercase tracking-wider text-ok-dim">
+            Protocol fee
+          </span>
+          <span className="font-mono text-[11px] font-semibold text-ok-green">
+            FREE (alpha)
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 border-t border-ok-border/30 pt-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-ok-text">
+          Respondent pool
+        </span>
+        <span className="font-mono text-[11px] font-bold text-ok-green">
+          ◎ {fmt(netSol)} SOL
+        </span>
+      </div>
+      <p className="text-[9px] leading-relaxed text-ok-dim">
+        This is the pool shared among winners.
+      </p>
+    </div>
+  );
+}
+
 function RewardSettingsPanel({
   settings,
   onUpdate,
   balanceWarning,
+  feeBps,
 }: {
   settings: RewardSettings;
   onUpdate: (updates: Partial<RewardSettings>) => void;
   balanceWarning?: string;
+  feeBps: number;
 }) {
   return (
     <div className="border-t border-[#3D444D]/60 bg-[#151B23]/20 p-4 space-y-4">
@@ -1574,6 +1634,7 @@ function RewardSettingsPanel({
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
+          <FeeBreakdown depositSol={settings.rewardPool} feeBps={feeBps} />
           {balanceWarning && (
             <p className="text-[11px] text-ok-danger flex items-center gap-1">
               <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -1724,8 +1785,25 @@ export default function FormBuilder() {
   const { publicKey, signTransaction } = wallet;
   const { connection } = useConnection();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [protocolFeeBps, setProtocolFeeBps] = useState(0);
 
   const DRAFT_KEY = "okaform_current_draft";
+
+  // Fetch the live protocol fee rate from the backend (source of truth). The
+  // builder shows an "alpha" free state when the fee is configured at 0 BPS.
+  useEffect(() => {
+    let cancelled = false;
+    getFormConfig()
+      .then((config) => {
+        if (!cancelled) setProtocolFeeBps(config.protocolFeeBps);
+      })
+      .catch(() => {
+        if (!cancelled) setProtocolFeeBps(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Restore draft from localStorage on mount
   useEffect(() => {
@@ -2238,6 +2316,7 @@ export default function FormBuilder() {
               setReward((prev) => ({ ...prev, ...updates }))
             }
             balanceWarning={balanceWarning}
+            feeBps={protocolFeeBps}
           />
         </div>
       </div>

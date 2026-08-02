@@ -12,9 +12,12 @@ import type { CreateFormDto } from './dto/create-form.dto';
 import type { BuildInitTxDto } from './dto/build-init-tx.dto';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { InvalidExpirationException } from '../common/exceptions/form/invalid-expiration.exception';
+import { SurveyStillActiveException } from '../common/exceptions/form/survey-still-active.exception';
 import { SolanaService } from '../solana/solana.service';
 import { SurveyLifecycleService } from './survey-lifecycle.service';
 import { FeeService } from './fee.service';
+import { DistributionService } from '../distribution/distribution.service';
+import type { UpdateSurveySettingsDto } from './dto/update-survey-settings.dto';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
@@ -44,10 +47,21 @@ export interface FormListItem {
   closesAt: string | null;
   previewQuestion: string;
   rewardDistributed: boolean;
+  description: string;
+  creator: string;
+  grossRewardPoolLamports: number;
+  netRewardPoolLamports: number;
+  feeLamports: number;
+  feeBps: number;
+  feeWallet: string;
+  minWalletAge: number;
+  minSolBalance: number;
+  surveyPda: string | null;
+  escrowPda: string | null;
+  closedAt: Date | null;
 }
 
 export interface FormDetail extends FormListItem {
-  creator: string;
   questions: Array<{
     id: string;
     type: string;
@@ -61,8 +75,6 @@ export interface FormDetail extends FormListItem {
     lowLabel: string;
     highLabel: string;
   }>;
-  minWalletAge: number;
-  minSolBalance: number;
 }
 
 export interface ExploreFormItem {
@@ -93,6 +105,7 @@ export class FormsService {
     private readonly solanaService: SolanaService,
     private readonly surveyLifecycleService: SurveyLifecycleService,
     private readonly feeService: FeeService,
+    private readonly distributionService: DistributionService,
   ) {}
 
   async createForm(
@@ -365,6 +378,18 @@ export class FormsService {
         closesAt: form.closesAt?.toISOString() ?? null,
         previewQuestion: form.previewQuestion,
         rewardDistributed: form.rewardDistributed ?? false,
+        description: form.description ?? '',
+        creator: form.creator,
+        grossRewardPoolLamports: form.grossRewardPoolLamports ?? 0,
+        netRewardPoolLamports: form.netRewardPoolLamports ?? 0,
+        feeLamports: form.feeLamports ?? 0,
+        feeBps: form.feeBps ?? 0,
+        feeWallet: form.feeWallet ?? '',
+        minWalletAge: form.minWalletAge ?? 0,
+        minSolBalance: form.minSolBalance ?? 0,
+        surveyPda: form.onChain?.surveyPda ?? null,
+        escrowPda: form.onChain?.escrowVault ?? null,
+        closedAt: form.closedAt ?? null,
       };
     });
   }
@@ -402,6 +427,17 @@ export class FormsService {
       closesAt: form.closesAt?.toISOString() ?? null,
       previewQuestion: form.previewQuestion,
       rewardDistributed: form.rewardDistributed ?? false,
+      description: form.description ?? '',
+      grossRewardPoolLamports: form.grossRewardPoolLamports ?? 0,
+      netRewardPoolLamports: form.netRewardPoolLamports ?? 0,
+      feeLamports: form.feeLamports ?? 0,
+      feeBps: form.feeBps ?? 0,
+      feeWallet: form.feeWallet ?? '',
+      minWalletAge: form.minWalletAge ?? 0,
+      minSolBalance: form.minSolBalance ?? 0,
+      surveyPda: form.onChain?.surveyPda ?? null,
+      escrowPda: form.onChain?.escrowVault ?? null,
+      closedAt: form.closedAt ?? null,
       questions: form.questions.map((q) => ({
         id: q.id,
         type: q.type,
@@ -415,8 +451,6 @@ export class FormsService {
         lowLabel: q.lowLabel,
         highLabel: q.highLabel,
       })),
-      minWalletAge: form.minWalletAge,
-      minSolBalance: form.minSolBalance,
     };
   }
 
@@ -629,5 +663,97 @@ export class FormsService {
       callerWallet,
       txSignature,
     );
+  }
+
+  /**
+   * Update off-chain survey metadata (title/description only).
+   * On-chain fields (reward pool, PDAs, filters) are never touched.
+   */
+  async updateSurveySettings(
+    formId: string,
+    callerWallet: string,
+    dto: UpdateSurveySettingsDto,
+  ): Promise<FormDetail> {
+    const form = await this.formModel.findById(formId).exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'UPDATE_SURVEY_SETTINGS_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can update survey settings.',
+      );
+    }
+
+    if (dto.title !== undefined) form.title = dto.title;
+    if (dto.description !== undefined) form.description = dto.description;
+
+    await form.save();
+
+    this.logger.log({
+      event: 'SURVEY_SETTINGS_UPDATED',
+      formId,
+      fields: Object.keys(dto),
+    });
+
+    return this.getFormById(formId);
+  }
+
+  /**
+   * Delete all survey data from MongoDB (form, responses, distribution records).
+   * MongoDB-only — never touches the Solana program or escrow.
+   */
+  async deleteSurveyData(
+    formId: string,
+    callerWallet: string,
+  ): Promise<{
+    responsesDeleted: number;
+    distributionRecordsDeleted: number;
+  }> {
+    const form = await this.formModel.findById(formId).lean().exec();
+
+    if (!form) {
+      throw new FormNotFoundException(formId);
+    }
+
+    if (form.creator !== callerWallet) {
+      this.logger.warn({
+        event: 'DELETE_SURVEY_DATA_UNAUTHORIZED',
+        formId,
+        caller: callerWallet.slice(0, 8) + '...',
+      });
+      throw new ForbiddenException(
+        'Only the form creator can delete survey data.',
+      );
+    }
+
+    if (form.status === 'active') {
+      throw new SurveyStillActiveException(formId);
+    }
+
+    const [responsesDeleted, distributionRecordsDeleted] = await Promise.all([
+      this.responseModel.deleteMany({ formId: form._id }).exec(),
+      this.distributionService.deleteByForm(formId),
+    ]);
+
+    await this.formModel.deleteOne({ _id: form._id }).exec();
+
+    this.logger.log({
+      event: 'SURVEY_DATA_DELETED',
+      formId,
+      responsesDeleted: responsesDeleted.deletedCount ?? 0,
+      distributionRecordsDeleted,
+    });
+
+    return {
+      responsesDeleted: responsesDeleted.deletedCount ?? 0,
+      distributionRecordsDeleted,
+    };
   }
 }

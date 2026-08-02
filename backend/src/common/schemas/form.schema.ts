@@ -120,6 +120,9 @@ export class Form {
   @Prop({ required: true })
   title!: string;
 
+  @Prop({ default: '' })
+  description!: string;
+
   @Prop({ type: [QuestionSchema], default: [] })
   questions!: Question[];
 
@@ -182,6 +185,9 @@ export class Form {
 
   @Prop({ default: false })
   escrowClosed!: boolean;
+
+  @Prop({ type: Date, default: null })
+  closedAt?: Date | null;
 
   @Prop({ type: OnChainDataSchema, default: null })
   onChain?: OnChainData;

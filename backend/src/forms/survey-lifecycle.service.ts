@@ -565,6 +565,7 @@ export class SurveyLifecycleService {
     this.logger.log({ event: 'CONFIRM_CLOSE_START', formId });
 
     form.status = 'closed';
+    form.closedAt = new Date();
     await form.save();
 
     this.logger.log({ event: 'CONFIRM_CLOSE_SUCCESS', formId });
