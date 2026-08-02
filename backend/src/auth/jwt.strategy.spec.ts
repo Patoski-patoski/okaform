@@ -40,10 +40,12 @@ describe('JwtStrategy', () => {
     const validPayload = {
       sub: 'user-id-123',
       wallet: '5FHwkrdxntdK24hgQU8qgBn3JYQ6gVbFqoXmRpCmHmU',
+      tv: 0,
     };
 
     it('should return user profile when valid', async () => {
       const expectedProfile: UserProfile = {
+        id: 'user-id-123',
         wallet: validPayload.wallet,
         username: 'testuser',
         globalScore: 500,

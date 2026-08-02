@@ -238,7 +238,7 @@ describe('FormsService', () => {
       mockDoc.save.mockResolvedValue(mockDoc);
       formModel.create.mockResolvedValue(mockDoc);
 
-      await service.createForm(dto, 'wallet123');
+      const result = await service.createForm(dto, 'wallet123');
 
       expect(solanaService.collectProtocolFee).toHaveBeenCalledWith(
         50_000_000,
@@ -261,6 +261,7 @@ describe('FormsService', () => {
         feeCollected: true,
       });
       expect(mockDoc.save).toHaveBeenCalledTimes(2);
+      expect(result.feeCollectedOnChain).toBe(true);
     });
 
     it('should skip fee collection at 0 BPS', async () => {
@@ -364,6 +365,7 @@ describe('FormsService', () => {
 
       expect(result.id).toBe('form123');
       expect(result.feeCollected).toBe(false);
+      expect(result.feeCollectedOnChain).toBe(false);
       expect(mockDoc.set).not.toHaveBeenCalled();
       expect(mockDoc.save).toHaveBeenCalledTimes(1);
     });
@@ -427,6 +429,7 @@ describe('FormsService', () => {
         feeTxSignature: 'fee-tx123',
         feeCollected: true,
       });
+      expect(result.feeCollectedOnChain).toBe(true);
     });
 
     it('should throw when initialize survey tx failed on-chain', async () => {

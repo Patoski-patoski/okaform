@@ -99,4 +99,14 @@ export class AuthController {
     res.clearCookie('refreshToken', { path: '/auth' });
     return { message: 'Logged out successfully' };
   }
+
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(
+    @CurrentUser() user: UserProfile,
+  ): Promise<{ message: string }> {
+    await this.authService.logoutAll(user.id);
+    return { message: 'All sessions revoked' };
+  }
 }

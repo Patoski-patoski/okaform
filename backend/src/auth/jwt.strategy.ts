@@ -6,6 +6,7 @@ import { AuthService, UserProfile } from './auth.service';
 interface JwtPayload {
   sub: string;
   wallet: string;
+  tv: number;
 }
 
 @Injectable()

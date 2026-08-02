@@ -34,6 +34,7 @@ describe('AuthController', () => {
             verifySignature: jest.fn(),
             refreshTokens: jest.fn(),
             logout: jest.fn(),
+            logoutAll: jest.fn(),
           },
         },
       ],
@@ -67,6 +68,7 @@ describe('AuthController', () => {
         accessToken: 'token',
         refreshToken: 'refresh',
         user: {
+          id: 'user123',
           wallet: 'W',
           username: 'u',
           globalScore: 0,
@@ -119,6 +121,7 @@ describe('AuthController', () => {
   describe('getMe', () => {
     it('should return the user profile from JWT guard', () => {
       const mockUser = {
+        id: 'user123',
         wallet: 'WALLET123',
         username: 'testuser',
         globalScore: 75,
@@ -145,6 +148,26 @@ describe('AuthController', () => {
         path: '/auth',
       });
       expect(result.message).toBe('Logged out successfully');
+    });
+  });
+
+  describe('logoutAll', () => {
+    it('should call logoutAll with user id', async () => {
+      authService.logoutAll.mockResolvedValue(undefined);
+
+      const mockUser = {
+        id: 'user123',
+        wallet: 'WALLET123',
+        username: 'testuser',
+        globalScore: 75,
+        surveysCompleted: 12,
+        badgeTier: 'Oracle',
+      };
+
+      const result = await controller.logoutAll(mockUser);
+
+      expect(authService.logoutAll).toHaveBeenCalledWith('user123');
+      expect(result.message).toBe('All sessions revoked');
     });
   });
 });

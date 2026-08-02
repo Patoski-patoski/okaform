@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -42,6 +42,7 @@ export interface TokenPairResponse {
 }
 
 export interface UserProfile {
+  id: string;
   wallet: string;
   username: string | null;
   globalScore: number;
@@ -52,6 +53,7 @@ export interface UserProfile {
 interface JwtPayload {
   sub: string;
   wallet: string;
+  tv: number;
 }
 
 @Injectable()
@@ -179,29 +181,71 @@ export class AuthService {
       throw new RefreshTokenExpiredException();
     }
 
-    storedToken.revokedAt = new Date();
-    await storedToken.save();
-
     const user = await this.userModel.findById(storedToken.userId);
     if (!user) {
       throw new UserNotFoundException('unknown');
     }
 
+    if (storedToken.tokenFamily !== user.tokenFamily) {
+      await this.refreshTokenModel.updateMany(
+        { userId: user._id, revokedAt: null },
+        { revokedAt: new Date() },
+      );
+      user.tokenFamily += 1;
+      user.tokenVersion += 1;
+      await user.save();
+
+      this.logger.warn({
+        event: 'REFRESH_TOKEN_REUSE_DETECTED',
+        wallet: user.wallet.slice(0, 8) + '...',
+        userId: user._id.toString(),
+      });
+
+      return this.issueTokens(user);
+    }
+
+    storedToken.revokedAt = new Date();
+    await storedToken.save();
+
     return this.issueTokens(user);
   }
 
   async logout(refreshToken: string): Promise<void> {
-    await this.refreshTokenModel.findOneAndUpdate(
+    const storedToken = await this.refreshTokenModel.findOneAndUpdate(
       { token: refreshToken },
       { revokedAt: new Date() },
     );
 
+    if (storedToken) {
+      const user = await this.userModel.findById(storedToken.userId);
+      if (user) {
+        user.tokenVersion += 1;
+        await user.save();
+      }
+    }
+
     this.logger.debug({ event: 'USER_LOGGED_OUT' });
+  }
+
+  async logoutAll(userId: string): Promise<void> {
+    await this.refreshTokenModel.updateMany(
+      { userId, revokedAt: null },
+      { revokedAt: new Date() },
+    );
+    await this.userModel.findByIdAndUpdate(userId, {
+      $inc: { tokenVersion: 1, tokenFamily: 1 },
+    });
+
+    this.logger.debug({ event: 'USER_LOGGED_OUT_ALL' });
   }
 
   async validateUser(payload: JwtPayload): Promise<UserProfile> {
     const user = await this.userModel.findById(payload.sub);
     if (!user) throw new UserNotFoundException(payload.wallet);
+
+    if (payload.tv !== user.tokenVersion) {
+      throw new UnauthorizedException();
+    }
 
     return this.toUserProfile(user);
   }
@@ -216,6 +260,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user._id.toString(),
       wallet: user.wallet,
+      tv: user.tokenVersion,
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -227,6 +272,7 @@ export class AuthService {
     await this.refreshTokenModel.create({
       userId: user._id,
       token: refreshToken,
+      tokenFamily: user.tokenFamily,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_MS),
     });
 
@@ -235,6 +281,7 @@ export class AuthService {
 
   private toUserProfile(user: UserDocument): UserProfile {
     return {
+      id: user._id.toString(),
       wallet: user.wallet,
       username: user.username!,
       globalScore: user.globalScore,

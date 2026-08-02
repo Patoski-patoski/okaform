@@ -43,6 +43,12 @@ export class User {
 
   @Prop({ type: Date, default: null })
   siwsNonceExpiresAt?: Date | null;
+
+  @Prop({ required: true, default: 0 })
+  tokenVersion!: number;
+
+  @Prop({ required: true, default: 0 })
+  tokenFamily!: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
