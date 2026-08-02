@@ -9,12 +9,12 @@ const LAMPORTS_PER_SOL = 1_000_000_000;
 describe('FeeService', () => {
   let service: FeeService;
   let config: { get: jest.Mock };
-  let solanaService: { getAuthorityPublicKey: jest.Mock };
+  let solanaService: { getProtocolAuthorityPublicKey: jest.Mock };
 
   beforeEach(async () => {
     config = { get: jest.fn() };
     solanaService = {
-      getAuthorityPublicKey: jest
+      getProtocolAuthorityPublicKey: jest
         .fn()
         .mockReturnValue('AuthorityWallet111111111111111111111111111111111'),
     };

@@ -35,7 +35,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { Transaction } from "@solana/web3.js";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 import HomeView from "@/components/Dashboard/HomeView";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
@@ -43,17 +42,8 @@ import SettingsView from "@/components/Dashboard/SettingsView";
 import DraftsView from "@/components/Dashboard/DraftsView";
 import DistributionTab from "@/components/DistributionTab";
 import SurveySettingsTab from "@/components/Dashboard/SurveySettingsTab";
-import {
-  getForms,
-  getSubmissions,
-  getFormById,
-  buildCloseTx,
-  confirmClose,
-  buildDistributeTx,
-  confirmDistribute,
-  buildCloseEscrowTx,
-  confirmCloseEscrow,
-} from "@/lib/forms";
+import { useSurveyLifecycle } from "@/hooks/useSurveyLifecycle";
+import { getForms, getSubmissions, getFormById } from "@/lib/forms";
 import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -1086,8 +1076,7 @@ function SurveyDetail({
 // ─── Main dashboard ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { publicKey, signTransaction } = useWallet();
-  const { connection } = useConnection();
+  const { closeSurvey, distributeRewards } = useSurveyLifecycle();
   const { user } = useAuth();
   const [activeNav, setActiveNav] = useState("surveys");
   const [view, setView] = useState<View>("surveys");
@@ -1168,25 +1157,10 @@ export default function Dashboard() {
   };
 
   const handleConfirmClose = async () => {
-    if (!closeTarget || !publicKey || !signTransaction) return;
+    if (!closeTarget) return;
     setIsClosing(true);
     try {
-      const { blockhash } = await connection.getLatestBlockhash();
-
-      const { tx: txBase64 } = await buildCloseTx(closeTarget.id, blockhash);
-
-      const tx = Transaction.from(
-        Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0)),
-      );
-
-      tx.feePayer = publicKey;
-      tx.recentBlockhash = blockhash;
-
-      const signed = await signTransaction(tx);
-      await connection.sendRawTransaction(signed.serialize());
-
-      await confirmClose(closeTarget.id);
-
+      await closeSurvey(closeTarget.id);
       setSurveys((prev) =>
         prev.map((s) =>
           s.id === closeTarget.id ? { ...s, status: "closed" } : s,
@@ -1201,81 +1175,10 @@ export default function Dashboard() {
   };
 
   const handleDistribute = async (surveyId: string) => {
-    if (!publicKey || !signTransaction) return;
     setIsDistributing(true);
     setDistError(null);
     try {
-      const { blockhash } = await connection.getLatestBlockhash();
-
-      const result = await buildDistributeTx(surveyId, blockhash);
-
-      if (!result.recovered) {
-        // Loop through every batch sequentially — no manual intervention needed.
-        for (let i = 0; i < result.txs.length; i++) {
-          const batchTxBase64 = result.txs[i];
-          const batchWallets = result.participantWallets[i];
-          const batchAmounts = result.amounts[i];
-
-          if (!batchTxBase64 || !batchWallets || !batchAmounts) continue;
-
-          // Fetch a fresh blockhash per batch so long runs don't hit expiry.
-          const { blockhash: freshBlockhash } =
-            await connection.getLatestBlockhash();
-
-          const tx = Transaction.from(
-            Uint8Array.from(atob(batchTxBase64), (c) => c.charCodeAt(0)),
-          );
-
-          tx.feePayer = publicKey;
-          tx.recentBlockhash = freshBlockhash;
-
-          const signed = await signTransaction(tx);
-          const txSignature = await connection.sendRawTransaction(
-            signed.serialize(),
-          );
-
-          await connection.confirmTransaction(txSignature, "confirmed");
-
-          await confirmDistribute(
-            surveyId,
-            batchWallets,
-            batchAmounts,
-            txSignature,
-            result.badgeTiers,
-            i === result.txs.length - 1,
-          );
-        }
-      }
-
-      // All batches confirmed — sweep the escrow rent buffer back to the creator
-      // and close the escrow PDA so it gets reaped on-chain.
-      try {
-        const { blockhash: escrowBlockhash } =
-          await connection.getLatestBlockhash();
-
-        const { tx: escrowTxBase64 } = await buildCloseEscrowTx(
-          surveyId,
-          escrowBlockhash,
-        );
-
-        const escrowTx = Transaction.from(
-          Uint8Array.from(atob(escrowTxBase64), (c) => c.charCodeAt(0)),
-        );
-
-        escrowTx.feePayer = publicKey;
-        escrowTx.recentBlockhash = escrowBlockhash;
-
-        const signedEscrowTx = await signTransaction(escrowTx);
-        const escrowTxSignature = await connection.sendRawTransaction(
-          signedEscrowTx.serialize(),
-        );
-        await connection.confirmTransaction(escrowTxSignature, "confirmed");
-
-        await confirmCloseEscrow(surveyId, escrowTxSignature);
-      } catch (escrowErr) {
-        // Distribution succeeded — escrow close is non-critical cleanup.
-        console.error("Failed to close escrow:", escrowErr);
-      }
+      await distributeRewards(surveyId);
 
       // Update local state and trigger DistributionTab refresh.
       setSurveys((prev) =>

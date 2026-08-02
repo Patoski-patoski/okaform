@@ -66,7 +66,7 @@ export class SolanaService {
   private readonly connection: Connection;
   private readonly cache = new Map<string, CacheEntry<unknown>>();
   private readonly program: anchor.Program;
-  private readonly authorityKeypair: Keypair;
+  private readonly backendKeypair: Keypair;
   private readonly protocolAuthorityKeypair: Keypair;
 
   constructor(private readonly config: ConfigService) {
@@ -76,15 +76,18 @@ export class SolanaService {
     }
     this.connection = new Connection(rpcUrl, 'confirmed');
 
-    // Load authority keypair from env
+    // Load the backend signer keypair from env. This is the wallet that signs
+    // server-initiated transactions (e.g. fee collection on survey creation).
     const keypairStr = this.config.get<string>('BACKEND_KEYPAIR');
     if (!keypairStr) {
       throw new Error('BACKEND_KEYPAIR is not defined');
     }
     const secretKey = Buffer.from(JSON.parse(keypairStr));
-    this.authorityKeypair = Keypair.fromSecretKey(secretKey);
+    this.backendKeypair = Keypair.fromSecretKey(secretKey);
 
-    // Load the on-chain authority keypair (authority::ID) from env
+    // Load the on-chain protocol authority keypair (authority::ID) from env.
+    // This is the authority-gated signer for protocol operations such as
+    // collect_fee, and the default protocol fee wallet.
     const protocolAuthorityStr = this.config.get<string>('AUTHORITY_KEYPAIR');
     if (!protocolAuthorityStr) {
       throw new Error('AUTHORITY_KEYPAIR is not defined');
@@ -99,7 +102,7 @@ export class SolanaService {
     // Initialize Anchor program
     const provider = new anchor.AnchorProvider(
       this.connection,
-      new anchor.Wallet(this.authorityKeypair),
+      new anchor.Wallet(this.backendKeypair),
       { commitment: 'confirmed' },
     );
     this.program = new anchor.Program(okaformIdl, provider);
@@ -108,7 +111,7 @@ export class SolanaService {
       event: 'SOLANA_SERVICE_INIT',
       rpcUrl: rpcUrl.slice(0, 30) + '...',
       programId: okaformIdl.address,
-      authority: this.authorityKeypair.publicKey.toBase58().slice(0, 8) + '...',
+      backend: this.backendKeypair.publicKey.toBase58().slice(0, 8) + '...',
       protocolAuthority:
         this.protocolAuthorityKeypair.publicKey.toBase58().slice(0, 8) + '...',
     });
@@ -118,7 +121,7 @@ export class SolanaService {
    * Public key of the on-chain protocol authority (authority::ID). Used as the
    * default protocol fee wallet and for authority-gated operations.
    */
-  getAuthorityPublicKey(): string {
+  getProtocolAuthorityPublicKey(): string {
     return this.protocolAuthorityKeypair.publicKey.toBase58();
   }
 
@@ -183,7 +186,7 @@ export class SolanaService {
 
     // Use the backend's keypair (the actual signer) for PDA derivation
     const [surveyPda] = this.deriveSurveyPda(
-      this.authorityKeypair.publicKey,
+      this.backendKeypair.publicKey,
       surveyIdBytes,
     );
     const [escrowVault] = this.deriveEscrowVault(surveyPda);
@@ -206,12 +209,12 @@ export class SolanaService {
           maxResponses,
         )
         .accounts({
-          signer: this.authorityKeypair.publicKey,
+          signer: this.backendKeypair.publicKey,
           survey: surveyPda,
           escrowVault,
           systemProgram: SystemProgram.programId,
         })
-        .signers([this.authorityKeypair])
+        .signers([this.backendKeypair])
         .rpc();
 
       this.logger.log({

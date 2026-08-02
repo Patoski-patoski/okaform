@@ -41,7 +41,7 @@ export class FeeService {
   getFeeWallet(): string {
     return (
       this.config.get<string>('PROTOCOL_FEE_WALLET') ??
-      this.solanaService.getAuthorityPublicKey()
+      this.solanaService.getProtocolAuthorityPublicKey()
     );
   }
 }

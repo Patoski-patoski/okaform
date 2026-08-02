@@ -13,19 +13,8 @@ import { Button } from "@/components/okaform";
 import type { StatusType } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { truncateAddress } from "@/lib/format";
-import { useWallet } from "@/hooks/useWallet";
-import { useConnection } from "@solana/wallet-adapter-react";
-import { Transaction } from "@solana/web3.js";
-import {
-  updateSurveySettings,
-  deleteSurveyData,
-  buildCloseTx,
-  confirmClose,
-  buildDistributeTx,
-  confirmDistribute,
-  buildCloseEscrowTx,
-  confirmCloseEscrow,
-} from "@/lib/forms";
+import { useSurveyLifecycle } from "@/hooks/useSurveyLifecycle";
+import { updateSurveySettings, deleteSurveyData } from "@/lib/forms";
 
 interface SurveySettingsSurvey {
   id: string;
@@ -234,8 +223,7 @@ function SurveySettingsTab({
   onSurveyUpdated,
   onSurveyDeleted,
 }: SurveySettingsTabProps) {
-  const { publicKey, signTransaction } = useWallet();
-  const { connection } = useConnection();
+  const { closeAndDistribute } = useSurveyLifecycle();
 
   const isActive = survey.status === "active";
 
@@ -301,75 +289,10 @@ function SurveySettingsTab({
   };
 
   const handleCloseSurvey = async () => {
-    if (!publicKey || !signTransaction) return;
     setBusy(true);
     setActionError(null);
     try {
-      const { blockhash } = await connection.getLatestBlockhash();
-
-      const { tx: txBase64 } = await buildCloseTx(survey.id, blockhash);
-      const tx = Transaction.from(
-        Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0)),
-      );
-      tx.feePayer = publicKey;
-      tx.recentBlockhash = blockhash;
-      const signed = await signTransaction(tx);
-      await connection.sendRawTransaction(signed.serialize());
-      await confirmClose(survey.id);
-
-      const result = await buildDistributeTx(survey.id, blockhash);
-      if (!result.recovered) {
-        for (let i = 0; i < result.txs.length; i++) {
-          const batchTxBase64 = result.txs[i];
-          const batchWallets = result.participantWallets[i];
-          const batchAmounts = result.amounts[i];
-          if (!batchTxBase64 || !batchWallets || !batchAmounts) continue;
-
-          const { blockhash: freshBlockhash } =
-            await connection.getLatestBlockhash();
-          const batchTx = Transaction.from(
-            Uint8Array.from(atob(batchTxBase64), (c) => c.charCodeAt(0)),
-          );
-          batchTx.feePayer = publicKey;
-          batchTx.recentBlockhash = freshBlockhash;
-          const signedBatch = await signTransaction(batchTx);
-          const txSignature = await connection.sendRawTransaction(
-            signedBatch.serialize(),
-          );
-          await connection.confirmTransaction(txSignature, "confirmed");
-          await confirmDistribute(
-            survey.id,
-            batchWallets,
-            batchAmounts,
-            txSignature,
-            result.badgeTiers,
-            i === result.txs.length - 1,
-          );
-        }
-      }
-
-      try {
-        const { blockhash: escrowBlockhash } =
-          await connection.getLatestBlockhash();
-        const { tx: escrowTxBase64 } = await buildCloseEscrowTx(
-          survey.id,
-          escrowBlockhash,
-        );
-        const escrowTx = Transaction.from(
-          Uint8Array.from(atob(escrowTxBase64), (c) => c.charCodeAt(0)),
-        );
-        escrowTx.feePayer = publicKey;
-        escrowTx.recentBlockhash = escrowBlockhash;
-        const signedEscrow = await signTransaction(escrowTx);
-        const escrowTxSignature = await connection.sendRawTransaction(
-          signedEscrow.serialize(),
-        );
-        await connection.confirmTransaction(escrowTxSignature, "confirmed");
-        await confirmCloseEscrow(survey.id, escrowTxSignature);
-      } catch {
-        // Escrow close is non-critical cleanup — distribution already succeeded.
-      }
-
+      await closeAndDistribute(survey.id);
       onSurveyUpdated({
         ...survey,
         status: "closed",
