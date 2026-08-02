@@ -131,35 +131,8 @@ export class FormsService {
       grossRewardPoolLamports,
     );
 
-    let feeTxSignature: string | null = null;
-    if (feeLamports > 0) {
-      this.logger.log({
-        event: 'FEE_COLLECTION_START',
-        creator: creator.slice(0, 8) + '...',
-        surveyId: dto.surveyId,
-        grossLamports: grossRewardPoolLamports,
-        feeLamports,
-        netLamports: netRewardPoolLamports,
-        feeBps: this.feeService.getFeeBps(),
-        feeWallet: this.feeService.getFeeWallet().slice(0, 8) + '...',
-      });
-
-      feeTxSignature = await this.solanaService.collectProtocolFee(
-        feeLamports,
-        dto.surveyId,
-        dto.surveyPda,
-        dto.escrowPda,
-      );
-
-      this.logger.log({
-        event: 'FEE_COLLECTED',
-        creator: creator.slice(0, 8) + '...',
-        surveyId: dto.surveyId,
-        feeLamports,
-        feeTxSignature,
-      });
-    }
-
+    // Persist the survey first so a fee-collection failure can be retried
+    // without losing the on-chain initialized survey state.
     const doc = await this.formModel.create({
       title: dto.title,
       questions: dto.questions,
@@ -169,7 +142,8 @@ export class FormsService {
       feeLamports,
       feeBps: this.feeService.getFeeBps(),
       feeWallet: this.feeService.getFeeWallet(),
-      feeTxSignature,
+      feeTxSignature: null,
+      feeCollected: false,
       maxResponses: dto.maxResponses,
       rewardType: dto.rewardType,
       numWinners: dto.numWinners ?? 1,
@@ -189,6 +163,53 @@ export class FormsService {
     } as Record<string, unknown>);
 
     const form = await doc.save();
+
+    if (feeLamports > 0) {
+      this.logger.log({
+        event: 'FEE_COLLECTION_START',
+        creator: creator.slice(0, 8) + '...',
+        surveyId: dto.surveyId,
+        grossLamports: grossRewardPoolLamports,
+        feeLamports,
+        netLamports: netRewardPoolLamports,
+        feeBps: this.feeService.getFeeBps(),
+        feeWallet: this.feeService.getFeeWallet().slice(0, 8) + '...',
+      });
+
+      try {
+        const feeTxSignature = await this.solanaService.collectProtocolFee(
+          feeLamports,
+          dto.surveyId,
+          dto.surveyPda,
+          dto.escrowPda,
+        );
+
+        await this.formModel
+          .updateOne(
+            { _id: form._id },
+            { $set: { feeTxSignature, feeCollected: true } },
+          )
+          .exec();
+
+        this.logger.log({
+          event: 'FEE_COLLECTED',
+          creator: creator.slice(0, 8) + '...',
+          surveyId: dto.surveyId,
+          feeLamports,
+          feeTxSignature,
+        });
+      } catch (error) {
+        // Leave the survey with feeCollected: false so the creator can retry
+        // fee collection later. The survey itself stays live.
+        this.logger.error({
+          event: 'FEE_COLLECTION_FAILED',
+          creator: creator.slice(0, 8) + '...',
+          surveyId: dto.surveyId,
+          feeLamports,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     this.logger.log({
       event: 'FORM_CREATE_SUCCESS',
