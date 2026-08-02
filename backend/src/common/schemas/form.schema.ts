@@ -147,6 +147,9 @@ export class Form {
   @Prop({ type: String, default: null })
   feeTxSignature?: string;
 
+  @Prop({ default: false })
+  feeCollected!: boolean;
+
   @Prop({ required: true })
   maxResponses!: number;
 

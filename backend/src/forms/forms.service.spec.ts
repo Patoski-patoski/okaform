@@ -19,6 +19,7 @@ describe('FormsService', () => {
     find: jest.Mock;
     findById: jest.Mock;
     deleteOne: jest.Mock;
+    updateOne: jest.Mock;
   };
   let distributionService: {
     deleteByForm: jest.Mock;
@@ -69,6 +70,9 @@ describe('FormsService', () => {
       find: jest.fn(),
       findById: jest.fn(),
       deleteOne: jest.fn(),
+      updateOne: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+      }),
     };
 
     distributionService = {
@@ -246,8 +250,13 @@ describe('FormsService', () => {
           netRewardPoolLamports: 9_950_000_000,
           feeLamports: 50_000_000,
           feeBps: 0,
-          feeTxSignature: 'fee-tx123',
+          feeTxSignature: null,
+          feeCollected: false,
         }),
+      );
+      expect(formModel.updateOne).toHaveBeenCalledWith(
+        { _id: 'form123' },
+        { $set: { feeTxSignature: 'fee-tx123', feeCollected: true } },
       );
     });
 
@@ -294,8 +303,61 @@ describe('FormsService', () => {
         expect.objectContaining({
           feeLamports: 0,
           feeTxSignature: null,
+          feeCollected: false,
         }),
       );
+      expect(formModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('should keep the survey with feeCollected false when fee collection fails', async () => {
+      const dto = {
+        title: 'Test Survey',
+        questions: [
+          {
+            id: 'q1',
+            type: 'short_text' as const,
+            label: 'What is your name?',
+            required: true,
+            options: [],
+            minWords: 0,
+            maxWords: 0,
+            randomize: false,
+            ratingMax: 5,
+            lowLabel: '',
+            highLabel: '',
+            matrixRows: [],
+            matrixColumns: [],
+          },
+        ],
+        rewardPool: 10,
+        maxResponses: 100,
+        rewardType: 'weighted' as const,
+        surveyId: 'survey_12345_abc',
+        surveyPda: 'pda123',
+        escrowPda: 'escrow123',
+        initTxSignature: 'tx123',
+      };
+
+      const feeService = module.get<FeeService>(FeeService);
+      const solanaService = module.get<SolanaService>(SolanaService);
+      feeService.computeFee = jest.fn().mockReturnValue({
+        feeLamports: 50_000_000,
+        netRewardPoolLamports: 9_950_000_000,
+      });
+      solanaService.collectProtocolFee = jest
+        .fn()
+        .mockRejectedValue(new Error('RPC timeout'));
+
+      const mockDoc = {
+        ...mockForm,
+        save: jest.fn().mockResolvedValue(mockForm),
+      };
+      formModel.create.mockResolvedValue(mockDoc);
+
+      const result = await service.createForm(dto, 'wallet123');
+
+      expect(result.id).toBe('form123');
+      expect(formModel.updateOne).not.toHaveBeenCalled();
     });
 
     it('should throw when initialize survey tx failed on-chain', async () => {
