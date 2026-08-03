@@ -212,6 +212,38 @@ describe('SurveyLifecycleService', () => {
       expect(result.amounts[0]).toHaveLength(5);
     });
 
+    it('should exclude flagged and rejected responses from distribution', async () => {
+      formModel.findById.mockReturnValue(
+        mockForm({
+          status: 'active',
+          creator,
+          rewardPool: 10,
+          rewardType: 'lucky_draw',
+          numWinners: 5,
+          closesAt: new Date('2099-01-01'),
+          onChain: { surveyId: 'survey_abc', escrowVault: 'escrow123' },
+        }),
+      );
+
+      responseModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockRespondents(3)),
+      });
+
+      const result = await service.buildDistributeTx('f1', creator, blockhash);
+
+      expect(responseModel.find).toHaveBeenCalledWith({
+        formId: 'f1',
+        distributed: { $ne: true },
+        moderationStatus: { $nin: ['flagged', 'rejected'] },
+      });
+      const wallets = result.participantWallets[0];
+      expect(wallets).toHaveLength(4);
+      for (const r of mockRespondents(3)) {
+        expect(wallets).toContain(r.respondentWallet);
+      }
+      expect(wallets).toContain(creator);
+    });
+
     it('should reject when called by non-creator', async () => {
       formModel.findById.mockReturnValue(
         mockForm({

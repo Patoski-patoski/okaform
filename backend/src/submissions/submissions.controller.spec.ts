@@ -34,6 +34,9 @@ describe('SubmissionsController', () => {
           similarityFlag: false,
           submittedAt: new Date('2025-01-01'),
           answers: [],
+          moderationStatus: 'clean',
+          moderationReason: null,
+          moderationNote: null,
         },
       ];
       submissionsService.getSubmissionsByForm.mockResolvedValue(mockData);

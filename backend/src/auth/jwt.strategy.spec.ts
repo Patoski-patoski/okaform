@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from './jwt.strategy';
-import { AuthService, UserProfile } from './auth.service';
+import { AuthService } from './auth.service';
+import type { UserProfile } from '../common/types/auth.types';
 import {
   jest,
   describe,

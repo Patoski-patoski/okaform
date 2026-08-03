@@ -19,6 +19,7 @@ import { InvalidSignatureException } from '../common/exceptions/wallet/invalid-s
 import { InvalidRefreshTokenException } from '../common/exceptions/auth/invalid-refresh-token.exception';
 import { RefreshTokenExpiredException } from '../common/exceptions/auth/refresh-token-expired.exception';
 import { UserNotFoundException } from '../common/exceptions/auth/user-not-found.exception';
+import type { UserProfile, JwtPayload } from '../common/types/auth.types';
 
 const DOMAIN = 'okaform.com';
 const APP_NAME = 'Okaform';
@@ -39,21 +40,6 @@ export interface AuthTokensResponse {
 export interface TokenPairResponse {
   accessToken: string;
   refreshToken: string;
-}
-
-export interface UserProfile {
-  id: string;
-  wallet: string;
-  username: string | null;
-  globalScore: number;
-  surveysCompleted: number;
-  badgeTier: string;
-}
-
-interface JwtPayload {
-  sub: string;
-  wallet: string;
-  tv: number;
 }
 
 @Injectable()

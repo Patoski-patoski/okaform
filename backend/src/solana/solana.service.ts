@@ -12,6 +12,7 @@ import * as anchor from '@coral-xyz/anchor';
 import { InvalidWalletException } from '../common/exceptions/solana/invalid-wallet.exception';
 import { RpcErrorException } from '../common/exceptions/solana/rpc-error.exception';
 import { TransactionFailedException } from '../common/exceptions/solana/transaction-failed.exception';
+import { badgeTierFromGlobalScore } from '../common/badges';
 import okaformIdl from './idl/okaform.json';
 
 const PAGE_SIZE = 1000;
@@ -625,27 +626,37 @@ export class SolanaService {
     return BigInt(balance);
   }
 
+  /**
+   * Fetch the respondent's badge tier, derived OFF-CHAIN from their cumulative
+   * on-chain global_score via the thresholds in common/badges. The badge_tier
+   * enum stored by the deployed program uses the legacy scale and is
+   * intentionally not read here. Returns null when the score read fails.
+   */
   async fetchRespondentBadgeTier(wallet: string): Promise<string | null> {
+    const score = await this.fetchRespondentScore(wallet);
+    if (score === null) return null;
+    return badgeTierFromGlobalScore(score);
+  }
+
+  /**
+   * Fetch the respondent's cumulative on-chain global score (u16). Returns null
+   * when the score account does not exist or the RPC read fails.
+   */
+  async fetchRespondentScore(wallet: string): Promise<number | null> {
     try {
       const walletPubkey = this.validateWallet(wallet);
-      const [scorePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('score'), walletPubkey.toBuffer()],
-        this.program.programId,
-      );
+      const [scorePda] = this.deriveScorePda(walletPubkey);
       const account = await (
         this.program.account as unknown as {
           respondentScoreAccount: {
-            fetch: (pda: PublicKey) => Promise<{
-              badgeTier: Record<string, Record<string, unknown>>;
-            }>;
+            fetch: (pda: PublicKey) => Promise<{ globalScore: number }>;
           };
         }
       )['respondentScoreAccount'].fetch(scorePda);
-      const badgeTier = Object.keys(account.badgeTier)[0];
-      return badgeTier ?? null;
+      return account.globalScore ?? null;
     } catch (error) {
       this.logger.warn({
-        event: 'FETCH_BADGE_TIER_FAILED',
+        event: 'FETCH_SCORE_FAILED',
         wallet: wallet.slice(0, 8) + '...',
         error: error instanceof Error ? error.message : String(error),
       });
@@ -784,5 +795,137 @@ export class SolanaService {
       event: 'CLOSE_ESCROW_TX_VERIFIED',
       txSignature,
     });
+  }
+
+  /**
+   * Derive the respondent score account PDA from a wallet public key.
+   */
+  deriveScorePda(wallet: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('score'), wallet.toBuffer()],
+      this.program.programId,
+    );
+  }
+
+  /**
+   * Check whether a respondent score account exists on-chain. Used to decide
+   * whether the frontend must initialize it before update_score can run.
+   */
+  async scoreAccountExists(wallet: string): Promise<boolean> {
+    try {
+      const walletPubkey = this.validateWallet(wallet);
+      const [scorePda] = this.deriveScorePda(walletPubkey);
+      await (
+        this.program.account as unknown as {
+          respondentScoreAccount: {
+            fetch: (pda: PublicKey) => Promise<unknown>;
+          };
+        }
+      ).respondentScoreAccount.fetch(scorePda);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Build an unsigned initializeScoreAccount transaction for the respondent's
+   * wallet to sign. The wallet is the payer and signer for account creation,
+   * so this transaction MUST be signed by the respondent wallet — never by the
+   * protocol authority.
+   */
+  async buildInitScoreTx(
+    wallet: string,
+    blockhash: string,
+  ): Promise<{ tx: string; scorePda: string; exists: boolean }> {
+    const walletPubkey = this.validateWallet(wallet);
+    const [scorePda] = this.deriveScorePda(walletPubkey);
+    const exists = await this.scoreAccountExists(wallet);
+
+    if (exists) {
+      return { tx: '', scorePda: scorePda.toBase58(), exists: true };
+    }
+
+    this.logger.log({
+      event: 'BUILD_INIT_SCORE_TX',
+      wallet: wallet.slice(0, 8) + '...',
+    });
+
+    try {
+      const tx = await this.program.methods
+        .initializeScoreAccount()
+        .accounts({
+          wallet: walletPubkey,
+          scoreAccount: scorePda,
+          systemProgram: SystemProgram.programId,
+        })
+        .transaction();
+
+      tx.feePayer = walletPubkey;
+      tx.recentBlockhash = blockhash;
+
+      return {
+        tx: tx.serialize({ requireAllSignatures: false }).toString('base64'),
+        scorePda: scorePda.toBase58(),
+        exists: false,
+      };
+    } catch (error) {
+      this.logger.error({
+        event: 'BUILD_INIT_SCORE_TX_FAILED',
+        wallet: wallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new TransactionFailedException(
+        'buildInitScoreTx',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /**
+   * Apply a reputation score delta to a respondent's on-chain score account.
+   * Authority-gated to protocolAuthorityKeypair (authority::ID).
+   */
+  async updateScore(wallet: string, delta: number): Promise<string> {
+    const walletPubkey = this.validateWallet(wallet);
+    const [scorePda] = this.deriveScorePda(walletPubkey);
+
+    this.logger.log({
+      event: 'UPDATE_SCORE_START',
+      wallet: wallet.slice(0, 8) + '...',
+      delta,
+    });
+
+    try {
+      const txSignature = await this.program.methods
+        .updateScore(delta)
+        .accounts({
+          authority: this.protocolAuthorityKeypair.publicKey,
+          scoreAccount: scorePda,
+          wallet: walletPubkey,
+        })
+        .signers([this.protocolAuthorityKeypair])
+        .rpc();
+
+      this.logger.log({
+        event: 'UPDATE_SCORE_SUCCESS',
+        wallet: wallet.slice(0, 8) + '...',
+        delta,
+        txSignature,
+      });
+
+      return txSignature;
+    } catch (error) {
+      this.logger.error({
+        event: 'UPDATE_SCORE_FAILED',
+        wallet: wallet.slice(0, 8) + '...',
+        delta,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new TransactionFailedException(
+        'update_score',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
 }

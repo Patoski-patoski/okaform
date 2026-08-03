@@ -48,11 +48,14 @@ export function tierFromLabel(label: string): BadgeTier {
   return BADGE_LABEL_TO_TIER[label.toLowerCase().trim()] ?? "grey";
 }
 
+// Badge tier thresholds for the cumulative on-chain global_score.
+// Must stay in sync with badgeTierFromGlobalScore in backend/src/common/badges.ts.
+// Calibrated so a quality submission (~+40) moves Ghost -> Cipher in ~4-5 surveys.
 export function getBadgeTier(score: number): BadgeTier {
-  if (score >= 100) return "diamond";
-  if (score >= 76) return "gold";
-  if (score >= 51) return "green";
-  if (score >= 26) return "blue";
+  if (score >= 1000) return "diamond";
+  if (score >= 650) return "gold";
+  if (score >= 350) return "green";
+  if (score >= 150) return "blue";
   return "grey";
 }
 

@@ -21,6 +21,7 @@ export class SubmissionsController {
       formId,
       dto.respondentWallet,
       dto.answers,
+      dto.openedAt,
     );
   }
 

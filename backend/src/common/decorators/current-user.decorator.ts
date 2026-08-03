@@ -1,13 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-
-export interface UserProfile {
-  id: string;
-  wallet: string;
-  username: string | null;
-  globalScore: number;
-  surveysCompleted: number;
-  badgeTier: string;
-}
+import type { UserProfile } from '../types/auth.types';
 
 interface RequestWithUser {
   user: UserProfile;
@@ -19,3 +11,5 @@ export const CurrentUser = createParamDecorator(
     return request.user;
   },
 );
+
+export type { UserProfile } from '../types/auth.types';

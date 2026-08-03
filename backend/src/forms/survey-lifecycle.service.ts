@@ -107,7 +107,11 @@ export class SurveyLifecycleService {
     }
 
     const responses = await this.responseModel
-      .find({ formId, distributed: { $ne: true } })
+      .find({
+        formId,
+        distributed: { $ne: true },
+        moderationStatus: { $nin: ['flagged', 'rejected'] },
+      })
       .exec();
 
     if (responses.length === 0) {

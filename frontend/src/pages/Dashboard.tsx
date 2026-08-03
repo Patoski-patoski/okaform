@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import OkaformLogo from "@/components/OkaformLogo";
 import {
@@ -24,6 +24,8 @@ import {
   Menu,
   FileEdit,
   LogOut,
+  Flag,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button, Badge, StatusPill, SOLAmount } from "@/components/okaform";
@@ -43,8 +45,18 @@ import DraftsView from "@/components/Dashboard/DraftsView";
 import DistributionTab from "@/components/DistributionTab";
 import SurveySettingsTab from "@/components/Dashboard/SurveySettingsTab";
 import { useSurveyLifecycle } from "@/hooks/useSurveyLifecycle";
-import { getForms, getSubmissions, getFormById } from "@/lib/forms";
-import type { SubmissionItem, FormDetailQuestion } from "@/lib/forms";
+import {
+  getForms,
+  getSubmissions,
+  getFormById,
+  moderateResponse,
+} from "@/lib/forms";
+import type {
+  SubmissionItem,
+  FormDetailQuestion,
+  ModerationStatusValue,
+  ModerationReasonValue,
+} from "@/lib/forms";
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Creator dashboard — technical/infrastructure aesthetic.
@@ -618,38 +630,114 @@ function CopyableAddress({ address }: { address: string }) {
   );
 }
 
-function ResponsesTab({ formId }: { formId: string }) {
+const MODERATION_META: Record<
+  ModerationStatusValue,
+  { label: string; className: string }
+> = {
+  clean: {
+    label: "Clean",
+    className: "border-ok-green/25 bg-ok-green/10 text-ok-green",
+  },
+  flagged: {
+    label: "Flagged",
+    className: "border-ok-warning/25 bg-ok-warning/10 text-ok-warning",
+  },
+  rejected: {
+    label: "Rejected",
+    className: "border-ok-danger/25 bg-ok-danger/10 text-ok-danger",
+  },
+};
+
+const MODERATION_REASONS: ModerationReasonValue[] = [
+  "spam",
+  "bot",
+  "duplicate",
+  "low_quality",
+  "other",
+];
+
+const REASON_LABELS: Record<ModerationReasonValue, string> = {
+  spam: "Spam",
+  bot: "Bot",
+  duplicate: "Duplicate",
+  low_quality: "Low quality",
+  other: "Other",
+};
+
+function ModerationPill({ status }: { status: ModerationStatusValue }) {
+  const meta = MODERATION_META[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider",
+        meta.className,
+      )}
+    >
+      {status === "flagged" && <Flag className="h-2.5 w-2.5" />}
+      {status === "rejected" && <XCircle className="h-2.5 w-2.5" />}
+      {status === "clean" && <CheckCircle2 className="h-2.5 w-2.5" />}
+      {meta.label}
+    </span>
+  );
+}
+
+function ResponsesTab({
+  formId,
+  canModerate,
+}: {
+  formId: string;
+  canModerate: boolean;
+}) {
   const [responses, setResponses] = useState<SubmissionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [badgeFilter, setBadgeFilter] = useState<string>("all");
+  const [modFilter, setModFilter] = useState<"all" | ModerationStatusValue>(
+    "all",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedResponse, setSelectedResponse] =
     useState<SubmissionItem | null>(null);
   const [questions, setQuestions] = useState<FormDetailQuestion[]>([]);
+  const [modTarget, setModTarget] = useState<{
+    response: SubmissionItem;
+    status: ModerationStatusValue;
+  } | null>(null);
+  const [modReason, setModReason] = useState<ModerationReasonValue>("spam");
+  const [modNote, setModNote] = useState("");
+  const [modSubmitting, setModSubmitting] = useState(false);
+  const [modError, setModError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([getSubmissions(formId), getFormById(formId)])
-      .then(([subs, form]) => {
-        if (!cancelled) {
-          setResponses(subs);
-          setQuestions(form.questions);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setResponses([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [formId]);
+  const fetchResponses = useCallback(
+    (status?: "all" | ModerationStatusValue) => {
+      let cancelled = false;
+      setLoading(true);
+      Promise.all([getSubmissions(formId, status), getFormById(formId)])
+        .then(([subs, form]) => {
+          if (!cancelled) {
+            setResponses(subs);
+            setQuestions(form.questions);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setResponses([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
+    [formId],
+  );
+
+  useEffect(() => fetchResponses(modFilter), [fetchResponses, modFilter]);
 
   const filtered = useMemo(() => {
     let rows = responses;
+    if (modFilter !== "all") {
+      rows = rows.filter((r) => r.moderationStatus === modFilter);
+    }
     if (badgeFilter !== "all") {
       rows = rows.filter(
         (r) => getBadgeTier(r.scoreAtSubmission) === badgeFilter,
@@ -660,9 +748,186 @@ function ResponsesTab({ formId }: { formId: string }) {
       rows = rows.filter((r) => r.respondentWallet.toLowerCase().includes(q));
     }
     return rows;
-  }, [responses, badgeFilter, searchQuery]);
+  }, [responses, badgeFilter, modFilter, searchQuery]);
 
-  if (loading) {
+  const summary = useMemo(() => {
+    let clean = 0;
+    let flagged = 0;
+    let rejected = 0;
+    for (const r of responses) {
+      if (r.moderationStatus === "flagged") flagged += 1;
+      else if (r.moderationStatus === "rejected") rejected += 1;
+      else clean += 1;
+    }
+    return { clean, flagged, rejected, total: responses.length };
+  }, [responses]);
+
+  const handleModerate = async () => {
+    if (!modTarget) return;
+    setModSubmitting(true);
+    setModError(null);
+    try {
+      await moderateResponse(formId, modTarget.response.id, {
+        status: modTarget.status,
+        reason: modTarget.status === "clean" ? undefined : modReason,
+        note: modTarget.status === "clean" ? undefined : modNote || undefined,
+      });
+      const updated: SubmissionItem = {
+        ...modTarget.response,
+        moderationStatus: modTarget.status,
+        moderationReason: modTarget.status === "clean" ? null : modReason,
+        moderationNote: modTarget.status === "clean" ? null : modNote || null,
+      };
+      setResponses((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+      setSelectedResponse((prev) =>
+        prev && prev.id === updated.id ? updated : prev,
+      );
+      setModTarget(null);
+      setModNote("");
+    } catch (err) {
+      setModError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setModSubmitting(false);
+    }
+  };
+
+  const openModeration = (
+    response: SubmissionItem,
+    status: ModerationStatusValue,
+  ) => {
+    setModReason(response.moderationReason ?? "spam");
+    setModNote(response.moderationNote ?? "");
+    setModError(null);
+    setModTarget({ response, status });
+  };
+
+  const moderationModal = modTarget && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={() => !modSubmitting && setModTarget(null)}
+      />
+      <div className="relative w-full max-w-md rounded border border-[#3D444D] bg-[#151B23] p-6 shadow-2xl">
+        <button
+          onClick={() => !modSubmitting && setModTarget(null)}
+          className="absolute right-4 top-4 text-[#9198A1] hover:text-[#F0F6F6]"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div
+          className={cn(
+            "mb-6 flex h-10 w-10 items-center justify-center rounded border",
+            modTarget.status === "clean"
+              ? "border-ok-green/25 bg-ok-green/10"
+              : modTarget.status === "flagged"
+                ? "border-ok-warning/25 bg-ok-warning/10"
+                : "border-ok-danger/25 bg-ok-danger/10",
+          )}
+        >
+          {modTarget.status === "clean" ? (
+            <ShieldCheck className="h-4 w-4 text-ok-green" />
+          ) : modTarget.status === "flagged" ? (
+            <Flag className="h-4 w-4 text-ok-warning" />
+          ) : (
+            <XCircle className="h-4 w-4 text-ok-danger" />
+          )}
+        </div>
+
+        <h3 className="mb-2 font-mono text-sm font-medium text-[#F0F6F6]">
+          {modTarget.status === "clean"
+            ? "Approve response?"
+            : modTarget.status === "flagged"
+              ? "Flag this response?"
+              : "Reject this response?"}
+        </h3>
+        <p className="mb-6 text-xs leading-relaxed text-[#9198A1]">
+          {modTarget.status === "rejected"
+            ? "Rejecting applies an on-chain reputation penalty and excludes this response from reward distribution."
+            : modTarget.status === "flagged"
+              ? "Flagging marks this response for review. Flagged responses are excluded from reward distribution."
+              : "Approving clears any previous moderation flag or penalty on this response."}
+        </p>
+
+        {modTarget.status !== "clean" && (
+          <>
+            <label className="mb-1.5 block font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+              Reason
+            </label>
+            <select
+              value={modReason}
+              onChange={(e) =>
+                setModReason(e.target.value as ModerationReasonValue)
+              }
+              className="mb-4 w-full rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6] focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+            >
+              {MODERATION_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {REASON_LABELS[reason]}
+                </option>
+              ))}
+            </select>
+
+            <label className="mb-1.5 block font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+              Note (optional)
+            </label>
+            <textarea
+              value={modNote}
+              onChange={(e) => setModNote(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Add context for this decision..."
+              className="mb-6 w-full resize-none rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 font-mono text-xs text-[#F0F6F6] placeholder:text-[#656C76]/40 focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+            />
+          </>
+        )}
+
+        {modError && (
+          <div className="mb-4 rounded border border-ok-danger/30 bg-ok-danger/5 px-3 py-2 text-xs text-ok-danger">
+            {modError}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onClick={() => setModTarget(null)}
+            disabled={modSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={
+              modTarget.status === "rejected"
+                ? "danger"
+                : modTarget.status === "flagged"
+                  ? "secondary"
+                  : "primary"
+            }
+            size="md"
+            className="flex-1"
+            onClick={handleModerate}
+            disabled={modSubmitting}
+          >
+            {modSubmitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </span>
+            ) : (
+              "Confirm"
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading && responses.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="h-5 w-5 animate-spin text-[#656C76]" />
@@ -702,13 +967,59 @@ function ResponsesTab({ formId }: { formId: string }) {
         </button>
 
         <div className="rounded border border-[#3D444D]/50 bg-[#151B23]/30 p-5">
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <CopyableAddress address={selectedResponse.respondentWallet} />
             <Badge tier={getBadgeTier(selectedResponse.scoreAtSubmission)} />
+            <ModerationPill status={selectedResponse.moderationStatus} />
             <span className="font-mono text-[10px] text-[#656C76]">
               {new Date(selectedResponse.submittedAt).toLocaleString()}
             </span>
           </div>
+
+          {selectedResponse.moderationReason && (
+            <div className="mb-4 rounded border border-[#3D444D]/30 bg-[#0D1117]/40 px-3 py-2">
+              <p className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+                Moderation reason
+              </p>
+              <p className="mt-1 font-mono text-xs text-[#F0F6F6]">
+                {REASON_LABELS[selectedResponse.moderationReason]}
+              </p>
+              {selectedResponse.moderationNote && (
+                <p className="mt-1 text-xs text-[#9198A1]">
+                  {selectedResponse.moderationNote}
+                </p>
+              )}
+            </div>
+          )}
+
+          {canModerate && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+                Moderation
+              </span>
+              <button
+                onClick={() => openModeration(selectedResponse, "clean")}
+                className="inline-flex items-center gap-1.5 rounded border border-ok-green/25 bg-ok-green/5 px-2.5 py-1 font-mono text-[10px] font-medium text-ok-green transition-colors hover:bg-ok-green/15"
+              >
+                <ShieldCheck className="h-3 w-3" />
+                Approve
+              </button>
+              <button
+                onClick={() => openModeration(selectedResponse, "flagged")}
+                className="inline-flex items-center gap-1.5 rounded border border-ok-warning/25 bg-ok-warning/5 px-2.5 py-1 font-mono text-[10px] font-medium text-ok-warning transition-colors hover:bg-ok-warning/15"
+              >
+                <Flag className="h-3 w-3" />
+                Flag
+              </button>
+              <button
+                onClick={() => openModeration(selectedResponse, "rejected")}
+                className="inline-flex items-center gap-1.5 rounded border border-ok-danger/25 bg-ok-danger/5 px-2.5 py-1 font-mono text-[10px] font-medium text-ok-danger transition-colors hover:bg-ok-danger/15"
+              >
+                <XCircle className="h-3 w-3" />
+                Reject
+              </button>
+            </div>
+          )}
 
           <div className="space-y-4">
             {selectedResponse.answers.map((answer, i) => {
@@ -729,14 +1040,53 @@ function ResponsesTab({ formId }: { formId: string }) {
             })}
           </div>
         </div>
+        {moderationModal}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Summary bar */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded border border-[#3D444D]/50 bg-[#151B23]/30 px-4 py-3">
+        <span className="font-mono text-[10px] text-[#656C76] uppercase tracking-wider">
+          Moderation
+        </span>
+        <span className="flex items-center gap-1.5 font-mono text-xs text-ok-green">
+          <CheckCircle2 className="h-3 w-3" />
+          {summary.clean} clean
+        </span>
+        <span className="flex items-center gap-1.5 font-mono text-xs text-ok-warning">
+          <Flag className="h-3 w-3" />
+          {summary.flagged} flagged
+        </span>
+        <span className="flex items-center gap-1.5 font-mono text-xs text-ok-danger">
+          <XCircle className="h-3 w-3" />
+          {summary.rejected} rejected
+        </span>
+        <span className="ml-auto font-mono text-[10px] text-[#656C76]">
+          {summary.total} total
+        </span>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <select
+            value={modFilter}
+            onChange={(e) =>
+              setModFilter(e.target.value as "all" | ModerationStatusValue)
+            }
+            className="appearance-none rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 pr-8 font-mono text-xs text-[#F0F6F6] focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30"
+          >
+            <option value="all">All Statuses</option>
+            <option value="clean">Clean</option>
+            <option value="flagged">Flagged</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9198A1]" />
+        </div>
+
         <div className="relative">
           <select
             value={badgeFilter}
@@ -749,16 +1099,6 @@ function ResponsesTab({ formId }: { formId: string }) {
             <option value="green">Sentinel</option>
             <option value="gold">Oracle</option>
             <option value="diamond">Sovereign</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9198A1]" />
-        </div>
-
-        <div className="relative">
-          <select className="appearance-none rounded border border-[#3D444D] bg-[#0D1117]/60 px-3 py-2 pr-8 font-mono text-xs text-[#F0F6F6] focus:border-ok-green/50 focus:outline-none focus:ring-1 focus:ring-ok-green/30">
-            <option>Sort: Latest</option>
-            <option>Sort: Earliest</option>
-            <option>Sort: Score ↓</option>
-            <option>Sort: Score ↑</option>
           </select>
           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9198A1]" />
         </div>
@@ -785,13 +1125,14 @@ function ResponsesTab({ formId }: { formId: string }) {
             >
               <CopyableAddress address={r.respondentWallet} />
               <Badge tier={getBadgeTier(r.scoreAtSubmission)} />
+              <ModerationPill status={r.moderationStatus} />
               <span className="whitespace-nowrap font-mono text-[10px] text-[#656C76]">
                 {relativeTime(r.submittedAt)}
               </span>
               {r.similarityFlag && (
                 <span className="inline-flex items-center gap-1 font-mono text-[10px] text-ok-warning">
                   <AlertTriangle className="h-3 w-3" />
-                  Flagged
+                  Sim flag
                 </span>
               )}
               <button
@@ -804,6 +1145,9 @@ function ResponsesTab({ formId }: { formId: string }) {
           ))}
         </div>
       </div>
+
+      {/* Moderation modal */}
+      {moderationModal}
     </div>
   );
 }
@@ -840,15 +1184,20 @@ function AnalyticsTab({ formId }: { formId: string }) {
     );
   }
 
-  const totalResponses = responses.length;
+  // Rejected responses are excluded from analytics
+  const eligibleResponses = responses.filter(
+    (r) => r.moderationStatus !== "rejected",
+  );
+
+  const totalResponses = eligibleResponses.length;
   const avgScore =
     totalResponses > 0
       ? Math.round(
-          responses.reduce((sum, r) => sum + r.scoreAtSubmission, 0) /
+          eligibleResponses.reduce((sum, r) => sum + r.scoreAtSubmission, 0) /
             totalResponses,
         )
       : 0;
-  const flaggedCount = responses.filter((r) => r.similarityFlag).length;
+  const flaggedCount = eligibleResponses.filter((r) => r.similarityFlag).length;
 
   return (
     <div className="space-y-6">
@@ -1054,7 +1403,12 @@ function SurveyDetail({
       </div>
 
       {/* Tab content */}
-      {activeTab === "responses" && <ResponsesTab formId={survey.id} />}
+      {activeTab === "responses" && (
+        <ResponsesTab
+          formId={survey.id}
+          canModerate={survey.status === "closed"}
+        />
+      )}
       {activeTab === "analytics" && <AnalyticsTab formId={survey.id} />}
       {activeTab === "distribution" && (
         <DistributionTab
