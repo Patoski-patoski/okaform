@@ -12,6 +12,7 @@ import { SolanaModule } from './solana/solana.module';
 import { SybilModule } from './sybil/sybil.module';
 import { FormsModule } from './forms/forms.module';
 import { SubmissionsModule } from './submissions/submissions.module';
+import { ScoreModule } from './score/score.module';
 import { validateEnv } from './config/env.schema';
 
 const logger = new Logger('AppModule');
@@ -43,6 +44,7 @@ const logger = new Logger('AppModule');
     SybilModule,
     FormsModule,
     SubmissionsModule,
+    ScoreModule,
   ],
   controllers: [AppController],
   providers: [

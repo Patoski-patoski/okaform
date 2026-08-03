@@ -6,14 +6,22 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
-import { SurveyResponse } from '../common/schemas/response.schema';
-import { Form } from '../common/schemas/form.schema';
+import {
+  SurveyResponse,
+  type ModerationReasonValue,
+  type ModerationStatusValue,
+} from '../common/schemas/response.schema';
+import { Form, type Question } from '../common/schemas/form.schema';
 import { SurveyLifecycleService } from '../forms/survey-lifecycle.service';
 import { SybilService } from '../sybil/sybil.service';
+import type { SybilResult } from '../sybil/dto/sybil-check.dto';
+import { ScoreService } from '../score/score.service';
+import { SolanaService } from '../solana/solana.service';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
 import { FormClosedException } from '../common/exceptions/form/form-closed.exception';
 import { FormFullException } from '../common/exceptions/form/form-full.exception';
 import { OkaformException } from '../common/exceptions/base.exception';
+import type { ModerateResponseDto } from './dto/moderate-response.dto';
 
 export interface SubmissionItem {
   id: string;
@@ -22,6 +30,9 @@ export interface SubmissionItem {
   similarityFlag: boolean;
   submittedAt: Date;
   answers: Record<string, unknown>[];
+  moderationStatus: ModerationStatusValue;
+  moderationReason: ModerationReasonValue | null;
+  moderationNote: string | null;
 }
 
 @Injectable()
@@ -35,12 +46,15 @@ export class SubmissionsService {
     private formModel: Model<Form>,
     private readonly surveyLifecycleService: SurveyLifecycleService,
     private readonly sybilService: SybilService,
+    private readonly scoreService: ScoreService,
+    private readonly solanaService: SolanaService,
   ) {}
 
   async createSubmission(
     formId: string,
     respondentWallet: string,
     answers: Record<string, unknown>[],
+    openedAt: number,
   ): Promise<SubmissionItem> {
     // Guard 1: Form must exist
     const form = await this.formModel.findById(formId).lean().exec();
@@ -145,6 +159,7 @@ export class SubmissionsService {
       scoreAtSubmission: 0,
       similarityFlag: false,
       submittedAt: new Date(),
+      openedAt: new Date(openedAt),
     });
 
     const saved = await doc.save();
@@ -154,6 +169,27 @@ export class SubmissionsService {
       formId,
       respondentWallet: respondentWallet.slice(0, 8) + '...',
     });
+
+    // Score the submission. On-chain updates are best-effort and must never
+    // fail the submission itself.
+    let scoreAtSubmission = 0;
+    if (form.rewardType === 'weighted') {
+      scoreAtSubmission = await this.applyScore({
+        formId,
+        respondentWallet,
+        answers,
+        questions: form.questions,
+        submittedAt: saved.submittedAt ?? new Date(),
+        openedAt,
+        sybilResult,
+      });
+    } else {
+      this.logger.log({
+        event: 'SCORE_SKIPPED',
+        reason: 'LOTTERY_SURVEY',
+        formId,
+      });
+    }
 
     // Fire-and-forget: check if survey should be auto-closed and rewards distributed
     // Attach .catch() to prevent unhandled promise rejections
@@ -170,16 +206,163 @@ export class SubmissionsService {
     return {
       id: String(saved._id),
       respondentWallet: saved.respondentWallet,
-      scoreAtSubmission: saved.scoreAtSubmission,
+      scoreAtSubmission,
       similarityFlag: saved.similarityFlag,
       submittedAt: saved.submittedAt,
       answers: saved.answers,
+      moderationStatus: saved.moderationStatus ?? 'clean',
+      moderationReason: saved.moderationReason ?? null,
+      moderationNote: saved.moderationNote ?? null,
     };
   }
 
-  async getSubmissionsByForm(formId: string): Promise<SubmissionItem[]> {
+  /**
+   * Compute the 5-metric submission score and persist a snapshot, then apply
+   * the score delta on-chain (update_score, authority-gated). Any failure in
+   * the on-chain step is logged and swallowed — the submission already passed.
+   */
+  private async applyScore(params: {
+    formId: string;
+    respondentWallet: string;
+    answers: Record<string, unknown>[];
+    questions: Question[];
+    submittedAt: Date;
+    openedAt: number;
+    sybilResult: SybilResult;
+  }): Promise<number> {
+    const {
+      formId,
+      respondentWallet,
+      answers,
+      questions,
+      submittedAt,
+      openedAt,
+      sybilResult,
+    } = params;
+
+    const scoreResult = this.scoreService.calculateSubmissionScore({
+      questions: questions.map((q) => ({
+        id: q.id,
+        type: q.type,
+        required: q.required,
+        minWords: q.minWords,
+      })),
+      answers: answers.map((a) => ({
+        questionId: typeof a.questionId === 'string' ? a.questionId : '',
+        value: a.value,
+      })),
+      submittedAt,
+      openedAt,
+      sybilResult,
+    });
+
+    const deltaInt = Math.round(scoreResult.total * 10);
+
+    this.logger.log({
+      event: 'SCORE_CALCULATED',
+      formId,
+      wallet: respondentWallet.slice(0, 8) + '...',
+      total: scoreResult.total,
+      delta: deltaInt,
+      breakdown: scoreResult.breakdown,
+    });
+
+    if (deltaInt === 0) {
+      this.logger.warn({
+        event: 'SCORE_DELTA_ZERO',
+        formId,
+        wallet: respondentWallet.slice(0, 8) + '...',
+      });
+    }
+
+    const scoreUpdate: Partial<{
+      scoreBreakdown: typeof scoreResult.breakdown;
+      scoreDelta: number;
+      scoreDeltaInt: number;
+      scoreUpdatedAt: Date;
+      scoreUpdateTx: string | null;
+      scoreAtSubmission: number;
+    }> = {
+      scoreBreakdown: scoreResult.breakdown,
+      scoreDelta: scoreResult.total,
+      scoreDeltaInt: deltaInt,
+      scoreUpdatedAt: new Date(),
+      scoreUpdateTx: null,
+      scoreAtSubmission: 0,
+    };
+
+    try {
+      if (!(await this.solanaService.scoreAccountExists(respondentWallet))) {
+        this.logger.warn({
+          event: 'SCORE_ACCOUNT_NOT_FOUND',
+          formId,
+          wallet: respondentWallet.slice(0, 8) + '...',
+        });
+      } else {
+        const txSignature = await this.solanaService.updateScore(
+          respondentWallet,
+          deltaInt,
+        );
+
+        scoreUpdate.scoreUpdateTx = txSignature;
+
+        // Snapshot the wallet's cumulative on-chain score so the Responses tab
+        // badge matches the live on-chain tier shown in the Distribution tab.
+        const onChainScore =
+          await this.solanaService.fetchRespondentScore(respondentWallet);
+        if (onChainScore !== null) {
+          scoreUpdate.scoreAtSubmission = onChainScore;
+        }
+
+        this.logger.log({
+          event: 'SCORE_UPDATED_ON_CHAIN',
+          formId,
+          wallet: respondentWallet.slice(0, 8) + '...',
+          delta: deltaInt,
+          scoreAtSubmission: scoreUpdate.scoreAtSubmission,
+          txSignature,
+        });
+      }
+    } catch (error) {
+      this.logger.error({
+        event: 'SCORE_UPDATE_FAILED',
+        formId,
+        wallet: respondentWallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await this.responseModel
+        .findOneAndUpdate(
+          { formId, respondentWallet },
+          { $set: scoreUpdate },
+          { new: false },
+        )
+        .exec();
+    } catch (error) {
+      this.logger.error({
+        event: 'SCORE_PERSIST_FAILED',
+        formId,
+        wallet: respondentWallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return scoreUpdate.scoreAtSubmission ?? 0;
+  }
+
+  async getSubmissionsByForm(
+    formId: string,
+    moderationStatus?: 'all' | ModerationStatusValue,
+  ): Promise<SubmissionItem[]> {
+    const filter: Record<string, unknown> = { formId };
+    if (moderationStatus && moderationStatus !== 'all') {
+      filter.moderationStatus = moderationStatus;
+    }
+
     const responses = await this.responseModel
-      .find({ formId })
+      .find(filter)
       .sort({ submittedAt: -1 })
       .lean()
       .exec();
@@ -197,7 +380,146 @@ export class SubmissionsService {
       similarityFlag: r.similarityFlag,
       submittedAt: r.submittedAt ?? new Date(),
       answers: r.answers ?? [],
+      moderationStatus: r.moderationStatus ?? 'clean',
+      moderationReason: r.moderationReason ?? null,
+      moderationNote: r.moderationNote ?? null,
     }));
+  }
+
+  async moderateResponse(
+    formId: string,
+    responseId: string,
+    creatorWallet: string,
+    dto: ModerateResponseDto,
+  ): Promise<void> {
+    // Verify form belongs to creator
+    const form = await this.formModel.findById(formId).lean().exec();
+    if (!form) throw new FormNotFoundException(formId);
+    if (form.creator !== creatorWallet) {
+      throw new OkaformException(
+        {
+          code: 'UNAUTHORIZED',
+          detail: 'Only the survey creator can moderate responses.',
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const response = await this.responseModel.findById(responseId).exec();
+    if (!response) {
+      throw new OkaformException(
+        { code: 'RESPONSE_NOT_FOUND' },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const previousStatus = response.moderationStatus ?? 'clean';
+
+    // Update moderation status
+    await this.responseModel
+      .findByIdAndUpdate(responseId, {
+        moderationStatus: dto.status,
+        moderationReason: dto.reason ?? null,
+        moderationNote: dto.note ?? null,
+        moderatedAt: new Date(),
+        moderatedBy: creatorWallet,
+      })
+      .exec();
+
+    this.logger.log({
+      event: 'RESPONSE_MODERATED',
+      formId,
+      responseId,
+      respondentWallet: response.respondentWallet.slice(0, 8) + '...',
+      previousStatus,
+      newStatus: dto.status,
+      reason: dto.reason,
+    });
+
+    // Apply reputation penalty if status is 'rejected'
+    // Remove penalty if status is changed back to 'clean'
+    if (dto.status === 'rejected' && previousStatus !== 'rejected') {
+      await this.applyModerationPenalty(
+        response.respondentWallet,
+        formId,
+        response.scoreDeltaInt ?? 0,
+      );
+    } else if (dto.status === 'clean' && previousStatus === 'rejected') {
+      await this.removeModerationPenalty(
+        response.respondentWallet,
+        formId,
+        response.scoreDeltaInt ?? 0,
+      );
+    }
+  }
+
+  /**
+   * Apply a reputation penalty on-chain: reverse the original score delta
+   * PLUS a 10-point penalty. e.g. if submission earned +35 points, penalty
+   * is -45 points. On-chain failure is logged and swallowed — the MongoDB
+   * moderation status is already updated.
+   */
+  private async applyModerationPenalty(
+    wallet: string,
+    formId: string,
+    originalDelta: number,
+  ): Promise<void> {
+    const penaltyDelta = -(originalDelta + 10);
+
+    try {
+      const txSignature = await this.solanaService.updateScore(
+        wallet,
+        penaltyDelta,
+      );
+
+      this.logger.warn({
+        event: 'MODERATION_PENALTY_APPLIED',
+        wallet: wallet.slice(0, 8) + '...',
+        formId,
+        penaltyDelta,
+        txSignature,
+      });
+    } catch (error) {
+      this.logger.error({
+        event: 'MODERATION_PENALTY_FAILED',
+        wallet: wallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Restore reputation after un-rejecting a response: add back the original
+   * delta plus the 10-point penalty that was applied. Mirrors
+   * applyModerationPenalty with a positive delta.
+   */
+  private async removeModerationPenalty(
+    wallet: string,
+    formId: string,
+    originalDelta: number,
+  ): Promise<void> {
+    const restoreDelta = originalDelta + 10;
+
+    try {
+      const txSignature = await this.solanaService.updateScore(
+        wallet,
+        restoreDelta,
+      );
+
+      this.logger.warn({
+        event: 'MODERATION_PENALTY_REVERSED',
+        wallet: wallet.slice(0, 8) + '...',
+        formId,
+        restoreDelta,
+        txSignature,
+      });
+    } catch (error) {
+      this.logger.error({
+        event: 'MODERATION_PENALTY_REVERT_FAILED',
+        wallet: wallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   async countByForm(formId: string): Promise<number> {

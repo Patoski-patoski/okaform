@@ -256,6 +256,7 @@ export async function confirmCloseEscrow(
 export interface SubmitResponsePayload {
   answers: Record<string, unknown>[];
   respondentWallet: string;
+  openedAt: number;
 }
 
 export async function submitResponse(
@@ -268,6 +269,15 @@ export async function submitResponse(
   });
 }
 
+export type ModerationStatusValue = "clean" | "flagged" | "rejected";
+
+export type ModerationReasonValue =
+  | "spam"
+  | "bot"
+  | "duplicate"
+  | "low_quality"
+  | "other";
+
 export interface SubmissionItem {
   id: string;
   respondentWallet: string;
@@ -275,12 +285,38 @@ export interface SubmissionItem {
   similarityFlag: boolean;
   submittedAt: string;
   answers: Record<string, unknown>[];
+  moderationStatus: ModerationStatusValue;
+  moderationReason: ModerationReasonValue | null;
+  moderationNote: string | null;
 }
+
+export type ModerationFilter = "all" | ModerationStatusValue;
 
 export async function getSubmissions(
   formId: string,
+  moderationStatus?: ModerationFilter,
 ): Promise<SubmissionItem[]> {
-  return api<SubmissionItem[]>(`/submissions/${formId}`);
+  const query = moderationStatus
+    ? `?moderationStatus=${encodeURIComponent(moderationStatus)}`
+    : "";
+  return api<SubmissionItem[]>(`/forms/${formId}/responses${query}`);
+}
+
+export interface ModerateResponsePayload {
+  status: ModerationStatusValue;
+  reason?: ModerationReasonValue;
+  note?: string;
+}
+
+export async function moderateResponse(
+  formId: string,
+  responseId: string,
+  payload: ModerateResponsePayload,
+): Promise<void> {
+  return api<void>(`/forms/${formId}/responses/${responseId}/moderate`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export interface SybilCheckResult {

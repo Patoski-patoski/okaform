@@ -7,6 +7,7 @@ import {
   DistributionRecordDocument,
 } from './distribution.schema';
 import { OkaformException } from '../common/exceptions/base.exception';
+import { badgeTierFromGlobalScore } from '../common/badges';
 
 export interface SaveDistributionInput {
   formId: string;
@@ -19,11 +20,7 @@ export interface SaveDistributionInput {
 }
 
 function badgeTierFromScore(score: number): string {
-  if (score >= 100) return 'Sovereign';
-  if (score >= 76) return 'Oracle';
-  if (score >= 51) return 'Sentinel';
-  if (score >= 26) return 'Cipher';
-  return 'Ghost';
+  return badgeTierFromGlobalScore(score);
 }
 
 export const BADGE_WEIGHTS: Record<string, number> = {

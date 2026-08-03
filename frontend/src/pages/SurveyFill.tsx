@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Loader2, ShieldX, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/okaform";
 import { cn } from "@/lib/utils";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useConnection } from "@solana/wallet-adapter-react";
 import OkaformLogo from "@/components/OkaformLogo";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +25,8 @@ import {
   type FormDetail,
 } from "@/lib/forms";
 import type { QuestionOption } from "@/types/survey";
+import { ensureScoreAccountOnChain } from "@/lib/solana/initializeScore";
+import { logger } from "@/lib/logger";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,9 +86,11 @@ export default function SurveyFill() {
     passed: boolean;
     reason?: string;
   }>({ checked: false, passed: false });
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, signTransaction } = useWallet();
   const { setVisible } = useWalletModal();
   const { user } = useAuth();
+  const { connection } = useConnection();
+  const openedAt = useRef(Date.now());
 
   const wallet = publicKey?.toBase58() ?? "";
   const score = 0; // TODO: fetch from backend
@@ -182,15 +187,32 @@ export default function SurveyFill() {
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
     if (!formId || !wallet) return;
+    if (!publicKey || !signTransaction) {
+      setSubmitError("Wallet not connected. Please reconnect and try again.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // Best-effort: ensure the respondent's on-chain score account exists so
+      // the backend can apply the reputation delta. Failures are non-fatal —
+      // the backend handles a missing account gracefully.
+      try {
+        await ensureScoreAccountOnChain(
+          { publicKey, signTransaction },
+          connection,
+        );
+      } catch (err) {
+        logger.warn("Score account init skipped:", err);
+      }
+
       await submitResponse(formId, {
         answers: Object.entries(answers).map(([questionId, value]) => ({
           questionId,
           value,
         })),
         respondentWallet: wallet,
+        openedAt: openedAt.current,
       });
       setSubmitted(true);
     } catch (err) {
@@ -198,7 +220,15 @@ export default function SurveyFill() {
     } finally {
       setSubmitting(false);
     }
-  }, [answers, surveyQuestions, formId, wallet]);
+  }, [
+    answers,
+    surveyQuestions,
+    formId,
+    wallet,
+    publicKey,
+    signTransaction,
+    connection,
+  ]);
 
   const progress = useMemo(() => {
     const required = surveyQuestions.filter((q) => q.required);

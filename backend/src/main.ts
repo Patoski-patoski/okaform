@@ -10,6 +10,7 @@ function isOriginAllowed(
   const allowedOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://t8c1z7r8-5173.uks1.devtunnels.ms',
     ...(process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
       : []),

@@ -2304,20 +2304,22 @@ export default function FormBuilder() {
         </div>
 
         <div className="hidden w-[300px] shrink-0 border-l border-[#3D444D] bg-[#0D1117] lg:flex lg:flex-col">
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <QuestionSettings
               question={selectedQuestion}
               onUpdate={updateQuestion}
             />
           </div>
-          <RewardSettingsPanel
-            settings={reward}
-            onUpdate={(updates) =>
-              setReward((prev) => ({ ...prev, ...updates }))
-            }
-            balanceWarning={balanceWarning}
-            feeBps={protocolFeeBps}
-          />
+          <div className="shrink-0 max-h-[45%] overflow-y-auto">
+            <RewardSettingsPanel
+              settings={reward}
+              onUpdate={(updates) =>
+                setReward((prev) => ({ ...prev, ...updates }))
+              }
+              balanceWarning={balanceWarning}
+              feeBps={protocolFeeBps}
+            />
+          </div>
         </div>
       </div>
 

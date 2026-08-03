@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SubmissionsController } from './submissions.controller';
+import { ResponsesController } from './responses.controller';
 import { SubmissionsService } from './submissions.service';
 import {
   SurveyResponse,
@@ -9,6 +10,7 @@ import {
 import { Form, FormSchema } from '../common/schemas/form.schema';
 import { FormsModule } from '../forms/forms.module';
 import { SybilModule } from '../sybil/sybil.module';
+import { ScoreModule } from '../score/score.module';
 
 @Module({
   imports: [
@@ -18,8 +20,9 @@ import { SybilModule } from '../sybil/sybil.module';
     ]),
     forwardRef(() => FormsModule),
     SybilModule,
+    ScoreModule,
   ],
-  controllers: [SubmissionsController],
+  controllers: [SubmissionsController, ResponsesController],
   providers: [SubmissionsService],
   exports: [SubmissionsService],
 })
