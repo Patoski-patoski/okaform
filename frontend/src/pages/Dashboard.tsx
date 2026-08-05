@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import OkaformLogo from "@/components/OkaformLogo";
 import {
@@ -1431,6 +1432,7 @@ function SurveyDetail({
 
 export default function Dashboard() {
   const { closeSurvey, distributeRewards } = useSurveyLifecycle();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [activeNav, setActiveNav] = useState("surveys");
   const [view, setView] = useState<View>("surveys");
@@ -1520,6 +1522,8 @@ export default function Dashboard() {
           s.id === closeTarget.id ? { ...s, status: "closed" } : s,
         ),
       );
+      queryClient.invalidateQueries({ queryKey: ["responses"] });
+      queryClient.invalidateQueries({ queryKey: ["distribution"] });
       setCloseTarget(null);
     } catch (err) {
       console.error("Failed to close survey:", err);
@@ -1541,6 +1545,8 @@ export default function Dashboard() {
         ),
       );
       setDistributionRefreshKey((k) => k + 1);
+      queryClient.invalidateQueries({ queryKey: ["responses"] });
+      queryClient.invalidateQueries({ queryKey: ["distribution"] });
     } catch (err) {
       setDistError(
         err instanceof Error

@@ -83,7 +83,7 @@ Never weaken these settings to make code compile. Fix the code instead.
 
 All incoming data (request bodies, query params, config) must be validated using **TypeBox**. Do not use `class-validator`, `zod`, or plain interface assertions.
 
-Install: `npm install @sinclair/typebox`
+Install: `bun install @sinclair/typebox`
 
 ### Defining schemas
 

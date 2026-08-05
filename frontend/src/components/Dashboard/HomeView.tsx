@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import {
   FileText,
   Activity,
+  Loader2,
   Users,
   Server,
   CheckCircle2,
@@ -10,44 +11,23 @@ import {
 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
+import { useRecentActivity } from "@/hooks/useRecentActivity";
 import { getBadgeTier } from "@/lib/tiers";
 import { cn, displayName } from "@/lib/utils";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 
-// ─── Mock data ─────────────────────────────────────────────────────────────────
+// ─── Activity feed ─────────────────────────────────────────────────────────────
 
-const ACTIVITY_FEED = [
-  {
-    color: "bg-ok-green",
-    text: "Jupiter Community Pulse received 12 new responses",
-    time: "2 hours ago",
-  },
-  {
-    color: "bg-ok-warning",
-    text: "Tensor Trader Feedback distribution complete — ◎ 30 SOL sent to 500 wallets",
-    time: "5 hours ago",
-  },
-  {
-    color: "bg-ok-danger",
-    text: "2 flagged responses detected on Jupiter Community Pulse",
-    time: "6 hours ago",
-  },
-  {
-    color: "bg-ok-green",
-    text: "New Sovereign respondent submitted to Jupiter Community Pulse",
-    time: "8 hours ago",
-  },
-  {
-    color: "bg-[#656C76]",
-    text: "Drift Protocol UX Survey closed manually",
-    time: "12 hours ago",
-  },
-  {
-    color: "bg-ok-green",
-    text: "Jupiter Community Pulse published — ◎ 50 SOL escrowed",
-    time: "2 days ago",
-  },
-];
+function relativeTime(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 interface SurveySummary {
   id: string;
@@ -56,6 +36,8 @@ interface SurveySummary {
   responses: number;
   maxResponses: number;
   rewardPool: number;
+  createdAt: string;
+  closedAt: string | null;
 }
 
 // ─── HomeView component ────────────────────────────────────────────────────────
@@ -79,6 +61,8 @@ export default function HomeView({
   const solDistributed = surveys
     .filter((s) => s.status === "closed")
     .reduce((sum, s) => sum + s.rewardPool, 0);
+
+  const { activity, isLoading: activityLoading } = useRecentActivity(surveys);
 
   const tierNames: Record<string, string> = {
     grey: "Ghost",
@@ -194,25 +178,44 @@ export default function HomeView({
           <p className="font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
             RECENT ACTIVITY
           </p>
-          <Link
-            to="/dashboard"
+          <button
+            onClick={() => onNavChange?.("surveys")}
             className="font-mono text-[10px] text-[#656C76] transition-colors hover:text-[#F0F6F6]"
           >
             View all →
-          </Link>
+          </button>
         </div>
         <div className="divide-y divide-[#3D444D]/30">
-          {ACTIVITY_FEED.map((item, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3">
-              <span
-                className={cn("h-1.5 w-1.5 shrink-0 rounded-full", item.color)}
-              />
-              <p className="flex-1 text-xs text-[#9198A1]">{item.text}</p>
-              <span className="shrink-0 font-mono text-[10px] text-[#656C76]">
-                {item.time}
-              </span>
+          {activityLoading ? (
+            <div className="flex items-center gap-2 px-4 py-6">
+              <Loader2 className="h-4 w-4 animate-spin text-[#656C76]" />
+              <p className="font-mono text-xs text-[#9198A1]">
+                Loading activity...
+              </p>
             </div>
-          ))}
+          ) : activity.length > 0 ? (
+            activity.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    item.color,
+                  )}
+                />
+                <p className="flex-1 text-xs text-[#9198A1]">{item.text}</p>
+                <span className="shrink-0 font-mono text-[10px] text-[#656C76]">
+                  {relativeTime(item.time)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <Activity className="h-6 w-6 text-[#656C76]/30" />
+              <p className="font-mono text-xs text-[#9198A1]">
+                No activity yet
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
