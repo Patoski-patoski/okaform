@@ -6,7 +6,7 @@ Thank you for taking the time to help keep Okaform secure. This document explain
 
 Please report security issues to: [patrickpeters911@gmail.com](mailto:patrickpeters911@gmail.com) (preferred) or use GitHub Security Advisories.
 
-If you need to share sensitive details (PoC, exploit code), encrypt them with our PGP key and include the fingerprint in your message. (PGP key placeholder: TBD)
+If you need to share sensitive details (PoC, exploit code), mention this in your report and we will coordinate a secure channel for sharing them (for example, by providing an encryption key or alternative secure channel).
 
 ### What to include in your report
 
