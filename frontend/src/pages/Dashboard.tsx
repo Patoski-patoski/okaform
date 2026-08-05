@@ -40,6 +40,10 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useConnection } from "@solana/wallet-adapter-react";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 import HomeView from "@/components/Dashboard/HomeView";
+import {
+  responsesQueryKey,
+  distributionQueryKey,
+} from "@/hooks/useRecentActivity";
 import AnalyticsView from "@/components/Dashboard/AnalyticsView";
 import SettingsView from "@/components/Dashboard/SettingsView";
 import DraftsView from "@/components/Dashboard/DraftsView";
@@ -1522,8 +1526,12 @@ export default function Dashboard() {
           s.id === closeTarget.id ? { ...s, status: "closed" } : s,
         ),
       );
-      queryClient.invalidateQueries({ queryKey: ["responses"] });
-      queryClient.invalidateQueries({ queryKey: ["distribution"] });
+      queryClient.invalidateQueries({
+        queryKey: responsesQueryKey(closeTarget.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: distributionQueryKey(closeTarget.id),
+      });
       setCloseTarget(null);
     } catch (err) {
       console.error("Failed to close survey:", err);
@@ -1545,8 +1553,12 @@ export default function Dashboard() {
         ),
       );
       setDistributionRefreshKey((k) => k + 1);
-      queryClient.invalidateQueries({ queryKey: ["responses"] });
-      queryClient.invalidateQueries({ queryKey: ["distribution"] });
+      queryClient.invalidateQueries({
+        queryKey: responsesQueryKey(surveyId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: distributionQueryKey(surveyId),
+      });
     } catch (err) {
       setDistError(
         err instanceof Error
