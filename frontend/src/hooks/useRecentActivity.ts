@@ -168,10 +168,14 @@ export function useRecentActivity(surveys: SurveySummary[]) {
     responseQueries.some((q) => q.isPending) ||
     distributionQueries.some((q) => q.isPending);
 
+  const hasError =
+    responseQueries.some((q) => q.isError) ||
+    distributionQueries.some((q) => q.isError);
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["responses"] });
     queryClient.invalidateQueries({ queryKey: ["distribution"] });
   };
 
-  return { activity, isLoading, invalidate };
+  return { activity, isLoading, hasError, invalidate };
 }

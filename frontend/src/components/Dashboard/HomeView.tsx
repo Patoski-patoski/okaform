@@ -62,7 +62,11 @@ export default function HomeView({
     .filter((s) => s.status === "closed")
     .reduce((sum, s) => sum + s.rewardPool, 0);
 
-  const { activity, isLoading: activityLoading } = useRecentActivity(surveys);
+  const {
+    activity,
+    isLoading: activityLoading,
+    hasError: activityError,
+  } = useRecentActivity(surveys);
 
   const tierNames: Record<string, string> = {
     grey: "Ghost",
@@ -191,6 +195,13 @@ export default function HomeView({
               <Loader2 className="h-4 w-4 animate-spin text-[#656C76]" />
               <p className="font-mono text-xs text-[#9198A1]">
                 Loading activity...
+              </p>
+            </div>
+          ) : activityError ? (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <Activity className="h-6 w-6 text-[#656C76]/30" />
+              <p className="font-mono text-xs text-[#9198A1]">
+                Unable to load recent activity. Please try again later.
               </p>
             </div>
           ) : activity.length > 0 ? (
