@@ -196,6 +196,33 @@ describe('DistributionService', () => {
     });
   });
 
+  describe('getDistributionByFormIds', () => {
+    it('should return records for multiple forms', async () => {
+      const mockFind = {
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockRecord]),
+      };
+      recordModel.find.mockReturnValue(mockFind);
+
+      const result = await service.getDistributionByFormIds(['f1', 'f2']);
+
+      expect(recordModel.find).toHaveBeenCalledWith({
+        formId: { $in: ['f1', 'f2'] },
+      });
+      expect(mockFind.sort).toHaveBeenCalledWith({ distributedAt: -1 });
+      expect(result).toHaveLength(1);
+      expect(result[0]?.formId).toBe('form123');
+    });
+
+    it('should return empty without querying when no form ids', async () => {
+      const result = await service.getDistributionByFormIds([]);
+
+      expect(recordModel.find).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('getEarningsByWallet', () => {
     it('should return records for a given wallet', async () => {
       const mockFind = {

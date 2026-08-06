@@ -16,11 +16,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { setUsername as setUsernameApi } from "@/lib/auth";
 import { getUserEarnings } from "@/lib/distribution";
 import type { DistributionRecord } from "@/types/distribution";
+import SolanaLogo from "@/components/SolanaLogo";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type SettingsSection =
-  "profile" | "notifications" | "security" | "api" | "danger";
+  | "profile"
+  | "notifications"
+  | "security"
+  | "api"
+  | "danger";
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -245,7 +250,8 @@ export default function SettingsView() {
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-sm font-bold text-ok-green">
-                            ◎ {(record.amountLamports / 1e9).toFixed(4)}
+                            <SolanaLogo className="h-3.5 w-auto" />{" "}
+                            {(record.amountLamports / 1e9).toFixed(4)}
                           </p>
                           <a
                             href={record.explorerUrl}

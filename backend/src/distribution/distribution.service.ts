@@ -210,6 +210,17 @@ export class DistributionService implements OnModuleInit {
       .exec();
   }
 
+  async getDistributionByFormIds(
+    formIds: string[],
+  ): Promise<DistributionRecord[]> {
+    if (formIds.length === 0) return [];
+    return this.recordModel
+      .find({ formId: { $in: formIds } })
+      .sort({ distributedAt: -1 })
+      .lean()
+      .exec();
+  }
+
   async getEarningsByWallet(wallet: string): Promise<DistributionRecord[]> {
     return this.recordModel
       .find({ recipientWallet: wallet })

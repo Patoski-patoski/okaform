@@ -1,13 +1,14 @@
-import { useMemo } from "react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMemo, type ReactNode } from "react";
+import { useQueries, useQueryClient, type Query } from "@tanstack/react-query";
 import { getSubmissions } from "@/lib/forms";
 import { getFormDistribution } from "@/lib/distribution";
 import { getBadgeTier } from "@/lib/tiers";
+import SolanaLogo from "@/components/SolanaLogo";
 
 export interface RecentActivityItem {
   id: string;
   color: string;
-  text: string;
+  text: ReactNode;
   time: Date;
 }
 
@@ -58,7 +59,9 @@ export function useRecentActivity(surveys: SurveySummary[]) {
       queryKey: responsesQueryKey(survey.id),
       queryFn: () => getSubmissions(survey.id),
       staleTime: STALE_TIME,
-      refetchInterval: REFETCH_INTERVAL,
+      retry: false,
+      refetchInterval: (query: Query) =>
+        query.state.status === "error" ? false : REFETCH_INTERVAL,
     })),
   });
 
@@ -67,7 +70,9 @@ export function useRecentActivity(surveys: SurveySummary[]) {
       queryKey: distributionQueryKey(survey.id),
       queryFn: () => getFormDistribution(survey.id),
       staleTime: STALE_TIME,
-      refetchInterval: REFETCH_INTERVAL,
+      retry: false,
+      refetchInterval: (query: Query) =>
+        query.state.status === "error" ? false : REFETCH_INTERVAL,
     })),
   });
 
@@ -82,7 +87,12 @@ export function useRecentActivity(surveys: SurveySummary[]) {
       items.push({
         id: `${survey.id}-published`,
         color: "bg-ok-green",
-        text: `${survey.title} published — ◎ ${survey.rewardPool} SOL escrowed`,
+        text: (
+          <>
+            {survey.title} published — <SolanaLogo className="h-3 w-auto" />{" "}
+            {survey.rewardPool} SOL escrowed
+          </>
+        ),
         time: new Date(survey.createdAt),
       });
 
@@ -109,7 +119,17 @@ export function useRecentActivity(surveys: SurveySummary[]) {
         items.push({
           id: `${survey.id}-distributed`,
           color: "bg-ok-green",
-          text: `${survey.title} distribution complete — ◎ ${(totalLamports / 1e9).toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL sent to ${wallets.size} wallet${wallets.size === 1 ? "" : "s"}`,
+          text: (
+            <>
+              {survey.title} distribution complete —{" "}
+              <SolanaLogo className="h-3 w-auto" />{" "}
+              {(totalLamports / 1e9).toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+              })}{" "}
+              SOL sent to {wallets.size} wallet
+              {wallets.size === 1 ? "" : "s"}
+            </>
+          ),
           time: latest,
         });
       }

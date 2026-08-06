@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/okaform";
 import { tierFromLabel } from "@/lib/tiers";
 import { formatRelativeTime } from "@/lib/utils";
+import SolanaLogo from "@/components/SolanaLogo";
 
 function exportCSV(records: DistributionRecord[], formId: string) {
   const headers = [
@@ -183,7 +184,8 @@ export default function DistributionTab({
           </span>
         </div>
         <span className="font-mono text-sm font-bold text-ok-green">
-          ◎ {totalSol.toFixed(4)} SOL distributed to {records.length} wallet
+          <SolanaLogo className="h-3.5 w-auto" /> {totalSol.toFixed(4)} SOL
+          distributed to {records.length} wallet
           {records.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -227,7 +229,8 @@ export default function DistributionTab({
                 <Badge tier={tierFromLabel(record.badgeTier)} />
               </td>
               <td className="px-4 py-3 font-mono text-xs font-bold text-ok-green">
-                ◎ {(record.amountLamports / 1e9).toFixed(4)}
+                <SolanaLogo className="h-3 w-auto" />{" "}
+                {(record.amountLamports / 1e9).toFixed(4)}
               </td>
               <td className="px-4 py-3">
                 <a

@@ -18,6 +18,7 @@ import {
   FormListItem,
   FormDetail,
   ExploreFormItem,
+  AnalyticsAggregate,
 } from './forms.service';
 import { CreateFormSchema } from './dto/create-form.dto';
 import type { CreateFormDto } from './dto/create-form.dto';
@@ -182,6 +183,15 @@ export class FormsController {
       protocolFeeBps: this.feeService.getFeeBps(),
       protocolFeeWallet: this.feeService.getFeeWallet(),
     };
+  }
+
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async getAnalytics(
+    @CurrentUser() user: UserProfile,
+  ): Promise<AnalyticsAggregate> {
+    return await this.formsService.getAnalyticsForCreator(user.wallet);
   }
 
   @Patch(':id/settings')

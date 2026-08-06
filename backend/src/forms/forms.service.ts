@@ -8,6 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
 import { Form } from '../common/schemas/form.schema';
 import { SurveyResponse } from '../common/schemas/response.schema';
+import type { ModerationStatusValue } from '../common/schemas/response.schema';
 import type { CreateFormDto } from './dto/create-form.dto';
 import type { BuildInitTxDto } from './dto/build-init-tx.dto';
 import { FormNotFoundException } from '../common/exceptions/form/form-not-found.exception';
@@ -94,6 +95,33 @@ export interface ExploreFormItem {
   minWalletAge: number;
   minSolBalance: number;
   createdAt: string;
+}
+
+export interface AnalyticsResponseItem {
+  id: string;
+  scoreAtSubmission: number;
+  similarityFlag: boolean;
+  moderationStatus: ModerationStatusValue;
+  submittedAt: string;
+}
+
+export interface AnalyticsDistributionItem {
+  amountLamports: number;
+  distributedAt: string;
+}
+
+export interface AnalyticsFormItem {
+  id: string;
+  title: string;
+  status: string;
+  maxResponses: number;
+  rewardPool: number;
+  responses: AnalyticsResponseItem[];
+  distributions: AnalyticsDistributionItem[];
+}
+
+export interface AnalyticsAggregate {
+  forms: AnalyticsFormItem[];
 }
 
 @Injectable()
@@ -436,6 +464,80 @@ export class FormsService {
         closedAt: form.closedAt ?? null,
       };
     });
+  }
+
+  async getAnalyticsForCreator(creator: string): Promise<AnalyticsAggregate> {
+    const forms = await this.formModel
+      .find({ creator, status: { $ne: 'draft' } })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    const formIds = forms.map((f) => String(f._id));
+
+    if (formIds.length === 0) {
+      return { forms: [] };
+    }
+
+    const [responses, distributions] = await Promise.all([
+      this.responseModel
+        .find({
+          $expr: { $in: [{ $toString: '$formId' }, formIds] },
+        })
+        .sort({ submittedAt: -1 })
+        .lean()
+        .exec(),
+      this.distributionService.getDistributionByFormIds(formIds),
+    ]);
+
+    const responsesByForm = new Map<string, AnalyticsResponseItem[]>();
+    for (const r of responses) {
+      const key = String(r.formId);
+      const list = responsesByForm.get(key) ?? [];
+      list.push({
+        id: String(r._id),
+        scoreAtSubmission: r.scoreAtSubmission,
+        similarityFlag: r.similarityFlag ?? false,
+        moderationStatus: r.moderationStatus ?? 'clean',
+        submittedAt: (r.submittedAt ?? new Date()).toISOString(),
+      });
+      responsesByForm.set(key, list);
+    }
+
+    const distributionsByForm = new Map<string, AnalyticsDistributionItem[]>();
+    for (const d of distributions) {
+      const list = distributionsByForm.get(d.formId) ?? [];
+      list.push({
+        amountLamports: d.amountLamports,
+        distributedAt: d.distributedAt.toISOString(),
+      });
+      distributionsByForm.set(d.formId, list);
+    }
+
+    this.logger.debug({
+      event: 'ANALYTICS_FETCHED',
+      creator: creator.slice(0, 8) + '...',
+      count: forms.length,
+    });
+
+    return {
+      forms: forms.map((form) => {
+        const id = String(form._id);
+        const responseCount = responsesByForm.get(id)?.length ?? 0;
+        return {
+          id,
+          title: form.title,
+          status:
+            responseCount >= form.maxResponses
+              ? ('closed' as const)
+              : this.deriveStatus(form.closesAt, form.status),
+          maxResponses: form.maxResponses,
+          rewardPool: form.rewardPool,
+          responses: responsesByForm.get(id) ?? [],
+          distributions: distributionsByForm.get(id) ?? [],
+        };
+      }),
+    };
   }
 
   async getFormById(formId: string): Promise<FormDetail> {

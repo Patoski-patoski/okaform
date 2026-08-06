@@ -712,6 +712,8 @@ function ResponsesTab({
   const [modSubmitting, setModSubmitting] = useState(false);
   const [modError, setModError] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
+
   const fetchResponses = useCallback(
     (status?: "all" | ModerationStatusValue) => {
       let cancelled = false;
@@ -791,6 +793,7 @@ function ResponsesTab({
       );
       setModTarget(null);
       setModNote("");
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
     } catch (err) {
       setModError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -1532,6 +1535,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({
         queryKey: distributionQueryKey(closeTarget.id),
       });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
       setCloseTarget(null);
     } catch (err) {
       console.error("Failed to close survey:", err);
@@ -1559,6 +1563,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({
         queryKey: distributionQueryKey(surveyId),
       });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
     } catch (err) {
       setDistError(
         err instanceof Error
@@ -1603,7 +1608,7 @@ export default function Dashboard() {
         ) : activeNav === "home" ? (
           <HomeView surveys={surveys} onNavChange={handleNavChange} />
         ) : activeNav === "analytics" ? (
-          <AnalyticsView />
+          <AnalyticsView onSelectSurvey={handleSelectSurvey} />
         ) : activeNav === "drafts" ? (
           <DraftsView />
         ) : activeNav === "settings" ? (
