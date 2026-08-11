@@ -351,6 +351,14 @@ function createQuestion(type: QuestionType): Question {
   };
 }
 
+function defaultClosesAt(hours: number): string {
+  const d = new Date(Date.now() + hours * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
 const INITIAL_REWARD: RewardSettings = {
   rewardPool: 10,
   maxResponses: 100,
@@ -358,7 +366,7 @@ const INITIAL_REWARD: RewardSettings = {
   numWinners: 10,
   minWalletAge: 30,
   minSolBalance: 1,
-  closesAt: "",
+  closesAt: defaultClosesAt(24),
 };
 
 // ─── Left panel — Question type picker ─────────────────────────────────────────

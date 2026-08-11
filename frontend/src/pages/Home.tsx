@@ -372,31 +372,31 @@ function Home() {
             {[
               {
                 tier: "grey" as const,
-                range: "000 – 025",
+                range: "000 – 149",
                 mult: "0.5x",
                 active: false,
               },
               {
                 tier: "blue" as const,
-                range: "026 – 050",
+                range: "150 – 349",
                 mult: "0.75x",
                 active: false,
               },
               {
                 tier: "green" as const,
-                range: "051 – 075",
+                range: "350 – 649",
                 mult: "1.00x",
                 active: true,
               },
               {
                 tier: "gold" as const,
-                range: "076 – 100",
+                range: "650 – 999",
                 mult: "1.25x",
                 active: false,
               },
               {
                 tier: "diamond" as const,
-                range: "100+",
+                range: "1000+",
                 mult: "1.50x",
                 active: false,
               },
