@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -20,6 +21,8 @@ import {
   ExploreFormItem,
   AnalyticsAggregate,
 } from './forms.service';
+import { AnalyticsQuerySchema } from './dto/analytics-query.dto';
+import type { AnalyticsQueryDto } from './dto/analytics-query.dto';
 import { CreateFormSchema } from './dto/create-form.dto';
 import type { CreateFormDto } from './dto/create-form.dto';
 import { BuildInitTxSchema } from './dto/build-init-tx.dto';
@@ -193,8 +196,13 @@ export class FormsController {
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async getAnalytics(
     @CurrentUser() user: UserProfile,
+    @Query(new TypeBoxValidationPipe(AnalyticsQuerySchema))
+    query: AnalyticsQueryDto,
   ): Promise<AnalyticsAggregate> {
-    return await this.formsService.getAnalyticsForCreator(user.wallet);
+    return await this.formsService.getAnalyticsForCreator(
+      user.wallet,
+      query.limit,
+    );
   }
 
   @Patch(':id/settings')

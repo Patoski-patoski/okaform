@@ -190,7 +190,8 @@ export interface AnalyticsFormItem {
   title: string;
   status: string;
   maxResponses: number;
-  rewardPool: number;
+  /** Reward pool in SOL. */
+  rewardPoolSol: number;
   responses: AnalyticsResponseItem[];
   distributions: AnalyticsDistributionItem[];
 }
@@ -199,8 +200,11 @@ export interface AnalyticsAggregate {
   forms: AnalyticsFormItem[];
 }
 
-export async function getAnalytics(): Promise<AnalyticsAggregate> {
-  return api<AnalyticsAggregate>("/forms/analytics");
+export async function getAnalytics(
+  limit?: number,
+): Promise<AnalyticsAggregate> {
+  const query = limit ? `?limit=${limit}` : "";
+  return api<AnalyticsAggregate>(`/forms/analytics${query}`);
 }
 
 export async function getExploreForms(): Promise<ExploreFormItem[]> {

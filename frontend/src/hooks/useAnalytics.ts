@@ -34,7 +34,8 @@ export interface SurveyRow {
   maxResponses: number;
   completion: number;
   avgScore: number | null;
-  rewardPool: number;
+  /** Reward pool in SOL. */
+  rewardPoolSol: number;
 }
 
 export interface AnalyticsDeltas {
@@ -78,7 +79,8 @@ function weekBuckets(
 ): { start: number; label: string }[] {
   const buckets: { start: number; label: string }[] = [];
   const diffToMonday = (new Date(startMs).getDay() + 6) % 7;
-  let cursor = startOfDay(startMs) - diffToMonday * DAY_MS;
+  const mondayAlignedStart = startOfDay(startMs) - diffToMonday * DAY_MS;
+  let cursor = Math.max(startMs, mondayAlignedStart);
   while (cursor <= nowMs) {
     const label = new Date(cursor).toLocaleDateString("en-US", {
       month: "short",
@@ -96,7 +98,12 @@ function monthBuckets(
 ): { start: number; label: string }[] {
   const buckets: { start: number; label: string }[] = [];
   const first = new Date(startMs);
-  let cursor = new Date(first.getFullYear(), first.getMonth(), 1).getTime();
+  const monthStart = new Date(
+    first.getFullYear(),
+    first.getMonth(),
+    1,
+  ).getTime();
+  let cursor = Math.max(startMs, monthStart);
   const sameYear =
     new Date(cursor).getFullYear() === new Date(nowMs).getFullYear();
   while (cursor <= nowMs) {
@@ -166,7 +173,7 @@ type ResponseWithFormId = AnalyticsResponseItem & { formId: string };
 export function useAnalytics(timeRange: TimeRange) {
   const analyticsQuery = useQuery({
     queryKey: ["analytics"],
-    queryFn: getAnalytics,
+    queryFn: () => getAnalytics(),
     staleTime: STALE_TIME,
     retry: false,
   });
@@ -210,7 +217,7 @@ export function useAnalytics(timeRange: TimeRange) {
           maxResponses: form.maxResponses,
           completion,
           avgScore: avgScore !== null ? Math.round(avgScore) : null,
-          rewardPool: form.rewardPool,
+          rewardPoolSol: form.rewardPoolSol,
         };
       }),
     [forms],

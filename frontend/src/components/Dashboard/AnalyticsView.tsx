@@ -385,7 +385,7 @@ export default function AnalyticsView({ onSelectSurvey }: AnalyticsViewProps) {
                       <td className="px-5 py-3">
                         <span className="font-mono text-xs font-medium text-ok-green">
                           <SolanaLogo className="h-3 w-auto" />{" "}
-                          {survey.rewardPool.toLocaleString("en-US", {
+                          {survey.rewardPoolSol.toLocaleString("en-US", {
                             maximumFractionDigits: 2,
                           })}
                         </span>

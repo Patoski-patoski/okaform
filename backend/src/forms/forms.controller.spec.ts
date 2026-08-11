@@ -86,7 +86,7 @@ describe('FormsController', () => {
             title: 'Test Survey',
             status: 'active',
             maxResponses: 100,
-            rewardPool: 10,
+            rewardPoolSol: 10,
             responses: [],
             distributions: [],
           },
@@ -94,14 +94,31 @@ describe('FormsController', () => {
       };
       formsService.getAnalyticsForCreator.mockResolvedValue(aggregate);
 
-      const result = await controller.getAnalytics({
-        wallet: 'wallet123',
-      } as UserProfile);
+      const result = await controller.getAnalytics(
+        { wallet: 'wallet123' } as UserProfile,
+        {},
+      );
 
       expect(formsService.getAnalyticsForCreator).toHaveBeenCalledWith(
         'wallet123',
+        undefined,
       );
       expect(result).toEqual(aggregate);
+    });
+
+    it('should forward the limit query to FormsService', async () => {
+      formsService.getAnalyticsForCreator.mockResolvedValue({ forms: [] });
+
+      const result = await controller.getAnalytics(
+        { wallet: 'wallet123' } as UserProfile,
+        { limit: 50 },
+      );
+
+      expect(formsService.getAnalyticsForCreator).toHaveBeenCalledWith(
+        'wallet123',
+        50,
+      );
+      expect(result).toEqual({ forms: [] });
     });
   });
 });
