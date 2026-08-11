@@ -10,8 +10,9 @@ import {
   RefreshToken,
   RefreshTokenSchema,
 } from '../common/schemas/refresh-token.schema';
+import { getJwtSecret } from '../config/env.schema';
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'okaform-access-dev-secret-2026';
+const JWT_SECRET = getJwtSecret();
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION ?? '15m';
 
 @Module({

@@ -23,7 +23,7 @@ const logger = new Logger('AppModule');
     ThrottlerModule.forRoot([
       {
         ttl: parseInt(process.env.THROTTLE_TTL ?? '60000', 10),
-        limit: parseInt(process.env.THROTTLE_LIMIT ?? '10', 10),
+        limit: parseInt(process.env.THROTTLE_LIMIT ?? '120', 10),
       },
     ]),
     MongooseModule.forRootAsync({

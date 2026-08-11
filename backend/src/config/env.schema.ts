@@ -29,6 +29,30 @@ export const EnvSchema = Type.Object({
 
 export type Env = Static<typeof EnvSchema>;
 
+const DEV_JWT_SECRET = 'okaform-access-dev-secret-2026';
+
+/**
+ * Resolve the JWT signing secret. In production the secret must be explicitly
+ * configured and must not be the well-known development default; a missing or
+ * placeholder value aborts startup instead of silently accepting tokens signed
+ * with the public dev secret.
+ */
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET?.trim() || '';
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (
+    isProduction &&
+    (secret.length < 32 ||
+      secret === DEV_JWT_SECRET ||
+      secret === 'your-access-token-secret-change-me')
+  ) {
+    throw new Error(
+      'Environment validation failed: JWT_SECRET must be a unique secret of at least 32 characters in production',
+    );
+  }
+  return secret || DEV_JWT_SECRET;
+}
+
 const NUMERIC_KEYS = [
   'PORT',
   'THROTTLE_TTL',
