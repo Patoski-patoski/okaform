@@ -252,6 +252,7 @@ describe('SubmissionsService', () => {
       );
 
       expect(result.scoreAtSubmission).toBe(385);
+      expect(result.scoreDelta).toBe(35);
     });
 
     it('should persist a zero score snapshot when on-chain read fails', async () => {

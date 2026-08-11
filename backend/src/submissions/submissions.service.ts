@@ -27,6 +27,7 @@ export interface SubmissionItem {
   id: string;
   respondentWallet: string;
   scoreAtSubmission: number;
+  scoreDelta: number;
   similarityFlag: boolean;
   submittedAt: Date;
   answers: Record<string, unknown>[];
@@ -173,8 +174,9 @@ export class SubmissionsService {
     // Score the submission. On-chain updates are best-effort and must never
     // fail the submission itself.
     let scoreAtSubmission = 0;
+    let scoreDelta = 0;
     if (form.rewardType === 'weighted') {
-      scoreAtSubmission = await this.applyScore({
+      const scored = await this.applyScore({
         formId,
         respondentWallet,
         answers,
@@ -183,6 +185,8 @@ export class SubmissionsService {
         openedAt,
         sybilResult,
       });
+      scoreAtSubmission = scored.scoreAtSubmission;
+      scoreDelta = scored.scoreDelta;
     } else {
       this.logger.log({
         event: 'SCORE_SKIPPED',
@@ -207,6 +211,7 @@ export class SubmissionsService {
       id: String(saved._id),
       respondentWallet: saved.respondentWallet,
       scoreAtSubmission,
+      scoreDelta,
       similarityFlag: saved.similarityFlag,
       submittedAt: saved.submittedAt,
       answers: saved.answers,
@@ -229,7 +234,7 @@ export class SubmissionsService {
     submittedAt: Date;
     openedAt: number;
     sybilResult: SybilResult;
-  }): Promise<number> {
+  }): Promise<{ scoreAtSubmission: number; scoreDelta: number }> {
     const {
       formId,
       respondentWallet,
@@ -349,7 +354,10 @@ export class SubmissionsService {
       });
     }
 
-    return scoreUpdate.scoreAtSubmission ?? 0;
+    return {
+      scoreAtSubmission: scoreUpdate.scoreAtSubmission ?? 0,
+      scoreDelta: deltaInt,
+    };
   }
 
   async getSubmissionsByForm(
@@ -377,6 +385,7 @@ export class SubmissionsService {
       id: String(r._id),
       respondentWallet: r.respondentWallet,
       scoreAtSubmission: r.scoreAtSubmission,
+      scoreDelta: r.scoreDeltaInt ?? 0,
       similarityFlag: r.similarityFlag,
       submittedAt: r.submittedAt ?? new Date(),
       answers: r.answers ?? [],

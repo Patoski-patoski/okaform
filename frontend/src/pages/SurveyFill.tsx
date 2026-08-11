@@ -81,6 +81,10 @@ export default function SurveyFill() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<{
+    scoreDelta: number;
+    scoreAtSubmission: number;
+  } | null>(null);
   const [sybilCheck, setSybilCheck] = useState<{
     checked: boolean;
     passed: boolean;
@@ -93,7 +97,6 @@ export default function SurveyFill() {
   const openedAt = useRef(Date.now());
 
   const wallet = publicKey?.toBase58() ?? "";
-  const score = 0; // TODO: fetch from backend
 
   useEffect(() => {
     if (!formId) return;
@@ -206,13 +209,17 @@ export default function SurveyFill() {
         logger.warn("Score account init skipped:", err);
       }
 
-      await submitResponse(formId, {
+      const submission = await submitResponse(formId, {
         answers: Object.entries(answers).map(([questionId, value]) => ({
           questionId,
           value,
         })),
         respondentWallet: wallet,
         openedAt: openedAt.current,
+      });
+      setSubmissionResult({
+        scoreDelta: submission.scoreDelta,
+        scoreAtSubmission: submission.scoreAtSubmission,
       });
       setSubmitted(true);
     } catch (err) {
@@ -316,7 +323,10 @@ export default function SurveyFill() {
             </Link>
           </div>
         ) : submitted ? (
-          <SuccessScreen scoreDelta={3} newScore={score + 3} />
+          <SuccessScreen
+            scoreDelta={submissionResult?.scoreDelta ?? 0}
+            newScore={submissionResult?.scoreAtSubmission ?? 0}
+          />
         ) : (
           <div className="space-y-6">
             <div className="space-y-4 pb-2">
@@ -375,7 +385,7 @@ export default function SurveyFill() {
                 <div className="animate-fadeIn" key="eligibility-pass">
                   <EligibilityPass
                     wallet={wallet}
-                    score={score}
+                    score={user?.globalScore ?? 0}
                     username={user?.username}
                   />
                 </div>

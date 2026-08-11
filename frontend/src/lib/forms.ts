@@ -313,6 +313,7 @@ export interface SubmissionItem {
   id: string;
   respondentWallet: string;
   scoreAtSubmission: number;
+  scoreDelta: number;
   similarityFlag: boolean;
   submittedAt: string;
   answers: Record<string, unknown>[];
