@@ -115,7 +115,8 @@ export interface AnalyticsFormItem {
   title: string;
   status: string;
   maxResponses: number;
-  rewardPool: number;
+  /** Reward pool in SOL (the DB stores SOL; lamports live in grossRewardPoolLamports). */
+  rewardPoolSol: number;
   responses: AnalyticsResponseItem[];
   distributions: AnalyticsDistributionItem[];
 }
@@ -466,7 +467,10 @@ export class FormsService {
     });
   }
 
-  async getAnalyticsForCreator(creator: string): Promise<AnalyticsAggregate> {
+  async getAnalyticsForCreator(
+    creator: string,
+    limit?: number,
+  ): Promise<AnalyticsAggregate> {
     const forms = await this.formModel
       .find({ creator, status: { $ne: 'draft' } })
       .sort({ createdAt: -1 })
@@ -524,6 +528,11 @@ export class FormsService {
       forms: forms.map((form) => {
         const id = String(form._id);
         const responseCount = responsesByForm.get(id)?.length ?? 0;
+        const responseList = (responsesByForm.get(id) ?? []).slice(0, limit);
+        const distributionList = (distributionsByForm.get(id) ?? []).slice(
+          0,
+          limit,
+        );
         return {
           id,
           title: form.title,
@@ -532,9 +541,9 @@ export class FormsService {
               ? ('closed' as const)
               : this.deriveStatus(form.closesAt, form.status),
           maxResponses: form.maxResponses,
-          rewardPool: form.rewardPool,
-          responses: responsesByForm.get(id) ?? [],
-          distributions: distributionsByForm.get(id) ?? [],
+          rewardPoolSol: form.rewardPool,
+          responses: responseList,
+          distributions: distributionList,
         };
       }),
     };
