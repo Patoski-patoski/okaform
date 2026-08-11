@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { truncateAddress } from "@/lib/format";
 import { useSurveyLifecycle } from "@/hooks/useSurveyLifecycle";
 import { updateSurveySettings, deleteSurveyData } from "@/lib/forms";
+import SolanaLogo from "@/components/SolanaLogo";
 
 interface SurveySettingsSurvey {
   id: string;
@@ -457,20 +458,35 @@ function SurveySettingsTab({
       <SectionCard title="Survey Configuration">
         <ConfigRow
           label="Gross Reward Pool"
-          value={`◎ ${formatSol(survey.grossRewardPoolLamports)}`}
+          value={
+            <>
+              <SolanaLogo className="h-3 w-auto" />{" "}
+              {formatSol(survey.grossRewardPoolLamports)}
+            </>
+          }
         />
         <ConfigRow
           label="Protocol Fee"
           value={
-            survey.feeLamports > 0
-              ? `◎ ${formatSol(survey.feeLamports)} (${survey.feeBps / 100}%)`
-              : "FREE (alpha)"
+            survey.feeLamports > 0 ? (
+              <>
+                <SolanaLogo className="h-3 w-auto" />{" "}
+                {formatSol(survey.feeLamports)} ({survey.feeBps / 100}%)
+              </>
+            ) : (
+              "FREE (alpha)"
+            )
           }
           muted={survey.feeLamports === 0}
         />
         <ConfigRow
           label="Respondent Pool"
-          value={`◎ ${formatSol(survey.netRewardPoolLamports)}`}
+          value={
+            <>
+              <SolanaLogo className="h-3 w-auto" />{" "}
+              {formatSol(survey.netRewardPoolLamports)}
+            </>
+          }
         />
         <ConfigRow label="Reward Type" value={survey.rewardType} />
         <ConfigRow label="Max Responses" value={String(survey.maxResponses)} />

@@ -37,9 +37,7 @@ function StepCard({ num, icon: Icon, title, body }: StepCardProps) {
       <h3 className="text-base font-medium tracking-tight text-[#F0F6F6]">
         {title}
       </h3>
-      <p className="text-sm leading-relaxed text-[#9198A1]">
-        {body}
-      </p>
+      <p className="text-sm leading-relaxed text-[#9198A1]">{body}</p>
     </div>
   );
 }
@@ -70,7 +68,8 @@ export default function HowItWorks() {
           System Overview
         </span>
         <h1 className="text-4xl font-medium tracking-tight text-[#F0F6F6] md:text-6xl md:leading-[1.15]">
-          From broken surveys to verified <span className="text-ok-green">community intelligence</span>
+          From broken surveys to verified{" "}
+          <span className="text-ok-green">community intelligence</span>
         </h1>
         <p className="mt-6 text-base text-[#9198A1] md:mx-auto md:max-w-2xl md:text-lg">
           Every major Solana protocol has tried running a community survey.
@@ -220,17 +219,44 @@ export default function HowItWorks() {
               Portable On-Chain Reputation
             </h2>
             <p className="text-sm leading-relaxed text-[#9198A1]">
-              Consistent platform utility mutates a sovereign scorecard held on-chain. This structural registry accounts for participant quality and scales payout allocation yields.
+              Consistent platform utility mutates a sovereign scorecard held
+              on-chain. This structural registry accounts for participant
+              quality and scales payout allocation yields.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
             {[
-              { tier: "grey" as const, range: "0 – 25", mult: "0.5x", active: false },
-              { tier: "blue" as const, range: "26 – 50", mult: "0.75x", active: false },
-              { tier: "green" as const, range: "51 – 75", mult: "1.0x", active: true },
-              { tier: "gold" as const, range: "76 – 100", mult: "1.25x", active: false },
-              { tier: "diamond" as const, range: "100+", mult: "1.5x", active: false },
+              {
+                tier: "grey" as const,
+                range: "0 – 149",
+                mult: "0.5x",
+                active: false,
+              },
+              {
+                tier: "blue" as const,
+                range: "150 – 349",
+                mult: "0.75x",
+                active: false,
+              },
+              {
+                tier: "green" as const,
+                range: "350 – 649",
+                mult: "1.0x",
+                active: true,
+              },
+              {
+                tier: "gold" as const,
+                range: "650 – 999",
+                mult: "1.25x",
+                active: false,
+              },
+              {
+                tier: "diamond" as const,
+                range: "1000+",
+                mult: "1.5x",
+                active: false,
+              },
             ].map((b) => (
               <div
                 key={b.tier}
@@ -238,7 +264,7 @@ export default function HowItWorks() {
                   "flex flex-col items-start gap-4 border-t pt-6 transition-colors",
                   b.active
                     ? "border-ok-green"
-                    : "border-[#3D444D] hover:border-[#9198A1]"
+                    : "border-[#3D444D] hover:border-[#9198A1]",
                 )}
               >
                 <Badge tier={b.tier} className="text-xs" />
@@ -247,7 +273,10 @@ export default function HowItWorks() {
                     Score {b.range}
                   </p>
                   <p className="text-2xl font-medium tracking-tight text-[#F0F6F6]">
-                    {b.mult} <span className="text-xs font-normal text-[#656C76]">yield</span>
+                    {b.mult}{" "}
+                    <span className="text-xs font-normal text-[#656C76]">
+                      yield
+                    </span>
                   </p>
                 </div>
               </div>
@@ -265,7 +294,9 @@ export default function HowItWorks() {
               Immutable Escrow
             </h3>
             <p className="text-sm leading-relaxed text-[#9198A1]">
-              Capital parameters exist completely separated inside isolated programmatic state vectors, entirely independent of manual operator controls.
+              Capital parameters exist completely separated inside isolated
+              programmatic state vectors, entirely independent of manual
+              operator controls.
             </p>
           </div>
 
@@ -275,7 +306,9 @@ export default function HowItWorks() {
               Non-Custodial Architecture
             </h3>
             <p className="text-sm leading-relaxed text-[#9198A1]">
-              Assets route automatically along on-chain settlement channels directly to destination keys. Middlewares never touch or process allocations.
+              Assets route automatically along on-chain settlement channels
+              directly to destination keys. Middlewares never touch or process
+              allocations.
             </p>
           </div>
 
@@ -285,7 +318,8 @@ export default function HowItWorks() {
               Total Auditability
             </h3>
             <p className="text-sm leading-relaxed text-[#9198A1]">
-              State initialization metrics and target vectors update openly to standard cluster accounts for immediate structural validation.
+              State initialization metrics and target vectors update openly to
+              standard cluster accounts for immediate structural validation.
             </p>
           </div>
         </div>
@@ -303,7 +337,10 @@ export default function HowItWorks() {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
-          <Link to="/" className="font-mono text-xs text-[#656C76] transition-colors hover:text-[#F0F6F6]">
+          <Link
+            to="/"
+            className="font-mono text-xs text-[#656C76] transition-colors hover:text-[#F0F6F6]"
+          >
             [ Read Interface Specs ]
           </Link>
         </div>

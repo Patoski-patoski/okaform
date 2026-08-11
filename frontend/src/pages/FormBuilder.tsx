@@ -77,6 +77,7 @@ import { createForm, buildInitTx, getFormConfig } from "@/lib/forms";
 import { ApiError } from "@/lib/api";
 import { saveDraft } from "@/lib/drafts";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
+import SolanaLogo from "@/components/SolanaLogo";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -350,6 +351,14 @@ function createQuestion(type: QuestionType): Question {
   };
 }
 
+function defaultClosesAt(hours: number): string {
+  const d = new Date(Date.now() + hours * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
 const INITIAL_REWARD: RewardSettings = {
   rewardPool: 10,
   maxResponses: 100,
@@ -357,7 +366,7 @@ const INITIAL_REWARD: RewardSettings = {
   numWinners: 10,
   minWalletAge: 30,
   minSolBalance: 1,
-  closesAt: "",
+  closesAt: defaultClosesAt(24),
 };
 
 // ─── Left panel — Question type picker ─────────────────────────────────────────
@@ -730,7 +739,7 @@ function SortableQuestionCard({
                 className="flex h-10 items-center gap-2 rounded-[var(--radius-ok-inner)] border border-ok-border/50 bg-ok-bg/50 px-3 text-xs text-ok-muted/30"
                 onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-ok-green">◎</span>
+                <SolanaLogo className="h-3 w-auto" />
                 <span>0.00 SOL</span>
               </div>
             )}
@@ -1557,7 +1566,7 @@ function FeeBreakdown({
           You deposit
         </span>
         <span className="font-mono text-[11px] font-medium text-ok-text">
-          ◎ {fmt(depositSol)} SOL
+          <SolanaLogo className="h-3 w-auto" /> {fmt(depositSol)} SOL
         </span>
       </div>
 
@@ -1586,7 +1595,7 @@ function FeeBreakdown({
           Respondent pool
         </span>
         <span className="font-mono text-[11px] font-bold text-ok-green">
-          ◎ {fmt(netSol)} SOL
+          <SolanaLogo className="h-3 w-auto" /> {fmt(netSol)} SOL
         </span>
       </div>
       <p className="text-[9px] leading-relaxed text-ok-dim">
@@ -1620,7 +1629,7 @@ function RewardSettingsPanel({
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">
-              ◎
+              <SolanaLogo className="h-4 w-auto" />
             </span>
             <input
               type="number"

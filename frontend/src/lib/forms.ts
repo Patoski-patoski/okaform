@@ -172,6 +172,37 @@ export async function getForms(): Promise<FormListItem[]> {
   return api<FormListItem[]>("/forms");
 }
 
+export interface AnalyticsResponseItem {
+  id: string;
+  scoreAtSubmission: number;
+  similarityFlag: boolean;
+  moderationStatus: ModerationStatusValue;
+  submittedAt: string;
+}
+
+export interface AnalyticsDistributionItem {
+  amountLamports: number;
+  distributedAt: string;
+}
+
+export interface AnalyticsFormItem {
+  id: string;
+  title: string;
+  status: string;
+  maxResponses: number;
+  rewardPool: number;
+  responses: AnalyticsResponseItem[];
+  distributions: AnalyticsDistributionItem[];
+}
+
+export interface AnalyticsAggregate {
+  forms: AnalyticsFormItem[];
+}
+
+export async function getAnalytics(): Promise<AnalyticsAggregate> {
+  return api<AnalyticsAggregate>("/forms/analytics");
+}
+
 export async function getExploreForms(): Promise<ExploreFormItem[]> {
   return api<ExploreFormItem[]>("/forms/explore");
 }
@@ -282,6 +313,7 @@ export interface SubmissionItem {
   id: string;
   respondentWallet: string;
   scoreAtSubmission: number;
+  scoreDelta: number;
   similarityFlag: boolean;
   submittedAt: string;
   answers: Record<string, unknown>[];

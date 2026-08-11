@@ -96,11 +96,11 @@ Badge tiers and their reward multipliers:
 
 | Badge | Score Range | Reward Weight |
 | --- | --- | --- |
-| 🔘 Ghost | 0–25 | 0.5x |
-| 🔵 Cipher | 26–50 | 0.75x |
-| 🟢  Sentinel | 51–75 | 1.0x |
-| 🟡 Oracle | 76–100 | 1.25x |
-| 💎 Sovereign | 100+ | 1.5x |
+| 🔘 Ghost | 0–149 | 0.5x |
+| 🔵 Cipher | 150–349 | 0.75x |
+| 🟢  Sentinel | 350–649 | 1.0x |
+| 🟡 Oracle | 650–999 | 1.25x |
+| 💎 Sovereign | 1000+ | 1.5x |
 
 ---
 
@@ -118,14 +118,13 @@ Badge tiers and their reward multipliers:
 
 ```markdown
 Okaform/
-├── programs/
-│   └── Okaform/
-│       └── src/
-│           ├── instructions/     # initialize_survey, register_participant, etc.
-│           ├── state/            # SurveyAccount, ParticipantEntry, RespondentScoreAccount
-│           ├── constants.rs
-│           ├── errors.rs
-│           └── lib.rs
+├── okaform-program/
+│   └── src/
+│       ├── instructions/     # initialize_survey, register_participant, etc.
+│       ├── state/            # SurveyAccount, ParticipantEntry, RespondentScoreAccount
+│       ├── constants.rs
+│       ├── errors.rs
+│       └── lib.rs
 ├── backend/
 │   └── src/
 │       ├── auth/                 # Wallet signature verification, JWT
@@ -139,8 +138,7 @@ Okaform/
 │       ├── components/           # Wallet connect, badge display, form renderer
 │       └── lib/                  # API client, wallet utilities
 ├── docs/
-│   └── architecture/             # draw.io diagrams (PNG exports)
-├── tests/                        # Anchor program tests
+│   └── architecture/             # draw.io diagrams
 └── POST_MVP_TODO.md
 ```
 
@@ -160,7 +158,7 @@ Okaform/
 ### Smart Contract
 
 ```bash
-cd programs/Okaform
+cd okaform-program
 anchor build
 anchor test
 anchor deploy --provider.cluster devnet
@@ -171,7 +169,7 @@ anchor deploy --provider.cluster devnet
 ```bash
 cd backend
 bun install
-cp .env.example .env   # fill in MONGO_URI, HELIUS_RPC, BACKEND_KEYPAIR, JWT_SECRET
+cp .env.example .env   # fill in MONGODB_URI, SOLANA_RPC_URL, BACKEND_KEYPAIR, JWT_SECRET
 bun run start:dev
 ```
 
@@ -179,9 +177,9 @@ bun run start:dev
 
 ```bash
 cd frontend
-npm install
+bun install
 cp .env.example .env   # fill in VITE_API_URL, VITE_PROGRAM_ID
-npm run dev
+bun run dev
 ```
 
 ---
@@ -192,11 +190,13 @@ npm run dev
 | --- | --- |
 | Smart contract — core instructions | ✅ Complete |
 | Smart contract — reputation PDA | ✅ Complete |
-| Backend — NestJS scaffold + auth | 🔄 In progress |
-| Backend — sybil + scoring services | ⏳ Planned |
-| Frontend — form builder + wallet connect | ⏳ Planned |
-| Creator dashboard | ⏳ Planned |
-| Alpha pilot (3 founder surveys) | ⏳ Planned |
+| Backend — NestJS auth, forms, submissions | ✅ Complete |
+| Backend — sybil + scoring services | ✅ Complete |
+| Backend — weighted/lucky-draw distribution | ✅ Complete |
+| Frontend — form builder + wallet connect | ✅ Complete |
+| Creator dashboard + analytics | ✅ Complete |
+| Response moderation + reputation badges | ✅ Complete |
+| Alpha pilot (founder surveys) | 🔄 In progress |
 
 ---
 
@@ -214,7 +214,7 @@ npm run dev
 
 ## Architecture Decision Record
 
-Key decisions and the reasoning behind them are documented in [`docs/DECISION_RECORD.md`](docs/DECISION_RECORD.md).
+Key decisions and the reasoning behind them are summarized in [`docs/DECISION_RECORD.md`](docs/DECISION_RECORD.md).
 
 Notable decisions: why ALT-batched push distribution was chosen over Merkle claims, why the reputation score is stored on-chain rather than in the database, and why Vite + React was chosen over Next.js.
 

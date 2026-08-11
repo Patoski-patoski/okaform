@@ -77,6 +77,7 @@ describe('FormsService', () => {
 
     distributionService = {
       deleteByForm: jest.fn().mockResolvedValue(0),
+      getDistributionByFormIds: jest.fn().mockResolvedValue([]),
     };
 
     module = await Test.createTestingModule({
@@ -116,6 +117,7 @@ describe('FormsService', () => {
         {
           provide: getModelToken(SurveyResponse.name),
           useValue: {
+            find: jest.fn(),
             countDocuments: jest.fn().mockReturnValue({
               exec: jest.fn().mockResolvedValue(0),
             }),
@@ -633,6 +635,91 @@ describe('FormsService', () => {
       const result = await service.getFormsByCreator('wallet123');
 
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('getAnalyticsForCreator', () => {
+    it('should aggregate responses and distributions per form', async () => {
+      const formQuery = {
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockForm]),
+      };
+      formModel.find.mockReturnValue(formQuery);
+
+      const responseQuery = {
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          {
+            _id: 'resp1',
+            formId: 'form123',
+            scoreAtSubmission: 420,
+            similarityFlag: false,
+            moderationStatus: 'clean',
+            submittedAt: new Date('2025-01-02'),
+          },
+          {
+            _id: 'resp2',
+            formId: 'form123',
+            scoreAtSubmission: 120,
+            similarityFlag: true,
+            moderationStatus: 'flagged',
+            submittedAt: new Date('2025-01-03'),
+          },
+        ]),
+      };
+      const responseModel = module.get(getModelToken(SurveyResponse.name));
+      responseModel.find.mockReturnValue(responseQuery);
+
+      distributionService.getDistributionByFormIds.mockResolvedValue([
+        {
+          formId: 'form123',
+          amountLamports: 500_000_000,
+          distributedAt: new Date('2025-01-04'),
+        },
+      ]);
+
+      const result = await service.getAnalyticsForCreator('wallet123');
+
+      expect(result.forms).toHaveLength(1);
+      expect(result.forms[0]?.id).toBe('form123');
+      expect(result.forms[0]?.title).toBe('Test Survey');
+      expect(result.forms[0]?.maxResponses).toBe(100);
+      expect(result.forms[0]?.responses).toHaveLength(2);
+      expect(result.forms[0]?.responses[0]).toMatchObject({
+        id: 'resp1',
+        scoreAtSubmission: 420,
+        similarityFlag: false,
+        moderationStatus: 'clean',
+      });
+      expect(result.forms[0]?.distributions).toHaveLength(1);
+      expect(result.forms[0]?.distributions[0]).toMatchObject({
+        amountLamports: 500_000_000,
+      });
+      expect(formModel.find).toHaveBeenCalledWith({
+        creator: 'wallet123',
+        status: { $ne: 'draft' },
+      });
+      expect(distributionService.getDistributionByFormIds).toHaveBeenCalledWith(
+        ['form123'],
+      );
+    });
+
+    it('should return empty forms for creator with no surveys', async () => {
+      const formQuery = {
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      };
+      formModel.find.mockReturnValue(formQuery);
+
+      const result = await service.getAnalyticsForCreator('wallet123');
+
+      expect(result.forms).toHaveLength(0);
+      expect(
+        distributionService.getDistributionByFormIds,
+      ).not.toHaveBeenCalled();
     });
   });
 

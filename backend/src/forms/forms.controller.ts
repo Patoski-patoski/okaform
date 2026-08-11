@@ -18,6 +18,7 @@ import {
   FormListItem,
   FormDetail,
   ExploreFormItem,
+  AnalyticsAggregate,
 } from './forms.service';
 import { CreateFormSchema } from './dto/create-form.dto';
 import type { CreateFormDto } from './dto/create-form.dto';
@@ -164,16 +165,19 @@ export class FormsController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   async getForms(@CurrentUser() user: UserProfile): Promise<FormListItem[]> {
     return await this.formsService.getFormsByCreator(user.wallet);
   }
 
   @Get('explore')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   async getExploreForms(): Promise<ExploreFormItem[]> {
     return await this.formsService.getExploreForms();
   }
 
   @Get('config')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   getFormConfig(): {
     protocolFeeBps: number;
     protocolFeeWallet: string;
@@ -182,6 +186,15 @@ export class FormsController {
       protocolFeeBps: this.feeService.getFeeBps(),
       protocolFeeWallet: this.feeService.getFeeWallet(),
     };
+  }
+
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async getAnalytics(
+    @CurrentUser() user: UserProfile,
+  ): Promise<AnalyticsAggregate> {
+    return await this.formsService.getAnalyticsForCreator(user.wallet);
   }
 
   @Patch(':id/settings')
@@ -208,6 +221,7 @@ export class FormsController {
   }
 
   @Get(':id')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   async getFormById(@Param('id') id: string): Promise<FormDetail> {
     return await this.formsService.getFormById(id);
   }
