@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/okaform";
 import { tierFromLabel } from "@/lib/tiers";
 import { formatRelativeTime } from "@/lib/utils";
-import SolanaLogo from "@/components/SolanaLogo";
+import CurrencyLogo from "@/components/CurrencyLogo";
 
 function exportCSV(records: DistributionRecord[], formId: string) {
   const currency = records[0]?.rewardCurrency || "SOL";
@@ -190,10 +190,10 @@ export default function DistributionTab({
           </span>
         </div>
         <span className="font-mono text-sm font-bold text-ok-green flex items-center gap-1">
-          {(!records[0]?.rewardCurrency ||
-            records[0]?.rewardCurrency === "SOL") && (
-            <SolanaLogo className="h-3.5 w-auto" />
-          )}
+          <CurrencyLogo
+            currency={records[0]?.rewardCurrency}
+            className="h-3.5 w-auto"
+          />
           {totalAmount.toFixed(records[0]?.rewardCurrency === "USDC" ? 2 : 4)}{" "}
           {records[0]?.rewardCurrency || "SOL"} distributed to {records.length}{" "}
           wallet
@@ -240,10 +240,10 @@ export default function DistributionTab({
                 <Badge tier={tierFromLabel(record.badgeTier)} />
               </td>
               <td className="px-4 py-3 font-mono text-xs font-bold text-ok-green flex items-center gap-1">
-                {(!record.rewardCurrency ||
-                  record.rewardCurrency === "SOL") && (
-                  <SolanaLogo className="h-3 w-auto" />
-                )}
+                <CurrencyLogo
+                  currency={record.rewardCurrency}
+                  className="h-3 w-auto"
+                />
                 {(
                   (record.amountUnits ?? record.amountLamports) /
                   (record.rewardCurrency === "USDC" ? 1_000_000 : 1_000_000_000)

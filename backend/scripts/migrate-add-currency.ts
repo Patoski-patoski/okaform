@@ -12,9 +12,9 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGO_URI = process.env['MONGO_URI'];
-if (!MONGO_URI) {
-  console.error('MONGO_URI is not defined in .env');
+const MONGODB_URI = process.env['MONGODB_URI'];
+if (!MONGODB_URI) {
+  console.error('MONGODB_URI is not defined in .env');
   process.exit(1);
 }
 
@@ -27,7 +27,7 @@ interface FormDoc {
 }
 
 async function migrate(): Promise<void> {
-  const conn = await mongoose.connect(MONGO_URI as string);
+  const conn = await mongoose.connect(MONGODB_URI as string);
   const db = conn.connection.db;
 
   if (!db) {

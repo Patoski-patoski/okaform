@@ -79,6 +79,7 @@ import { ApiError } from "@/lib/api";
 import { saveDraft } from "@/lib/drafts";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
 import SolanaLogo from "@/components/SolanaLogo";
+import CurrencyLogo from "@/components/CurrencyLogo";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1573,7 +1574,7 @@ function FeeBreakdown({
           You deposit
         </span>
         <span className="font-mono text-[11px] font-medium text-ok-text flex items-center gap-1">
-          {currency === "SOL" && <SolanaLogo className="h-3 w-auto" />}
+          <CurrencyLogo currency={currency} className="h-3 w-auto" />
           {fmt(depositSol)} {currency}
         </span>
       </div>
@@ -1603,7 +1604,7 @@ function FeeBreakdown({
           Respondent pool
         </span>
         <span className="font-mono text-[11px] font-bold text-ok-green flex items-center gap-1">
-          {currency === "SOL" && <SolanaLogo className="h-3 w-auto" />}
+          <CurrencyLogo currency={currency} className="h-3 w-auto" />
           {fmt(netSol)} {currency}
         </span>
       </div>
@@ -1656,11 +1657,9 @@ function RewardSettingsPanel({
             Escrow Reservoir Pool
           </label>
           <div className="relative">
-            {rewardCurrency === "SOL" && (
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">
-                <SolanaLogo className="h-4 w-auto" />
-              </span>
-            )}
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">
+              <CurrencyLogo currency={rewardCurrency} className="h-4 w-auto" />
+            </span>
             <input
               type="number"
               min={0}
@@ -1669,7 +1668,7 @@ function RewardSettingsPanel({
               onChange={(e) =>
                 onUpdate({ rewardPool: parseFloat(e.target.value) || 0 })
               }
-              className={`w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg py-2 ${rewardCurrency === "SOL" ? "pl-8" : "px-3"} pr-3 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none`}
+              className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg py-2 pl-8 pr-3 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
