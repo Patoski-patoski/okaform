@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate:usernames": "npx ts-node -r dotenv/config scripts/lowercase-usernames.ts",
     "migrate:reward-type": "npx ts-node -r dotenv/config scripts/migrate-reward-type.ts",
+    "migrate:add-currency": "npx tsx scripts/migrate-add-currency.ts",
     "backfill:score": "npx ts-node -r dotenv/config scripts/backfill-score-at-submission.ts"
   },
   "dependencies": {

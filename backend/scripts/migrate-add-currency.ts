@@ -71,20 +71,32 @@ async function migrate(): Promise<void> {
 
   // Also backfill distribution records
   const distCollection = db.collection('distribution_records');
-  const distResult = await distCollection.updateMany(
-    {
-      $or: [{ rewardCurrency: { $exists: false } }, { rewardCurrency: null }],
-    },
-    {
-      $set: {
-        rewardCurrency: 'SOL',
-      },
-    },
-  );
+  const distCursor = distCollection.find({
+    $or: [
+      { rewardCurrency: { $exists: false } },
+      { rewardCurrency: null },
+      { amountUnits: { $exists: false } },
+      { amountUnits: 0 },
+    ],
+  });
 
-  console.log(
-    `Distribution records: updated ${distResult.modifiedCount} records.`,
-  );
+  const distDocs = await distCursor.toArray();
+  let distUpdated = 0;
+
+  for (const doc of distDocs) {
+    await distCollection.updateOne(
+      { _id: doc._id },
+      {
+        $set: {
+          rewardCurrency: doc['rewardCurrency'] || 'SOL',
+          amountUnits: doc['amountUnits'] || doc['amountLamports'] || 0,
+        },
+      },
+    );
+    distUpdated++;
+  }
+
+  console.log(`Distribution records: updated ${distUpdated} records.`);
 
   await mongoose.disconnect();
 }
