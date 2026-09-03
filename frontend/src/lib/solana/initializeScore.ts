@@ -33,7 +33,8 @@ export async function ensureScoreAccountOnChain(
     programId,
   );
 
-  const { blockhash } = await connection.getLatestBlockhash();
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
 
   const { tx: txBase64, exists } = await api<{
     tx: string;
@@ -65,7 +66,10 @@ export async function ensureScoreAccountOnChain(
   const signed = await wallet.signTransaction(tx);
   const txSignature = await connection.sendRawTransaction(signed.serialize());
 
-  await connection.confirmTransaction(txSignature, "confirmed");
+  await connection.confirmTransaction(
+    { blockhash, lastValidBlockHeight, signature: txSignature },
+    "confirmed",
+  );
 
   return { txSignature, scorePda: scorePda.toBase58(), exists: false };
 }

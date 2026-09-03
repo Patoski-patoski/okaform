@@ -96,8 +96,8 @@ export function useSurveyLifecycle(): SurveyLifecycleApi {
           if (!batchTxBase64 || !batchWallets || !batchAmounts) continue;
 
           // Fetch a fresh blockhash per batch so long runs don't hit expiry.
-          const { blockhash: freshBlockhash } =
-            await connection.getLatestBlockhash();
+          const { blockhash: freshBlockhash, lastValidBlockHeight } =
+            await connection.getLatestBlockhash("confirmed");
 
           const tx = deserializeTx(batchTxBase64);
           tx.feePayer = payer;
@@ -108,7 +108,14 @@ export function useSurveyLifecycle(): SurveyLifecycleApi {
             signed.serialize(),
           );
 
-          await connection.confirmTransaction(txSignature, "confirmed");
+          await connection.confirmTransaction(
+            {
+              blockhash: freshBlockhash,
+              lastValidBlockHeight,
+              signature: txSignature,
+            },
+            "confirmed",
+          );
 
           await confirmDistribute(
             formId,
@@ -124,8 +131,10 @@ export function useSurveyLifecycle(): SurveyLifecycleApi {
       // All batches confirmed — sweep the escrow rent buffer back to the creator
       // and close the escrow PDA so it gets reaped on-chain.
       try {
-        const { blockhash: escrowBlockhash } =
-          await connection.getLatestBlockhash();
+        const {
+          blockhash: escrowBlockhash,
+          lastValidBlockHeight: escrowLastValidBlockHeight,
+        } = await connection.getLatestBlockhash("confirmed");
 
         const { tx: escrowTxBase64 } = await buildCloseEscrowTx(
           formId,
@@ -140,7 +149,14 @@ export function useSurveyLifecycle(): SurveyLifecycleApi {
         const escrowTxSignature = await connection.sendRawTransaction(
           signedEscrowTx.serialize(),
         );
-        await connection.confirmTransaction(escrowTxSignature, "confirmed");
+        await connection.confirmTransaction(
+          {
+            blockhash: escrowBlockhash,
+            lastValidBlockHeight: escrowLastValidBlockHeight,
+            signature: escrowTxSignature,
+          },
+          "confirmed",
+        );
 
         await confirmCloseEscrow(formId, escrowTxSignature);
       } catch (err) {

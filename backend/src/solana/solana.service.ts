@@ -693,6 +693,7 @@ export class SolanaService {
   async verifyInitializeSurveyTx(txSignature: string): Promise<void> {
     const tx = await this.connection.getTransaction(txSignature, {
       commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
     });
 
     if (!tx) {
@@ -792,6 +793,7 @@ export class SolanaService {
   async verifyCloseEscrowTx(txSignature: string): Promise<void> {
     const tx = await this.connection.getTransaction(txSignature, {
       commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
     });
 
     if (!tx) {
