@@ -12,9 +12,9 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGO_URI = process.env['MONGO_URI'];
-if (!MONGO_URI) {
-  console.error('MONGO_URI is not defined in .env');
+const MONGODB_URI = process.env['MONGODB_URI'];
+if (!MONGODB_URI) {
+  console.error('MONGODB_URI is not defined in .env');
   process.exit(1);
 }
 
@@ -27,7 +27,7 @@ interface FormDoc {
 }
 
 async function migrate(): Promise<void> {
-  const conn = await mongoose.connect(MONGO_URI as string);
+  const conn = await mongoose.connect(MONGODB_URI as string);
   const db = conn.connection.db;
 
   if (!db) {
@@ -71,20 +71,32 @@ async function migrate(): Promise<void> {
 
   // Also backfill distribution records
   const distCollection = db.collection('distribution_records');
-  const distResult = await distCollection.updateMany(
-    {
-      $or: [{ rewardCurrency: { $exists: false } }, { rewardCurrency: null }],
-    },
-    {
-      $set: {
-        rewardCurrency: 'SOL',
-      },
-    },
-  );
+  const distCursor = distCollection.find({
+    $or: [
+      { rewardCurrency: { $exists: false } },
+      { rewardCurrency: null },
+      { amountUnits: { $exists: false } },
+      { amountUnits: 0 },
+    ],
+  });
 
-  console.log(
-    `Distribution records: updated ${distResult.modifiedCount} records.`,
-  );
+  const distDocs = await distCursor.toArray();
+  let distUpdated = 0;
+
+  for (const doc of distDocs) {
+    await distCollection.updateOne(
+      { _id: doc._id },
+      {
+        $set: {
+          rewardCurrency: doc['rewardCurrency'] || 'SOL',
+          amountUnits: doc['amountUnits'] || doc['amountLamports'] || 0,
+        },
+      },
+    );
+    distUpdated++;
+  }
+
+  console.log(`Distribution records: updated ${distUpdated} records.`);
 
   await mongoose.disconnect();
 }

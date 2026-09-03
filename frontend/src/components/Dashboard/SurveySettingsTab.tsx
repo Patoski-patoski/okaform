@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { truncateAddress } from "@/lib/format";
 import { useSurveyLifecycle } from "@/hooks/useSurveyLifecycle";
 import { updateSurveySettings, deleteSurveyData } from "@/lib/forms";
-import SolanaLogo from "@/components/SolanaLogo";
+import CurrencyLogo from "@/components/CurrencyLogo";
 
 interface SurveySettingsSurvey {
   id: string;
@@ -466,9 +466,10 @@ function SurveySettingsTab({
           label="Gross Reward Pool"
           value={
             <div className="flex items-center gap-1">
-              {(!survey.rewardCurrency || survey.rewardCurrency === "SOL") && (
-                <SolanaLogo className="h-3 w-auto" />
-              )}
+              <CurrencyLogo
+                currency={survey.rewardCurrency}
+                className="h-3 w-auto"
+              />
               {formatAmount(
                 survey.grossRewardPoolUnits ?? survey.grossRewardPoolLamports,
                 survey.rewardCurrency,
@@ -482,10 +483,10 @@ function SurveySettingsTab({
           value={
             (survey.feeUnits ?? survey.feeLamports) > 0 ? (
               <div className="flex items-center gap-1">
-                {(!survey.rewardCurrency ||
-                  survey.rewardCurrency === "SOL") && (
-                  <SolanaLogo className="h-3 w-auto" />
-                )}
+                <CurrencyLogo
+                  currency={survey.rewardCurrency}
+                  className="h-3 w-auto"
+                />
                 {formatAmount(
                   survey.feeUnits ?? survey.feeLamports,
                   survey.rewardCurrency,
@@ -502,9 +503,10 @@ function SurveySettingsTab({
           label="Respondent Pool"
           value={
             <div className="flex items-center gap-1">
-              {(!survey.rewardCurrency || survey.rewardCurrency === "SOL") && (
-                <SolanaLogo className="h-3 w-auto" />
-              )}
+              <CurrencyLogo
+                currency={survey.rewardCurrency}
+                className="h-3 w-auto"
+              />
               {formatAmount(
                 survey.netRewardPoolUnits ?? survey.netRewardPoolLamports,
                 survey.rewardCurrency,
