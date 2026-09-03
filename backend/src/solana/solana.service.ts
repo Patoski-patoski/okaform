@@ -138,6 +138,20 @@ export class SolanaService {
     return this.protocolAuthorityKeypair.publicKey.toBase58();
   }
 
+  /**
+   * Official configured USDC mint for this cluster.
+   * Defaults to Circle's devnet faucet mint on devnet, and Circle's official mint on mainnet-beta.
+   */
+  getUsdcMint(): string {
+    const configured = this.config.get<string>('USDC_MINT');
+    if (configured) return configured;
+    const rpcUrl = this.config.get<string>('SOLANA_RPC_URL');
+    if (rpcUrl?.includes('devnet')) {
+      return '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+    }
+    return 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+  }
+
   private getFromCache<T>(key: string): T | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
@@ -1072,7 +1086,8 @@ export class SolanaService {
       const tx = new Transaction();
 
       // Derive ATAs for each recipient and add create-ATA-idempotent instructions
-      const recipientAtaAccounts: {
+      // On-chain program validates remaining_accounts in pairs: [wallet, ata, wallet, ata, ...]
+      const recipientAccounts: {
         pubkey: PublicKey;
         isSigner: boolean;
         isWritable: boolean;
@@ -1091,7 +1106,15 @@ export class SolanaService {
           ),
         );
 
-        recipientAtaAccounts.push({
+        // Recipient wallet (identity check)
+        recipientAccounts.push({
+          pubkey: walletPubkey,
+          isSigner: false,
+          isWritable: false,
+        });
+
+        // Recipient ATA (token transfer target)
+        recipientAccounts.push({
           pubkey: ata,
           isSigner: false,
           isWritable: true,
@@ -1112,7 +1135,7 @@ export class SolanaService {
             escrowVault,
             tokenProgram: TOKEN_PROGRAM_ID,
           },
-          remainingAccounts: recipientAtaAccounts,
+          remainingAccounts: recipientAccounts,
         },
       );
 

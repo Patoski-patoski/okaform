@@ -32,6 +32,9 @@ interface SurveySettingsSurvey {
   grossRewardPoolLamports: number;
   netRewardPoolLamports: number;
   feeLamports: number;
+  grossRewardPoolUnits?: number;
+  netRewardPoolUnits?: number;
+  feeUnits?: number;
   feeBps: number;
   minWalletAge: number;
   minSolBalance: number;
@@ -467,7 +470,7 @@ function SurveySettingsTab({
                 <SolanaLogo className="h-3 w-auto" />
               )}
               {formatAmount(
-                survey.grossRewardPoolLamports,
+                survey.grossRewardPoolUnits ?? survey.grossRewardPoolLamports,
                 survey.rewardCurrency,
               )}{" "}
               {survey.rewardCurrency || "SOL"}
@@ -477,20 +480,23 @@ function SurveySettingsTab({
         <ConfigRow
           label="Protocol Fee"
           value={
-            survey.feeLamports > 0 ? (
+            (survey.feeUnits ?? survey.feeLamports) > 0 ? (
               <div className="flex items-center gap-1">
                 {(!survey.rewardCurrency ||
                   survey.rewardCurrency === "SOL") && (
                   <SolanaLogo className="h-3 w-auto" />
                 )}
-                {formatAmount(survey.feeLamports, survey.rewardCurrency)}{" "}
+                {formatAmount(
+                  survey.feeUnits ?? survey.feeLamports,
+                  survey.rewardCurrency,
+                )}{" "}
                 {survey.rewardCurrency || "SOL"} ({survey.feeBps / 100}%)
               </div>
             ) : (
               "FREE (alpha)"
             )
           }
-          muted={survey.feeLamports === 0}
+          muted={(survey.feeUnits ?? survey.feeLamports) === 0}
         />
         <ConfigRow
           label="Respondent Pool"
@@ -500,7 +506,7 @@ function SurveySettingsTab({
                 <SolanaLogo className="h-3 w-auto" />
               )}
               {formatAmount(
-                survey.netRewardPoolLamports,
+                survey.netRewardPoolUnits ?? survey.netRewardPoolLamports,
                 survey.rewardCurrency,
               )}{" "}
               {survey.rewardCurrency || "SOL"}

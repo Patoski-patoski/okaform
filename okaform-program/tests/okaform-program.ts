@@ -1416,6 +1416,60 @@ describe("okaform-program", () => {
       expect(Number(escrowAccount.amount)).to.equal(rewardPoolTokens);
     });
 
+    it("rejects SPL survey initialization with non-6-decimal token mint", async () => {
+      const badMint = await createMint(
+        provider.connection,
+        authorityPayer,
+        authorityPayer.publicKey,
+        null,
+        9 // 9 decimals instead of 6!
+      );
+      const badCreatorAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          splCreator,
+          badMint,
+          splCreator.publicKey
+        )
+      ).address;
+      await mintTo(
+        provider.connection,
+        authorityPayer,
+        badMint,
+        badCreatorAta,
+        authorityPayer,
+        10 * ONE_USDC
+      );
+
+      const surveyId = Buffer.from("usdc-bad-decimals");
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      try {
+        await program.methods
+          .initializeSurveySpl(
+            surveyId,
+            new anchor.BN(10 * ONE_USDC),
+            { weighted: {} },
+            50
+          )
+          .accountsPartial({
+            signer: splCreator.publicKey,
+            survey: surveyPda,
+            rewardMint: badMint,
+            escrowVault: tokenEscrowPda,
+            creatorTokenAccount: badCreatorAta,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([splCreator])
+          .rpc();
+        expect.fail("Should have rejected non-6-decimal mint");
+      } catch (err: any) {
+        expect(err.toString()).to.include("InvalidTokenDecimals");
+      }
+    });
+
     it("distributes SPL token rewards to respondent ATA", async () => {
       const surveyId = Buffer.from("usdc-survey-dist-1");
       const rewardPoolTokens = 5 * ONE_USDC;
@@ -1452,6 +1506,7 @@ describe("okaform-program", () => {
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .remainingAccounts([
+          { pubkey: splRespondent.publicKey, isSigner: false, isWritable: false },
           { pubkey: splRespondentAta, isSigner: false, isWritable: true },
         ])
         .signers([splCreator])
@@ -1462,6 +1517,53 @@ describe("okaform-program", () => {
 
       const surveyAccount = await program.account.surveyAccount.fetch(surveyPda);
       expect(surveyAccount.isActive).to.be.false;
+    });
+
+    it("rejects SPL reward distribution if recipient ATA does not match wallet", async () => {
+      const surveyId = Buffer.from("usdc-survey-dist-fail");
+      const rewardPoolTokens = 5 * ONE_USDC;
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurveySpl(
+          surveyId,
+          new anchor.BN(rewardPoolTokens),
+          { weighted: {} },
+          50
+        )
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          rewardMint: usdcMint,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      // Passing creator ATA instead of respondent ATA must fail
+      try {
+        await program.methods
+          .distributeRewardsSpl(surveyId, [new anchor.BN(rewardPoolTokens)])
+          .accountsPartial({
+            creator: splCreator.publicKey,
+            survey: surveyPda,
+            escrowVault: tokenEscrowPda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .remainingAccounts([
+            { pubkey: splRespondent.publicKey, isSigner: false, isWritable: false },
+            { pubkey: splCreatorAta, isSigner: false, isWritable: true },
+          ])
+          .signers([splCreator])
+          .rpc();
+        expect.fail("Should have thrown InvalidTokenAccount error");
+      } catch (err: any) {
+        expect(err.toString()).to.include("InvalidTokenAccount");
+      }
     });
 
     it("collects protocol fee in SPL tokens from escrow", async () => {

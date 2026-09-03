@@ -20,7 +20,10 @@ pub struct InitializeSurveySpl<'info> {
     )]
     pub survey: Account<'info, SurveyAccount>,
 
-    /// The SPL token mint for the reward (e.g. USDC)
+    /// The SPL token mint for the reward (must have 6 decimals, e.g. USDC)
+    #[account(
+        constraint = reward_mint.decimals == 6 @ OkaformError::InvalidTokenDecimals
+    )]
     pub reward_mint: Account<'info, Mint>,
 
     /// PDA-owned token account that holds the escrowed SPL tokens

@@ -2224,6 +2224,7 @@ export default function FormBuilder() {
     publicKey,
     signTransaction,
     connection,
+    rewardCurrency,
   ]);
 
   const openDraftModal = () => {

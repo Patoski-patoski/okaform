@@ -589,7 +589,9 @@
         },
         {
           "name": "reward_mint",
-          "docs": ["The SPL token mint for the reward (e.g. USDC)"]
+          "docs": [
+            "The SPL token mint for the reward (must have 6 decimals, e.g. USDC)"
+          ]
         },
         {
           "name": "escrow_vault",
@@ -836,6 +838,16 @@
       "code": 6013,
       "name": "InsufficientTokenBalance",
       "msg": "Insufficient token balance in escrow"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidTokenDecimals",
+      "msg": "Invalid token decimals — SPL survey rewards must use 6-decimal tokens (e.g. USDC)"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidTokenAccount",
+      "msg": "Invalid recipient token account — must be the canonical ATA for the respondent wallet"
     }
   ],
   "types": [

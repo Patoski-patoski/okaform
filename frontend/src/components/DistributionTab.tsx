@@ -29,7 +29,9 @@ function exportCSV(records: DistributionRecord[], formId: string) {
   const rows = records.map((r) => [
     r.recipientWallet,
     r.badgeTier,
-    (r.amountLamports / divisor).toFixed(6),
+    ((r.amountUnits ?? r.amountLamports) / divisor).toFixed(
+      currency === "USDC" ? 2 : 6,
+    ),
     r.txSignature,
     r.explorerUrl,
     new Date(r.distributedAt).toISOString(),
@@ -174,8 +176,8 @@ export default function DistributionTab({
     );
   }
 
-  const totalSol =
-    records.reduce((sum, r) => sum + r.amountLamports, 0) /
+  const totalAmount =
+    records.reduce((sum, r) => sum + (r.amountUnits ?? r.amountLamports), 0) /
     (records[0]?.rewardCurrency === "USDC" ? 1_000_000 : 1_000_000_000);
 
   return (
@@ -192,8 +194,9 @@ export default function DistributionTab({
             records[0]?.rewardCurrency === "SOL") && (
             <SolanaLogo className="h-3.5 w-auto" />
           )}
-          {totalSol.toFixed(4)} {records[0]?.rewardCurrency || "SOL"}
-          distributed to {records.length} wallet
+          {totalAmount.toFixed(records[0]?.rewardCurrency === "USDC" ? 2 : 4)}{" "}
+          {records[0]?.rewardCurrency || "SOL"} distributed to {records.length}{" "}
+          wallet
           {records.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -242,9 +245,9 @@ export default function DistributionTab({
                   <SolanaLogo className="h-3 w-auto" />
                 )}
                 {(
-                  record.amountLamports /
+                  (record.amountUnits ?? record.amountLamports) /
                   (record.rewardCurrency === "USDC" ? 1_000_000 : 1_000_000_000)
-                ).toFixed(4)}{" "}
+                ).toFixed(record.rewardCurrency === "USDC" ? 2 : 4)}{" "}
                 {record.rewardCurrency || "SOL"}
               </td>
               <td className="px-4 py-3">

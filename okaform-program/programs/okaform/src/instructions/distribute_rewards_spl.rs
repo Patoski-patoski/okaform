@@ -34,19 +34,21 @@ pub struct DistributeRewardsSpl<'info> {
 }
 
 /// Distributes SPL token rewards to participant ATAs passed via remaining_accounts.
-/// Each entry in `amounts` corresponds to a recipient ATA in `remaining_accounts`.
+/// Remaining accounts must be passed in pairs for each recipient:
+/// [recipient_wallet_0, recipient_ata_0, recipient_wallet_1, recipient_ata_1, ...]
+/// Each entry in `amounts` corresponds to a recipient pair.
 pub fn process_distribute_rewards_spl<'a>(
     ctx: Context<'_, '_, 'a, 'a, DistributeRewardsSpl<'a>>,
     _survey_id: Vec<u8>,
     amounts: Vec<u64>,
 ) -> Result<()> {
     let survey = &mut ctx.accounts.survey;
-    let participants = ctx.remaining_accounts;
+    let remaining = ctx.remaining_accounts;
 
-    require!(!participants.is_empty(), OkaformError::NoParticipants);
+    require!(!amounts.is_empty(), OkaformError::NoParticipants);
     require_eq!(
-        participants.len(),
-        amounts.len(),
+        remaining.len(),
+        amounts.len() * 2,
         OkaformError::InvalidRewardType
     );
 
@@ -59,16 +61,50 @@ pub fn process_distribute_rewards_spl<'a>(
     let seeds: &[&[u8]] = &[TOKEN_ESCROW_SEED, survey_key.as_ref(), &[bump]];
     let signer_seeds = &[seeds];
 
-    for (recipient_ata_info, amount) in participants.iter().zip(amounts.iter()) {
+    for (i, amount) in amounts.iter().enumerate() {
         if *amount == 0 || escrow_balance < (distributed + *amount) {
             continue;
         }
+
+        let wallet_info = &remaining[i * 2];
+        let ata_info = &remaining[i * 2 + 1];
+
+        // 1. Participant wallet cannot be the survey creator
+        require!(
+            wallet_info.key() != survey.creator,
+            OkaformError::CreatorCannotBeRespondent
+        );
+
+        // 2. Validate that ata_info is the canonical Associated Token Account for (wallet, survey.token_mint)
+        let expected_ata = anchor_spl::associated_token::get_associated_token_address(
+            &wallet_info.key(),
+            &survey.token_mint,
+        );
+        require_keys_eq!(
+            ata_info.key(),
+            expected_ata,
+            OkaformError::InvalidTokenAccount
+        );
+
+        // 3. Deserialize ata_info to verify it is an initialized TokenAccount with matching owner and mint
+        let token_account =
+            anchor_spl::token::TokenAccount::try_deserialize(&mut &ata_info.data.borrow()[..])?;
+        require_keys_eq!(
+            token_account.owner,
+            wallet_info.key(),
+            OkaformError::Unauthorized
+        );
+        require_keys_eq!(
+            token_account.mint,
+            survey.token_mint,
+            OkaformError::TokenMintMismatch
+        );
 
         let transfer_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             Transfer {
                 from: ctx.accounts.escrow_vault.to_account_info(),
-                to: recipient_ata_info.clone(),
+                to: ata_info.clone(),
                 authority: ctx.accounts.escrow_vault.to_account_info(),
             },
             signer_seeds,
@@ -76,7 +112,12 @@ pub fn process_distribute_rewards_spl<'a>(
         token::transfer(transfer_ctx, *amount)?;
 
         distributed += *amount;
-        msg!("Distributed {} tokens to {}", *amount, recipient_ata_info.key());
+        msg!(
+            "Distributed {} tokens to recipient {} (ATA: {})",
+            *amount,
+            wallet_info.key(),
+            ata_info.key()
+        );
     }
 
     survey.is_active = false;

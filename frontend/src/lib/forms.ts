@@ -72,6 +72,11 @@ export interface FormListItem {
   escrowPda: string | null;
   closedAt: string | null;
   rewardCurrency?: string;
+  tokenMint?: string;
+  tokenDecimals?: number;
+  grossRewardPoolUnits?: number;
+  netRewardPoolUnits?: number;
+  feeUnits?: number;
 }
 
 export interface FormDetailQuestion {

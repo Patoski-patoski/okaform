@@ -94,6 +94,12 @@ interface Survey {
   surveyPda: string | null;
   escrowPda: string | null;
   closedAt: string | null;
+  rewardCurrency?: string;
+  tokenMint?: string;
+  tokenDecimals?: number;
+  grossRewardPoolUnits?: number;
+  netRewardPoolUnits?: number;
+  feeUnits?: number;
 }
 
 const SIDEBAR_NAV = [
@@ -1480,6 +1486,12 @@ export default function Dashboard() {
             surveyPda: f.surveyPda,
             escrowPda: f.escrowPda,
             closedAt: f.closedAt,
+            rewardCurrency: f.rewardCurrency,
+            tokenMint: f.tokenMint,
+            tokenDecimals: f.tokenDecimals,
+            grossRewardPoolUnits: f.grossRewardPoolUnits,
+            netRewardPoolUnits: f.netRewardPoolUnits,
+            feeUnits: f.feeUnits,
           })),
         );
       } catch {

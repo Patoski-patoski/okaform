@@ -14,6 +14,8 @@ export interface SaveDistributionInput {
   surveyPda: string;
   recipientWallet: string;
   amountLamports: number;
+  amountUnits?: number;
+  rewardCurrency?: string;
   badgeTier: string;
   txSignature: string;
   rewardType: string;
@@ -175,6 +177,8 @@ export class DistributionService implements OnModuleInit {
               surveyPda: r.surveyPda,
               recipientWallet: r.recipientWallet,
               amountLamports: r.amountLamports,
+              amountUnits: r.amountUnits ?? r.amountLamports,
+              rewardCurrency: r.rewardCurrency ?? 'SOL',
               badgeTier: r.badgeTier,
               txSignature: r.txSignature,
               explorerUrl: `https://solscan.io/tx/${r.txSignature}?cluster=devnet`,

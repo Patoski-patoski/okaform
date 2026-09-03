@@ -3,6 +3,7 @@ import {
   Logger,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
@@ -50,6 +51,12 @@ export interface FormListItem {
   rewardDistributed: boolean;
   description: string;
   creator: string;
+  rewardCurrency: string;
+  tokenMint: string;
+  tokenDecimals: number;
+  grossRewardPoolUnits: number;
+  netRewardPoolUnits: number;
+  feeUnits: number;
   grossRewardPoolLamports: number;
   netRewardPoolLamports: number;
   feeLamports: number;
@@ -92,6 +99,7 @@ export interface ExploreFormItem {
   previewQuestion: string;
   minWalletAge: number;
   minSolBalance: number;
+  rewardCurrency?: string;
   createdAt: string;
 }
 
@@ -170,10 +178,16 @@ export class FormsService {
       rewardCurrency === 'SOL' ? netRewardPoolUnits : 0;
     const feeLamports = rewardCurrency === 'SOL' ? feeUnits : 0;
 
-    const tokenMint =
-      rewardCurrency === 'USDC'
-        ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-        : undefined;
+    let tokenMint: string | undefined;
+    if (rewardCurrency === 'USDC') {
+      const configuredUsdcMint = this.solanaService.getUsdcMint();
+      tokenMint = dto.tokenMint || configuredUsdcMint;
+      if (tokenMint !== configuredUsdcMint) {
+        throw new BadRequestException(
+          `Invalid tokenMint: only ${configuredUsdcMint} is supported for USDC forms`,
+        );
+      }
+    }
 
     // Persist the survey first so a fee-collection failure can be retried
     // without losing the on-chain initialized survey state.
@@ -182,7 +196,7 @@ export class FormsService {
       questions: dto.questions,
       rewardPool: dto.rewardPool,
       rewardCurrency,
-      tokenMint,
+      tokenMint: tokenMint ?? '',
       tokenDecimals,
       grossRewardPoolUnits,
       netRewardPoolUnits,
@@ -324,11 +338,19 @@ export class FormsService {
     this.validateExpirationDate(dto.closesAt);
 
     if (dto.rewardCurrency === 'USDC') {
+      const configuredUsdcMint = this.solanaService.getUsdcMint();
+      const tokenMint = dto.tokenMint || configuredUsdcMint;
+      if (tokenMint !== configuredUsdcMint) {
+        throw new BadRequestException(
+          `Invalid tokenMint: only ${configuredUsdcMint} is supported for USDC forms`,
+        );
+      }
+      if (!dto.creatorTokenAccount) {
+        throw new BadRequestException(
+          'creatorTokenAccount is required for USDC forms',
+        );
+      }
       const rewardPoolBaseUnits = Math.floor(dto.rewardPoolSol * 1_000_000);
-      if (!dto.tokenMint)
-        throw new Error('tokenMint is required for USDC forms');
-      if (!dto.creatorTokenAccount)
-        throw new Error('creatorTokenAccount is required for USDC forms');
 
       return this.solanaService.buildInitializeSurveySplTx(
         dto.creator,
@@ -336,7 +358,7 @@ export class FormsService {
         rewardPoolBaseUnits,
         dto.rewardType,
         dto.maxResponses,
-        dto.tokenMint,
+        tokenMint,
         dto.creatorTokenAccount,
         dto.blockhash,
       );
@@ -451,6 +473,7 @@ export class FormsService {
         previewQuestion: form.previewQuestion,
         minWalletAge: form.minWalletAge,
         minSolBalance: form.minSolBalance,
+        rewardCurrency: form.rewardCurrency ?? 'SOL',
         createdAt: form.createdAt?.toISOString() ?? new Date().toISOString(),
       };
     });
@@ -505,6 +528,14 @@ export class FormsService {
         rewardDistributed: form.rewardDistributed ?? false,
         description: form.description ?? '',
         creator: form.creator,
+        rewardCurrency: form.rewardCurrency ?? 'SOL',
+        tokenMint: form.tokenMint ?? '',
+        tokenDecimals: form.tokenDecimals ?? 9,
+        grossRewardPoolUnits:
+          form.grossRewardPoolUnits ?? form.grossRewardPoolLamports ?? 0,
+        netRewardPoolUnits:
+          form.netRewardPoolUnits ?? form.netRewardPoolLamports ?? 0,
+        feeUnits: form.feeUnits ?? form.feeLamports ?? 0,
         grossRewardPoolLamports: form.grossRewardPoolLamports ?? 0,
         netRewardPoolLamports: form.netRewardPoolLamports ?? 0,
         feeLamports: form.feeLamports ?? 0,
@@ -635,6 +666,14 @@ export class FormsService {
       previewQuestion: form.previewQuestion,
       rewardDistributed: form.rewardDistributed ?? false,
       description: form.description ?? '',
+      rewardCurrency: form.rewardCurrency ?? 'SOL',
+      tokenMint: form.tokenMint ?? '',
+      tokenDecimals: form.tokenDecimals ?? 9,
+      grossRewardPoolUnits:
+        form.grossRewardPoolUnits ?? form.grossRewardPoolLamports ?? 0,
+      netRewardPoolUnits:
+        form.netRewardPoolUnits ?? form.netRewardPoolLamports ?? 0,
+      feeUnits: form.feeUnits ?? form.feeLamports ?? 0,
       grossRewardPoolLamports: form.grossRewardPoolLamports ?? 0,
       netRewardPoolLamports: form.netRewardPoolLamports ?? 0,
       feeLamports: form.feeLamports ?? 0,

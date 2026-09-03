@@ -134,18 +134,18 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault PDA not found for this form');
       }
 
-      const { rewardPoolLamports, recovered: recoveredFlag } =
-        await this.resolveDistributableLamports(
+      const { rewardPoolUnits, recovered: recoveredFlag } =
+        await this.resolveDistributableUnits(
           formId,
           form.onChain.escrowVault,
-          this.declaredRewardPoolLamports(form),
+          this.declaredRewardPoolUnits(form),
           form.rewardCurrency,
           form.onChain?.txSignature,
         );
       recovered = recoveredFlag;
 
       const numWinners = Math.min(form.numWinners, participantWallets.length);
-      const perWinner = Math.floor(Number(rewardPoolLamports) / numWinners);
+      const perWinner = Math.floor(Number(rewardPoolUnits) / numWinners);
 
       const winners = this.shuffleWalletsForLuckyDraw(
         participantWallets,
@@ -156,7 +156,7 @@ export class SurveyLifecycleService {
       amounts = winners.map(() => perWinner);
 
       const totalDistributed = amounts.reduce((s, a) => s + a, 0);
-      const leftover = Number(rewardPoolLamports) - totalDistributed;
+      const leftover = Number(rewardPoolUnits) - totalDistributed;
       if (leftover > 0) {
         participantWallets.push(form.creator);
         amounts.push(leftover);
@@ -174,11 +174,11 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault PDA not found for this form');
       }
 
-      const { rewardPoolLamports: effectiveBalance, recovered: recoveredFlag } =
-        await this.resolveDistributableLamports(
+      const { rewardPoolUnits: effectiveBalance, recovered: recoveredFlag } =
+        await this.resolveDistributableUnits(
           formId,
           form.onChain.escrowVault,
-          this.declaredRewardPoolLamports(form),
+          this.declaredRewardPoolUnits(form),
           form.rewardCurrency,
           form.onChain?.txSignature,
         );
@@ -450,7 +450,9 @@ export class SurveyLifecycleService {
       formId,
       surveyPda: form.onChain?.surveyPda ?? '',
       recipientWallet: wallet,
-      amountLamports: amounts[i],
+      amountLamports: form.rewardCurrency === 'SOL' ? (amounts[i] ?? 0) : 0,
+      amountUnits: amounts[i] ?? 0,
+      rewardCurrency: form.rewardCurrency || 'SOL',
       badgeTier: badgeTierMap.get(wallet) ?? 'Ghost',
       txSignature,
       rewardType: form.rewardType,
@@ -718,12 +720,9 @@ export class SurveyLifecycleService {
   }
 
   /**
-   * Resolve the distributable lamports for a survey.
-   * If the escrow is empty (already swept on-chain), fall back to the declared
-   * net reward pool after verifying the init tx. Otherwise cap at the declared
-   * net reward pool so the rent-exemption buffer stays in escrow for close_escrow.
+   * Resolve the declared net reward pool in base units (lamports for SOL, base units for SPL/USDC).
    */
-  private declaredRewardPoolLamports(form: Form): bigint {
+  private declaredRewardPoolUnits(form: Form): bigint {
     if (form.netRewardPoolUnits !== undefined && form.netRewardPoolUnits > 0) {
       return BigInt(form.netRewardPoolUnits);
     }
@@ -738,13 +737,13 @@ export class SurveyLifecycleService {
     return BigInt(Math.round(form.rewardPool * multiplier));
   }
 
-  private async resolveDistributableLamports(
+  private async resolveDistributableUnits(
     formId: string,
     escrowVault: string,
-    declaredPoolLamports: bigint,
+    declaredPoolUnits: bigint,
     rewardCurrency?: string,
     txSignature?: string,
-  ): Promise<{ rewardPoolLamports: bigint; recovered: boolean }> {
+  ): Promise<{ rewardPoolUnits: bigint; recovered: boolean }> {
     const escrowBalance =
       rewardCurrency === 'USDC'
         ? await this.solanaService.getTokenEscrowBalance(escrowVault)
@@ -770,16 +769,14 @@ export class SurveyLifecycleService {
       });
 
       return {
-        rewardPoolLamports: declaredPoolLamports,
+        rewardPoolUnits: declaredPoolUnits,
         recovered: true,
       };
     }
 
     return {
-      rewardPoolLamports:
-        escrowBalance > declaredPoolLamports
-          ? declaredPoolLamports
-          : escrowBalance,
+      rewardPoolUnits:
+        escrowBalance > declaredPoolUnits ? declaredPoolUnits : escrowBalance,
       recovered: false,
     };
   }

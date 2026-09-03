@@ -30,4 +30,8 @@ pub enum OkaformError {
     TokenMintMismatch,
     #[msg("Insufficient token balance in escrow")]
     InsufficientTokenBalance,
+    #[msg("Invalid token decimals — SPL survey rewards must use 6-decimal tokens (e.g. USDC)")]
+    InvalidTokenDecimals,
+    #[msg("Invalid recipient token account — must be the canonical ATA for the respondent wallet")]
+    InvalidTokenAccount,
 }
