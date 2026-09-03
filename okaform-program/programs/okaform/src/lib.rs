@@ -79,4 +79,39 @@ pub mod okaform {
     ) -> Result<()> {
         process_collect_fee(ctx, survey_id, fee_lamports)
     }
+
+    // ── SPL Token Instructions ──────────────────────────────────────────
+
+    pub fn initialize_survey_spl(
+        ctx: Context<InitializeSurveySpl>,
+        survey_id: Vec<u8>,
+        reward_pool: u64,
+        reward_type: RewardType,
+        max_responses: u32,
+    ) -> Result<()> {
+        process_initialize_survey_spl(ctx, survey_id, reward_pool, reward_type, max_responses)
+    }
+
+    pub fn distribute_rewards_spl<'a>(
+        ctx: Context<'_, '_, 'a, 'a, DistributeRewardsSpl<'a>>,
+        survey_id: Vec<u8>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        process_distribute_rewards_spl(ctx, survey_id, amounts)
+    }
+
+    pub fn collect_fee_spl(
+        ctx: Context<CollectFeeSpl>,
+        survey_id: Vec<u8>,
+        fee_amount: u64,
+    ) -> Result<()> {
+        process_collect_fee_spl(ctx, survey_id, fee_amount)
+    }
+
+    pub fn close_escrow_spl(
+        ctx: Context<CloseEscrowSpl>,
+        survey_id: Vec<u8>,
+    ) -> Result<()> {
+        process_close_escrow_spl(ctx, survey_id)
+    }
 }

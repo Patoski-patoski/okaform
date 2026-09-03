@@ -32,12 +32,16 @@ interface SurveySettingsSurvey {
   grossRewardPoolLamports: number;
   netRewardPoolLamports: number;
   feeLamports: number;
+  grossRewardPoolUnits?: number;
+  netRewardPoolUnits?: number;
+  feeUnits?: number;
   feeBps: number;
   minWalletAge: number;
   minSolBalance: number;
   surveyPda: string | null;
   escrowPda: string | null;
   closedAt: string | null;
+  rewardCurrency?: string;
 }
 
 interface SurveySettingsTabProps {
@@ -47,9 +51,11 @@ interface SurveySettingsTabProps {
 }
 
 const SOL_PER_LAMPORT = 1_000_000_000;
+const USDC_DECIMALS = 1_000_000;
 
-function formatSol(lamports: number): string {
-  return (lamports / SOL_PER_LAMPORT).toLocaleString("en-US", {
+function formatAmount(lamports: number, currency: string = "SOL"): string {
+  const divisor = currency === "USDC" ? USDC_DECIMALS : SOL_PER_LAMPORT;
+  return (lamports / divisor).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
   });
@@ -335,8 +341,8 @@ function SurveySettingsTab({
   }
   if (survey.minSolBalance > 0) {
     filterRules.push({
-      label: "SOL Balance",
-      value: `${survey.minSolBalance} SOL minimum`,
+      label: "Min Balance",
+      value: `${survey.minSolBalance} ${survey.rewardCurrency || "SOL"} minimum`,
     });
   }
   if (filterRules.length === 0) {
@@ -459,33 +465,52 @@ function SurveySettingsTab({
         <ConfigRow
           label="Gross Reward Pool"
           value={
-            <>
-              <SolanaLogo className="h-3 w-auto" />{" "}
-              {formatSol(survey.grossRewardPoolLamports)}
-            </>
+            <div className="flex items-center gap-1">
+              {(!survey.rewardCurrency || survey.rewardCurrency === "SOL") && (
+                <SolanaLogo className="h-3 w-auto" />
+              )}
+              {formatAmount(
+                survey.grossRewardPoolUnits ?? survey.grossRewardPoolLamports,
+                survey.rewardCurrency,
+              )}{" "}
+              {survey.rewardCurrency || "SOL"}
+            </div>
           }
         />
         <ConfigRow
           label="Protocol Fee"
           value={
-            survey.feeLamports > 0 ? (
-              <>
-                <SolanaLogo className="h-3 w-auto" />{" "}
-                {formatSol(survey.feeLamports)} ({survey.feeBps / 100}%)
-              </>
+            (survey.feeUnits ?? survey.feeLamports) > 0 ? (
+              <div className="flex items-center gap-1">
+                {(!survey.rewardCurrency ||
+                  survey.rewardCurrency === "SOL") && (
+                  <SolanaLogo className="h-3 w-auto" />
+                )}
+                {formatAmount(
+                  survey.feeUnits ?? survey.feeLamports,
+                  survey.rewardCurrency,
+                )}{" "}
+                {survey.rewardCurrency || "SOL"} ({survey.feeBps / 100}%)
+              </div>
             ) : (
               "FREE (alpha)"
             )
           }
-          muted={survey.feeLamports === 0}
+          muted={(survey.feeUnits ?? survey.feeLamports) === 0}
         />
         <ConfigRow
           label="Respondent Pool"
           value={
-            <>
-              <SolanaLogo className="h-3 w-auto" />{" "}
-              {formatSol(survey.netRewardPoolLamports)}
-            </>
+            <div className="flex items-center gap-1">
+              {(!survey.rewardCurrency || survey.rewardCurrency === "SOL") && (
+                <SolanaLogo className="h-3 w-auto" />
+              )}
+              {formatAmount(
+                survey.netRewardPoolUnits ?? survey.netRewardPoolLamports,
+                survey.rewardCurrency,
+              )}{" "}
+              {survey.rewardCurrency || "SOL"}
+            </div>
           }
         />
         <ConfigRow label="Reward Type" value={survey.rewardType} />

@@ -70,6 +70,82 @@
       ]
     },
     {
+      "name": "close_escrow_spl",
+      "discriminator": [199, 74, 166, 208, 103, 131, 223, 138],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "survey.creator",
+                "account": "SurveyAccount"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "docs": ["Escrow token account to be closed"],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116, 111, 107, 101, 110, 95, 101, 115, 99, 114, 111, 119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator_token_account",
+          "docs": [
+            "Creator's token account — receives any remaining SPL tokens"
+          ],
+          "writable": true
+        },
+        {
+          "name": "beneficiary",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
       "name": "close_survey",
       "discriminator": [116, 246, 232, 201, 239, 102, 75, 153],
       "accounts": [
@@ -174,6 +250,79 @@
       ]
     },
     {
+      "name": "collect_fee_spl",
+      "discriminator": [33, 49, 241, 66, 232, 81, 120, 56],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Protocol authority — only the hardcoded authority can collect fees"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "survey.creator",
+                "account": "SurveyAccount"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "docs": ["Escrow token account holding SPL tokens"],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116, 111, 107, 101, 110, 95, 101, 115, 99, 114, 111, 119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fee_token_account",
+          "docs": ["Protocol treasury's token account for the reward mint"],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        },
+        {
+          "name": "fee_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "distribute_rewards",
       "discriminator": [97, 6, 227, 255, 124, 165, 3, 148],
       "accounts": [
@@ -222,6 +371,73 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        },
+        {
+          "name": "amounts",
+          "type": {
+            "vec": "u64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "distribute_rewards_spl",
+      "discriminator": [90, 252, 63, 255, 47, 42, 142, 82],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": ["survey"]
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "docs": ["Escrow token account holding SPL tokens for distribution"],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116, 111, 107, 101, 110, 95, 101, 115, 99, 114, 111, 119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
@@ -313,6 +529,99 @@
               }
             ]
           }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "survey_id",
+          "type": "bytes"
+        },
+        {
+          "name": "reward_pool",
+          "type": "u64"
+        },
+        {
+          "name": "reward_type",
+          "type": {
+            "defined": {
+              "name": "RewardType"
+            }
+          }
+        },
+        {
+          "name": "max_responses",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "initialize_survey_spl",
+      "discriminator": [80, 129, 124, 127, 139, 36, 122, 199],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "survey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [115, 117, 114, 118, 101, 121]
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "arg",
+                "path": "survey_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_mint",
+          "docs": [
+            "The SPL token mint for the reward (must have 6 decimals, e.g. USDC)"
+          ]
+        },
+        {
+          "name": "escrow_vault",
+          "docs": [
+            "PDA-owned token account that holds the escrowed SPL tokens"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116, 111, 107, 101, 110, 95, 101, 115, 99, 114, 111, 119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "survey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator_token_account",
+          "docs": ["Creator's token account (ATA) for the reward mint"],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "system_program",
@@ -514,6 +823,31 @@
       "code": 6010,
       "name": "EscrowAlreadyClosed",
       "msg": "Escrow has already been closed"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidTokenMint",
+      "msg": "Invalid token mint — this survey uses native SOL"
+    },
+    {
+      "code": 6012,
+      "name": "TokenMintMismatch",
+      "msg": "Token account mint does not match survey mint"
+    },
+    {
+      "code": 6013,
+      "name": "InsufficientTokenBalance",
+      "msg": "Insufficient token balance in escrow"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidTokenDecimals",
+      "msg": "Invalid token decimals — SPL survey rewards must use 6-decimal tokens (e.g. USDC)"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidTokenAccount",
+      "msg": "Invalid recipient token account — must be the canonical ATA for the respondent wallet"
     }
   ],
   "types": [
@@ -649,6 +983,20 @@
           },
           {
             "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "token_mint",
+            "docs": [
+              "Pubkey::default() = native SOL survey; non-zero = SPL token mint"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "escrow_vault_bump",
+            "docs": [
+              "PDA bump for the token escrow account (only used for SPL surveys)"
+            ],
             "type": "u8"
           }
         ]

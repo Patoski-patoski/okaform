@@ -42,6 +42,7 @@ export type QuestionTypeValue =
   | 'recaptcha'
   | 'country';
 
+export type RewardCurrency = 'SOL' | 'USDC';
 export type RewardType = 'weighted' | 'lucky_draw';
 export type FormStatus = 'draft' | 'active' | 'closed';
 
@@ -128,6 +129,24 @@ export class Form {
 
   @Prop({ default: 0 })
   rewardPool!: number;
+
+  @Prop({ type: String, enum: ['SOL', 'USDC'], default: 'SOL' })
+  rewardCurrency!: 'SOL' | 'USDC';
+
+  @Prop({ default: '' })
+  tokenMint!: string;
+
+  @Prop({ default: 9 })
+  tokenDecimals!: number;
+
+  @Prop({ default: 0 })
+  grossRewardPoolUnits!: number;
+
+  @Prop({ default: 0 })
+  netRewardPoolUnits!: number;
+
+  @Prop({ default: 0 })
+  feeUnits!: number;
 
   @Prop({ default: 0 })
   grossRewardPoolLamports!: number;

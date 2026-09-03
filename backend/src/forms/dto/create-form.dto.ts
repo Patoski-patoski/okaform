@@ -22,6 +22,10 @@ export const CreateFormSchema = Type.Object({
     { minItems: 1 },
   ),
   rewardPool: Type.Number({ minimum: 0 }),
+  rewardCurrency: Type.Optional(
+    Type.Union([Type.Literal('SOL'), Type.Literal('USDC')], { default: 'SOL' }),
+  ),
+  tokenMint: Type.Optional(Type.String()),
   maxResponses: Type.Number({ minimum: 1 }),
   rewardType: Type.Union([
     Type.Literal('weighted'),

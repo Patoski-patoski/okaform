@@ -134,17 +134,18 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault PDA not found for this form');
       }
 
-      const { rewardPoolLamports, recovered: recoveredFlag } =
-        await this.resolveDistributableLamports(
+      const { rewardPoolUnits, recovered: recoveredFlag } =
+        await this.resolveDistributableUnits(
           formId,
           form.onChain.escrowVault,
-          this.declaredRewardPoolLamports(form),
+          this.declaredRewardPoolUnits(form),
+          form.rewardCurrency,
           form.onChain?.txSignature,
         );
       recovered = recoveredFlag;
 
       const numWinners = Math.min(form.numWinners, participantWallets.length);
-      const perWinner = Math.floor(Number(rewardPoolLamports) / numWinners);
+      const perWinner = Math.floor(Number(rewardPoolUnits) / numWinners);
 
       const winners = this.shuffleWalletsForLuckyDraw(
         participantWallets,
@@ -155,7 +156,7 @@ export class SurveyLifecycleService {
       amounts = winners.map(() => perWinner);
 
       const totalDistributed = amounts.reduce((s, a) => s + a, 0);
-      const leftover = Number(rewardPoolLamports) - totalDistributed;
+      const leftover = Number(rewardPoolUnits) - totalDistributed;
       if (leftover > 0) {
         participantWallets.push(form.creator);
         amounts.push(leftover);
@@ -173,11 +174,12 @@ export class SurveyLifecycleService {
         throw new Error('Escrow vault PDA not found for this form');
       }
 
-      const { rewardPoolLamports: effectiveBalance, recovered: recoveredFlag } =
-        await this.resolveDistributableLamports(
+      const { rewardPoolUnits: effectiveBalance, recovered: recoveredFlag } =
+        await this.resolveDistributableUnits(
           formId,
           form.onChain.escrowVault,
-          this.declaredRewardPoolLamports(form),
+          this.declaredRewardPoolUnits(form),
+          form.rewardCurrency,
           form.onChain?.txSignature,
         );
       recovered = recoveredFlag;
@@ -306,21 +308,41 @@ export class SurveyLifecycleService {
       };
     }
 
-    const { txs, walletChunks, amountChunks } =
-      await this.solanaService.buildDistributeRewardsTxBatch(
-        form.creator,
-        surveyId,
-        uniqueWallets,
-        uniqueAmounts,
-        blockhash,
-      );
+    if (form.rewardCurrency === 'USDC') {
+      if (!form.tokenMint)
+        throw new Error('Token mint required for USDC distribution');
+      const { txs, walletChunks, amountChunks } =
+        await this.solanaService.buildDistributeRewardsSplTxBatch(
+          form.creator,
+          surveyId,
+          uniqueWallets,
+          uniqueAmounts,
+          form.tokenMint,
+          blockhash,
+        );
+      return {
+        txs,
+        participantWallets: walletChunks,
+        amounts: amountChunks,
+        badgeTiers: badgeTiersMap,
+      };
+    } else {
+      const { txs, walletChunks, amountChunks } =
+        await this.solanaService.buildDistributeRewardsTxBatch(
+          form.creator,
+          surveyId,
+          uniqueWallets,
+          uniqueAmounts,
+          blockhash,
+        );
 
-    return {
-      txs,
-      participantWallets: walletChunks,
-      amounts: amountChunks,
-      badgeTiers: badgeTiersMap,
-    };
+      return {
+        txs,
+        participantWallets: walletChunks,
+        amounts: amountChunks,
+        badgeTiers: badgeTiersMap,
+      };
+    }
   }
 
   /**
@@ -428,7 +450,9 @@ export class SurveyLifecycleService {
       formId,
       surveyPda: form.onChain?.surveyPda ?? '',
       recipientWallet: wallet,
-      amountLamports: amounts[i],
+      amountLamports: form.rewardCurrency === 'SOL' ? (amounts[i] ?? 0) : 0,
+      amountUnits: amounts[i] ?? 0,
+      rewardCurrency: form.rewardCurrency || 'SOL',
       badgeTier: badgeTierMap.get(wallet) ?? 'Ghost',
       txSignature,
       rewardType: form.rewardType,
@@ -630,6 +654,16 @@ export class SurveyLifecycleService {
     });
 
     const surveyId = form.onChain?.surveyId ?? formId;
+    if (form.rewardCurrency === 'USDC') {
+      if (!form.tokenMint)
+        throw new Error('Token mint required for USDC close escrow');
+      return this.solanaService.buildCloseEscrowSplTx(
+        callerWallet,
+        surveyId,
+        form.tokenMint,
+        blockhash,
+      );
+    }
     return this.solanaService.buildCloseEscrowTx(
       callerWallet,
       surveyId,
@@ -686,29 +720,34 @@ export class SurveyLifecycleService {
   }
 
   /**
-   * Resolve the distributable lamports for a survey.
-   * If the escrow is empty (already swept on-chain), fall back to the declared
-   * net reward pool after verifying the init tx. Otherwise cap at the declared
-   * net reward pool so the rent-exemption buffer stays in escrow for close_escrow.
+   * Resolve the declared net reward pool in base units (lamports for SOL, base units for SPL/USDC).
    */
-  private declaredRewardPoolLamports(form: Form): bigint {
+  private declaredRewardPoolUnits(form: Form): bigint {
+    if (form.netRewardPoolUnits !== undefined && form.netRewardPoolUnits > 0) {
+      return BigInt(form.netRewardPoolUnits);
+    }
     if (
       form.netRewardPoolLamports !== undefined &&
       form.netRewardPoolLamports > 0
     ) {
       return BigInt(form.netRewardPoolLamports);
     }
-    return BigInt(Math.round(form.rewardPool * LAMPORTS_PER_SOL));
+    const multiplier =
+      form.rewardCurrency === 'USDC' ? 1_000_000 : LAMPORTS_PER_SOL;
+    return BigInt(Math.round(form.rewardPool * multiplier));
   }
 
-  private async resolveDistributableLamports(
+  private async resolveDistributableUnits(
     formId: string,
     escrowVault: string,
-    declaredPoolLamports: bigint,
+    declaredPoolUnits: bigint,
+    rewardCurrency?: string,
     txSignature?: string,
-  ): Promise<{ rewardPoolLamports: bigint; recovered: boolean }> {
+  ): Promise<{ rewardPoolUnits: bigint; recovered: boolean }> {
     const escrowBalance =
-      await this.solanaService.getEscrowBalance(escrowVault);
+      rewardCurrency === 'USDC'
+        ? await this.solanaService.getTokenEscrowBalance(escrowVault)
+        : await this.solanaService.getEscrowBalance(escrowVault);
 
     if (escrowBalance === 0n) {
       const initTxVerified = txSignature
@@ -730,16 +769,14 @@ export class SurveyLifecycleService {
       });
 
       return {
-        rewardPoolLamports: declaredPoolLamports,
+        rewardPoolUnits: declaredPoolUnits,
         recovered: true,
       };
     }
 
     return {
-      rewardPoolLamports:
-        escrowBalance > declaredPoolLamports
-          ? declaredPoolLamports
-          : escrowBalance,
+      rewardPoolUnits:
+        escrowBalance > declaredPoolUnits ? declaredPoolUnits : escrowBalance,
       recovered: false,
     };
   }

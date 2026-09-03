@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { LAMPORTS_PER_SOL, Transaction } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, Transaction, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 import {
   DndContext,
   closestCenter,
@@ -161,6 +162,10 @@ interface QuestionTypeItem {
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
+
+const USDC_MINT_DEVNET = new PublicKey(
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+);
 
 const QUESTION_TYPES: QuestionTypeItem[] = [
   // Input blocks
@@ -1550,9 +1555,11 @@ function QuestionSettings({
 function FeeBreakdown({
   depositSol,
   feeBps,
+  currency = "SOL",
 }: {
   depositSol: number;
   feeBps: number;
+  currency?: "SOL" | "USDC";
 }) {
   const feePct = feeBps / 100;
   const feeSol = depositSol * (feeBps / 10000);
@@ -1565,8 +1572,9 @@ function FeeBreakdown({
         <span className="text-[10px] uppercase tracking-wider text-ok-dim">
           You deposit
         </span>
-        <span className="font-mono text-[11px] font-medium text-ok-text">
-          <SolanaLogo className="h-3 w-auto" /> {fmt(depositSol)} SOL
+        <span className="font-mono text-[11px] font-medium text-ok-text flex items-center gap-1">
+          {currency === "SOL" && <SolanaLogo className="h-3 w-auto" />}
+          {fmt(depositSol)} {currency}
         </span>
       </div>
 
@@ -1576,7 +1584,7 @@ function FeeBreakdown({
             Protocol fee ({feePct}%)
           </span>
           <span className="font-mono text-[11px] font-medium text-ok-danger">
-            -{fmt(feeSol)} SOL
+            -{fmt(feeSol)} {currency}
           </span>
         </div>
       ) : (
@@ -1594,8 +1602,9 @@ function FeeBreakdown({
         <span className="text-[10px] font-semibold uppercase tracking-wider text-ok-text">
           Respondent pool
         </span>
-        <span className="font-mono text-[11px] font-bold text-ok-green">
-          <SolanaLogo className="h-3 w-auto" /> {fmt(netSol)} SOL
+        <span className="font-mono text-[11px] font-bold text-ok-green flex items-center gap-1">
+          {currency === "SOL" && <SolanaLogo className="h-3 w-auto" />}
+          {fmt(netSol)} {currency}
         </span>
       </div>
       <p className="text-[9px] leading-relaxed text-ok-dim">
@@ -1610,11 +1619,15 @@ function RewardSettingsPanel({
   onUpdate,
   balanceWarning,
   feeBps,
+  rewardCurrency,
+  setRewardCurrency,
 }: {
   settings: RewardSettings;
   onUpdate: (updates: Partial<RewardSettings>) => void;
   balanceWarning?: string;
   feeBps: number;
+  rewardCurrency: "SOL" | "USDC";
+  setRewardCurrency: (val: "SOL" | "USDC") => void;
 }) {
   return (
     <div className="border-t border-[#3D444D]/60 bg-[#151B23]/20 p-4 space-y-4">
@@ -1623,27 +1636,48 @@ function RewardSettingsPanel({
       </h4>
 
       <div className="space-y-3.5">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-ok-dim">
+            Reward Currency
+          </label>
+          <select
+            value={rewardCurrency}
+            onChange={(e) =>
+              setRewardCurrency(e.target.value as "SOL" | "USDC")
+            }
+            className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg px-3 py-2 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+          >
+            <option value="SOL">SOL</option>
+            <option value="USDC">USDC</option>
+          </select>
+        </div>
         <div className="space-y-1.5">
           <label className="text-[11px] font-semibold text-ok-dim uppercase tracking-wider">
             Escrow Reservoir Pool
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">
-              <SolanaLogo className="h-4 w-auto" />
-            </span>
+            {rewardCurrency === "SOL" && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm font-bold text-ok-green">
+                <SolanaLogo className="h-4 w-auto" />
+              </span>
+            )}
             <input
               type="number"
               min={0}
-              step={0.1}
+              step={rewardCurrency === "USDC" ? 0.01 : 0.1}
               value={settings.rewardPool || ""}
               onChange={(e) =>
                 onUpdate({ rewardPool: parseFloat(e.target.value) || 0 })
               }
-              className="w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg py-2 pl-8 pr-3 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none"
+              className={`w-full rounded-[var(--radius-ok-inner)] border border-ok-border bg-ok-bg py-2 ${rewardCurrency === "SOL" ? "pl-8" : "px-3"} pr-3 font-mono text-xs text-ok-text focus:border-ok-green/40 focus:outline-none`}
               onPointerDown={(e) => e.stopPropagation()}
             />
           </div>
-          <FeeBreakdown depositSol={settings.rewardPool} feeBps={feeBps} />
+          <FeeBreakdown
+            depositSol={settings.rewardPool}
+            feeBps={feeBps}
+            currency={rewardCurrency}
+          />
           {balanceWarning && (
             <p className="text-[11px] text-ok-danger flex items-center gap-1">
               <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -1779,6 +1813,7 @@ export default function FormBuilder() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reward, setReward] = useState<RewardSettings>(INITIAL_REWARD);
+  const [rewardCurrency, setRewardCurrency] = useState<"SOL" | "USDC">("SOL");
   const [showMobilePicker, setShowMobilePicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [initializing, setInitializing] = useState(false);
@@ -1823,6 +1858,7 @@ export default function FormBuilder() {
       if (parsed.formTitle) setFormTitle(parsed.formTitle);
       if (parsed.questions?.length) setQuestions(parsed.questions);
       if (parsed.reward) setReward(parsed.reward);
+      if (parsed.rewardCurrency) setRewardCurrency(parsed.rewardCurrency);
       if (
         parsed.selectedId &&
         parsed.questions?.some((q: Question) => q.id === parsed.selectedId)
@@ -1836,16 +1872,17 @@ export default function FormBuilder() {
 
   // Auto-save draft to localStorage on changes
   useEffect(() => {
-    const draft = { formTitle, questions, reward, selectedId };
+    const draft = { formTitle, questions, reward, selectedId, rewardCurrency };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [formTitle, questions, reward, selectedId]);
+  }, [formTitle, questions, reward, selectedId, rewardCurrency]);
 
-  const rewardInLamports = reward.rewardPool * LAMPORTS_PER_SOL;
+  const multiplier = rewardCurrency === "USDC" ? 1_000_000 : LAMPORTS_PER_SOL;
+  const rewardInLamports = reward.rewardPool * multiplier;
   const insufficientBalance =
     walletBalance !== null && rewardInLamports > walletBalance;
   const balanceWarning =
     insufficientBalance && walletBalance !== null
-      ? `Wallet balance (${(walletBalance / LAMPORTS_PER_SOL).toFixed(2)}) is less than the pool amount`
+      ? `Wallet balance (${(walletBalance / multiplier).toFixed(2)}) is less than the pool amount`
       : undefined;
 
   useEffect(() => {
@@ -1856,8 +1893,17 @@ export default function FormBuilder() {
 
     const fetchBalance = async () => {
       try {
-        const bal = await connection.getBalance(publicKey);
-        setWalletBalance(bal);
+        if (rewardCurrency === "USDC") {
+          const usdcAta = await getAssociatedTokenAddress(
+            USDC_MINT_DEVNET,
+            publicKey,
+          );
+          const bal = await connection.getTokenAccountBalance(usdcAta);
+          setWalletBalance(parseInt(bal.value.amount, 10));
+        } else {
+          const bal = await connection.getBalance(publicKey);
+          setWalletBalance(bal);
+        }
       } catch {
         setWalletBalance(null);
       }
@@ -1866,7 +1912,7 @@ export default function FormBuilder() {
     void fetchBalance();
     const interval = setInterval(fetchBalance, 10000);
     return () => clearInterval(interval);
-  }, [publicKey, connection]);
+  }, [publicKey, connection, rewardCurrency]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -2033,13 +2079,28 @@ export default function FormBuilder() {
       console.log("[INIT] blockhash:", blockhash);
 
       console.log("[INIT] Calling buildInitTx");
+      let tokenMint: string | undefined;
+      let creatorTokenAccount: string | undefined;
+
+      if (rewardCurrency === "USDC") {
+        tokenMint = USDC_MINT_DEVNET.toBase58();
+        const usdcAta = await getAssociatedTokenAddress(
+          USDC_MINT_DEVNET,
+          publicKey,
+        );
+        creatorTokenAccount = usdcAta.toBase58();
+      }
+
       const {
         tx: txBase64,
         surveyPda,
         escrowPda,
       } = await buildInitTx({
         surveyId,
-        rewardPoolSol: reward.rewardPool,
+        rewardPoolSol: reward.rewardPool, // wait, it's named rewardPoolSol, I should just pass it, backend handles currency
+        rewardCurrency,
+        tokenMint,
+        creatorTokenAccount,
         rewardType: reward.rewardType,
         maxResponses: reward.maxResponses,
         creator: publicKey.toBase58(),
@@ -2093,6 +2154,7 @@ export default function FormBuilder() {
           matrixColumns: q.matrixColumns,
         })),
         rewardPool: reward.rewardPool,
+        rewardCurrency,
         maxResponses: reward.maxResponses,
         rewardType: reward.rewardType,
         numWinners: reward.numWinners,
@@ -2100,6 +2162,7 @@ export default function FormBuilder() {
         minSolBalance: reward.minSolBalance,
         closesAt: reward.closesAt || undefined,
         surveyId,
+
         surveyPda,
         escrowPda,
         initTxSignature: txSignature,
@@ -2161,6 +2224,7 @@ export default function FormBuilder() {
     publicKey,
     signTransaction,
     connection,
+    rewardCurrency,
   ]);
 
   const openDraftModal = () => {
@@ -2327,6 +2391,8 @@ export default function FormBuilder() {
               }
               balanceWarning={balanceWarning}
               feeBps={protocolFeeBps}
+              rewardCurrency={rewardCurrency}
+              setRewardCurrency={setRewardCurrency}
             />
           </div>
         </div>

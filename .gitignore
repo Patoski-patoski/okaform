@@ -3,6 +3,7 @@ node_modules/
 package-lock.json
 bun.lockb
 .mimocode
+.kilo/
 # Environment files
 .env
 .env.local

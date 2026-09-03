@@ -17,6 +17,12 @@ export class DistributionRecord {
   @Prop({ required: true })
   amountLamports!: number;
 
+  @Prop({ required: true, default: 0 })
+  amountUnits!: number;
+
+  @Prop({ type: String, enum: ['SOL', 'USDC'], default: 'SOL' })
+  rewardCurrency!: string;
+
   @Prop({ required: true })
   badgeTier!: string;
 

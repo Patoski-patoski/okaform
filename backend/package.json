@@ -33,6 +33,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/throttler": "^6.5.0",
     "@sinclair/typebox": "^0.34.49",
+    "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.98.4",
     "@types/mocha": "^10.0.10",
     "bs58": "^6.0.0",
@@ -44,6 +45,12 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tweetnacl": "^1.0.3"
+  },
+  "overrides": {
+    "bigint-buffer": "npm:four-flap-bigint-buffer@1.1.6"
+  },
+  "resolutions": {
+    "bigint-buffer": "npm:four-flap-bigint-buffer@1.1.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
