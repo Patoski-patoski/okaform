@@ -20,8 +20,6 @@ import { FeeService } from './fee.service';
 import { DistributionService } from '../distribution/distribution.service';
 import type { UpdateSurveySettingsDto } from './dto/update-survey-settings.dto';
 
-const LAMPORTS_PER_SOL = 1_000_000_000;
-
 export interface CreateFormResult {
   id: string;
   title: string;
@@ -149,18 +147,33 @@ export class FormsService {
       surveyId: dto.surveyId,
       rewardPool: dto.rewardPool,
       rewardType: dto.rewardType,
+      rewardCurrency: dto.rewardCurrency || 'SOL',
     });
 
     await this.solanaService.verifyInitializeSurveyTx(dto.initTxSignature);
 
     this.validateExpirationDate(dto.closesAt);
 
-    const grossRewardPoolLamports = Math.floor(
-      dto.rewardPool * LAMPORTS_PER_SOL,
-    );
-    const { feeLamports, netRewardPoolLamports } = this.feeService.computeFee(
-      grossRewardPoolLamports,
-    );
+    const rewardCurrency = dto.rewardCurrency || 'SOL';
+    const tokenDecimals = rewardCurrency === 'USDC' ? 6 : 9;
+    const UNITS_PER_TOKEN =
+      rewardCurrency === 'USDC' ? 1_000_000 : 1_000_000_000;
+
+    const grossRewardPoolUnits = Math.floor(dto.rewardPool * UNITS_PER_TOKEN);
+    const { feeLamports: feeUnits, netRewardPoolLamports: netRewardPoolUnits } =
+      this.feeService.computeFee(grossRewardPoolUnits);
+
+    // Keep old fields for backward compatibility
+    const grossRewardPoolLamports =
+      rewardCurrency === 'SOL' ? grossRewardPoolUnits : 0;
+    const netRewardPoolLamports =
+      rewardCurrency === 'SOL' ? netRewardPoolUnits : 0;
+    const feeLamports = rewardCurrency === 'SOL' ? feeUnits : 0;
+
+    const tokenMint =
+      rewardCurrency === 'USDC'
+        ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+        : undefined;
 
     // Persist the survey first so a fee-collection failure can be retried
     // without losing the on-chain initialized survey state.
@@ -168,6 +181,12 @@ export class FormsService {
       title: dto.title,
       questions: dto.questions,
       rewardPool: dto.rewardPool,
+      rewardCurrency,
+      tokenMint,
+      tokenDecimals,
+      grossRewardPoolUnits,
+      netRewardPoolUnits,
+      feeUnits,
       grossRewardPoolLamports,
       netRewardPoolLamports,
       feeLamports,
@@ -194,27 +213,41 @@ export class FormsService {
     } as Record<string, unknown>);
 
     const form = await doc.save();
-    let feeCollectedOnChain = feeLamports === 0;
+    let feeCollectedOnChain = feeUnits === 0;
 
-    if (feeLamports > 0) {
+    if (feeUnits > 0) {
       this.logger.log({
         event: 'FEE_COLLECTION_START',
         creator: creator.slice(0, 8) + '...',
         surveyId: dto.surveyId,
-        grossLamports: grossRewardPoolLamports,
-        feeLamports,
-        netLamports: netRewardPoolLamports,
+        rewardCurrency,
+        grossUnits: grossRewardPoolUnits,
+        feeUnits,
+        netUnits: netRewardPoolUnits,
         feeBps: this.feeService.getFeeBps(),
         feeWallet: this.feeService.getFeeWallet().slice(0, 8) + '...',
       });
 
       try {
-        const feeTxSignature = await this.solanaService.collectProtocolFee(
-          feeLamports,
-          dto.surveyId,
-          dto.surveyPda,
-          dto.escrowPda,
-        );
+        let feeTxSignature: string;
+        if (rewardCurrency === 'USDC') {
+          if (!tokenMint)
+            throw new Error('tokenMint is required for USDC forms');
+          feeTxSignature = await this.solanaService.collectProtocolFeeSpl(
+            feeUnits,
+            dto.surveyId,
+            dto.surveyPda,
+            dto.escrowPda,
+            tokenMint,
+          );
+        } else {
+          feeTxSignature = await this.solanaService.collectProtocolFee(
+            feeUnits,
+            dto.surveyId,
+            dto.surveyPda,
+            dto.escrowPda,
+          );
+        }
 
         feeCollectedOnChain = true;
 
@@ -226,7 +259,7 @@ export class FormsService {
             event: 'FEE_COLLECTED',
             creator: creator.slice(0, 8) + '...',
             surveyId: dto.surveyId,
-            feeLamports,
+            feeUnits,
             feeTxSignature,
           });
         } catch (error: unknown) {
@@ -237,7 +270,7 @@ export class FormsService {
             event: 'FEE_COLLECTED_PERSIST_FAILED',
             creator: creator.slice(0, 8) + '...',
             surveyId: dto.surveyId,
-            feeLamports,
+            feeUnits,
             feeTxSignature,
             error,
             errorMessage:
@@ -253,7 +286,7 @@ export class FormsService {
           event: 'FEE_COLLECTION_FAILED',
           creator: creator.slice(0, 8) + '...',
           surveyId: dto.surveyId,
-          feeLamports,
+          feeUnits,
           error,
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
@@ -289,6 +322,25 @@ export class FormsService {
     dto: BuildInitTxDto,
   ): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
     this.validateExpirationDate(dto.closesAt);
+
+    if (dto.rewardCurrency === 'USDC') {
+      const rewardPoolBaseUnits = Math.floor(dto.rewardPoolSol * 1_000_000);
+      if (!dto.tokenMint)
+        throw new Error('tokenMint is required for USDC forms');
+      if (!dto.creatorTokenAccount)
+        throw new Error('creatorTokenAccount is required for USDC forms');
+
+      return this.solanaService.buildInitializeSurveySplTx(
+        dto.creator,
+        dto.surveyId,
+        rewardPoolBaseUnits,
+        dto.rewardType,
+        dto.maxResponses,
+        dto.tokenMint,
+        dto.creatorTokenAccount,
+        dto.blockhash,
+      );
+    }
 
     return this.solanaService.buildInitializeSurveyTx(
       dto.creator,

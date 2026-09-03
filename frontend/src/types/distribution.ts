@@ -8,4 +8,5 @@ export interface DistributionRecord {
   explorerUrl: string;
   distributedAt: string;
   rewardType: string;
+  rewardCurrency?: string;
 }

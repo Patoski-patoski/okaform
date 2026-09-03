@@ -24,4 +24,10 @@ pub enum OkaformError {
     CreatorCannotBeRespondent,
     #[msg("Escrow has already been closed")]
     EscrowAlreadyClosed,
+    #[msg("Invalid token mint — this survey uses native SOL")]
+    InvalidTokenMint,
+    #[msg("Token account mint does not match survey mint")]
+    TokenMintMismatch,
+    #[msg("Insufficient token balance in escrow")]
+    InsufficientTokenBalance,
 }

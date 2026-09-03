@@ -18,6 +18,7 @@ export interface CreateFormPayload {
     matrixColumns: string[];
   }[];
   rewardPool: number;
+  rewardCurrency?: string;
   maxResponses: number;
   rewardType: "weighted" | "lucky_draw";
   numWinners?: number;
@@ -70,6 +71,7 @@ export interface FormListItem {
   surveyPda: string | null;
   escrowPda: string | null;
   closedAt: string | null;
+  rewardCurrency?: string;
 }
 
 export interface FormDetailQuestion {
@@ -153,6 +155,9 @@ export async function createForm(
 export async function buildInitTx(payload: {
   surveyId: string;
   rewardPoolSol: number;
+  rewardCurrency?: string;
+  tokenMint?: string;
+  creatorTokenAccount?: string;
   rewardType: "weighted" | "lucky_draw";
   maxResponses: number;
   creator: string;

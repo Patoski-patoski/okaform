@@ -6,6 +6,10 @@ pub mod close_survey;
 pub mod distribute_rewards;
 pub mod close_escrow;
 pub mod collect_fee;
+pub mod initialize_survey_spl;
+pub mod distribute_rewards_spl;
+pub mod collect_fee_spl;
+pub mod close_escrow_spl;
 
 pub use initialize_survey::*;
 pub use register_participant::*;
@@ -15,3 +19,7 @@ pub use close_survey::*;
 pub use distribute_rewards::*;
 pub use close_escrow::*;
 pub use collect_fee::*;
+pub use initialize_survey_spl::*;
+pub use distribute_rewards_spl::*;
+pub use collect_fee_spl::*;
+pub use close_escrow_spl::*;

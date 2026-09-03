@@ -16,10 +16,12 @@ import { formatRelativeTime } from "@/lib/utils";
 import SolanaLogo from "@/components/SolanaLogo";
 
 function exportCSV(records: DistributionRecord[], formId: string) {
+  const currency = records[0]?.rewardCurrency || "SOL";
+  const divisor = currency === "USDC" ? 1_000_000 : 1_000_000_000;
   const headers = [
     "Wallet",
     "Badge",
-    "Amount (SOL)",
+    `Amount (${currency})`,
     "Tx Signature",
     "Explorer URL",
     "Distributed At",
@@ -27,7 +29,7 @@ function exportCSV(records: DistributionRecord[], formId: string) {
   const rows = records.map((r) => [
     r.recipientWallet,
     r.badgeTier,
-    (r.amountLamports / 1e9).toFixed(6),
+    (r.amountLamports / divisor).toFixed(6),
     r.txSignature,
     r.explorerUrl,
     new Date(r.distributedAt).toISOString(),
@@ -172,7 +174,9 @@ export default function DistributionTab({
     );
   }
 
-  const totalSol = records.reduce((sum, r) => sum + r.amountLamports, 0) / 1e9;
+  const totalSol =
+    records.reduce((sum, r) => sum + r.amountLamports, 0) /
+    (records[0]?.rewardCurrency === "USDC" ? 1_000_000 : 1_000_000_000);
 
   return (
     <div className="space-y-4">
@@ -183,8 +187,12 @@ export default function DistributionTab({
             DISTRIBUTION COMPLETE
           </span>
         </div>
-        <span className="font-mono text-sm font-bold text-ok-green">
-          <SolanaLogo className="h-3.5 w-auto" /> {totalSol.toFixed(4)} SOL
+        <span className="font-mono text-sm font-bold text-ok-green flex items-center gap-1">
+          {(!records[0]?.rewardCurrency ||
+            records[0]?.rewardCurrency === "SOL") && (
+            <SolanaLogo className="h-3.5 w-auto" />
+          )}
+          {totalSol.toFixed(4)} {records[0]?.rewardCurrency || "SOL"}
           distributed to {records.length} wallet
           {records.length === 1 ? "" : "s"}
         </span>
@@ -228,9 +236,16 @@ export default function DistributionTab({
               <td className="px-4 py-3">
                 <Badge tier={tierFromLabel(record.badgeTier)} />
               </td>
-              <td className="px-4 py-3 font-mono text-xs font-bold text-ok-green">
-                <SolanaLogo className="h-3 w-auto" />{" "}
-                {(record.amountLamports / 1e9).toFixed(4)}
+              <td className="px-4 py-3 font-mono text-xs font-bold text-ok-green flex items-center gap-1">
+                {(!record.rewardCurrency ||
+                  record.rewardCurrency === "SOL") && (
+                  <SolanaLogo className="h-3 w-auto" />
+                )}
+                {(
+                  record.amountLamports /
+                  (record.rewardCurrency === "USDC" ? 1_000_000 : 1_000_000_000)
+                ).toFixed(4)}{" "}
+                {record.rewardCurrency || "SOL"}
               </td>
               <td className="px-4 py-3">
                 <a

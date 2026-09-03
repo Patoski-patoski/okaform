@@ -61,6 +61,8 @@ pub fn process_initialize_survey(
     survey.response_count = 0;
     survey.is_active = true;
     survey.bump = ctx.bumps.survey;
+    survey.token_mint = Pubkey::default(); // native SOL marker
+    survey.escrow_vault_bump = 0;          // unused for SOL
 
     let ix = anchor_lang::solana_program::system_instruction::transfer(
         &ctx.accounts.signer.key(),

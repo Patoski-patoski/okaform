@@ -8,6 +8,11 @@ import {
   LAMPORTS_PER_SOL,
   SystemProgram,
 } from '@solana/web3.js';
+import {
+  getAssociatedTokenAddress,
+  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
+} from '@solana/spl-token';
 import * as anchor from '@coral-xyz/anchor';
 import { InvalidWalletException } from '../common/exceptions/solana/invalid-wallet.exception';
 import { RpcErrorException } from '../common/exceptions/solana/rpc-error.exception';
@@ -24,6 +29,13 @@ const MAX_SIGNATURES = 10000;
  * ~32 bytes for the pubkey plus overhead, so 10 is a safe conservative limit.
  */
 export const MAX_DISTRIBUTE_RECIPIENTS_PER_TX = 10;
+
+/**
+ * Maximum recipients per SPL distributeRewardsSpl transaction.
+ * SPL transfers require additional accounts (mint, token program, ATAs),
+ * reducing the safe limit compared to native SOL transfers.
+ */
+export const MAX_DISTRIBUTE_RECIPIENTS_SPL_PER_TX = 6;
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -926,6 +938,385 @@ export class SolanaService {
         'update_score',
         error instanceof Error ? error.message : String(error),
       );
+    }
+  }
+
+  // ── SPL Token Methods ─────────────────────────────────────────────────
+
+  /**
+   * Derive the token escrow PDA from a survey PDA.
+   * Seeds: [b"token_escrow", survey_pda]
+   */
+  deriveTokenEscrowPda(surveyPda: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('token_escrow'), surveyPda.toBuffer()],
+      this.program.programId,
+    );
+  }
+
+  /**
+   * Get SPL token balance of an escrow token account.
+   */
+  async getTokenEscrowBalance(escrowPda: string): Promise<bigint> {
+    const pubkey = this.validateWallet(escrowPda);
+    try {
+      const balance = await this.connection.getTokenAccountBalance(
+        pubkey,
+        'confirmed',
+      );
+      return BigInt(balance.value.amount);
+    } catch (error) {
+      this.logger.error({
+        event: 'RPC_GET_TOKEN_BALANCE_FAILED',
+        escrowPda: escrowPda.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('getTokenEscrowBalance');
+    }
+  }
+
+  /**
+   * Build an unsigned initializeSurveySpl transaction for the frontend to sign.
+   * Returns the serialized transaction as base64.
+   */
+  async buildInitializeSurveySplTx(
+    creatorWallet: string,
+    surveyId: string,
+    rewardPoolUnits: number,
+    rewardType: RewardType,
+    maxResponses: number,
+    tokenMint: string,
+    creatorTokenAccount: string,
+    blockhash: string,
+  ): Promise<{ tx: string; surveyPda: string; escrowPda: string }> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const mintPubkey = this.validateWallet(tokenMint);
+    const creatorAtaPubkey = this.validateWallet(creatorTokenAccount);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveTokenEscrowPda(surveyPda);
+
+    this.logger.log({
+      event: 'BUILD_INIT_SURVEY_SPL_TX',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      rewardPoolUnits,
+      mint: tokenMint.slice(0, 8) + '...',
+    });
+
+    try {
+      const tx = await this.program.methods
+        .initializeSurveySpl(
+          Buffer.from(surveyIdBytes),
+          new anchor.BN(rewardPoolUnits), // eslint-disable-line @typescript-eslint/no-unsafe-call
+          toRewardTypeArg(rewardType),
+          maxResponses,
+        )
+        .accounts({
+          signer: creatorPubkey,
+          survey: surveyPda,
+          rewardMint: mintPubkey,
+          escrowVault,
+          creatorTokenAccount: creatorAtaPubkey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .transaction();
+
+      tx.feePayer = creatorPubkey;
+      tx.recentBlockhash = blockhash;
+
+      return {
+        tx: tx.serialize({ requireAllSignatures: false }).toString('base64'),
+        surveyPda: surveyPda.toBase58(),
+        escrowPda: escrowVault.toBase58(),
+      };
+    } catch (error) {
+      this.logger.error({
+        event: 'BUILD_INIT_SURVEY_SPL_TX_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('buildInitializeSurveySplTx');
+    }
+  }
+
+  /**
+   * Build an unsigned distributeRewardsSpl transaction for one batch.
+   * Creates ATAs for recipients if they don't exist (idempotent).
+   */
+  async buildDistributeRewardsSplTx(
+    creatorWallet: string,
+    surveyId: string,
+    participantWallets: string[],
+    amounts: number[],
+    tokenMint: string,
+    blockhash: string,
+  ): Promise<string> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const mintPubkey = this.validateWallet(tokenMint);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveTokenEscrowPda(surveyPda);
+
+    this.logger.log({
+      event: 'BUILD_DISTRIBUTE_SPL_TX',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      participants: participantWallets.length,
+    });
+
+    try {
+      const tx = new Transaction();
+
+      // Derive ATAs for each recipient and add create-ATA-idempotent instructions
+      const recipientAtaAccounts: {
+        pubkey: PublicKey;
+        isSigner: boolean;
+        isWritable: boolean;
+      }[] = [];
+      for (const wallet of participantWallets) {
+        const walletPubkey = this.validateWallet(wallet);
+        const ata = await getAssociatedTokenAddress(mintPubkey, walletPubkey);
+
+        // Create ATA if it doesn't exist (idempotent — no-op if it already exists)
+        tx.add(
+          createAssociatedTokenAccountIdempotentInstruction(
+            creatorPubkey, // payer
+            ata, // ATA address
+            walletPubkey, // owner
+            mintPubkey, // mint
+          ),
+        );
+
+        recipientAtaAccounts.push({
+          pubkey: ata,
+          isSigner: false,
+          isWritable: true,
+        });
+      }
+
+      // Build the distributeRewardsSpl instruction
+      // eslint-disable-next-line @typescript-eslint/await-thenable
+      const distributeIx = await this.program.instruction[
+        'distributeRewardsSpl'
+      ](
+        Buffer.from(surveyIdBytes),
+        amounts.map((a) => new anchor.BN(a)), // eslint-disable-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
+        {
+          accounts: {
+            creator: creatorPubkey,
+            survey: surveyPda,
+            escrowVault,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
+          remainingAccounts: recipientAtaAccounts,
+        },
+      );
+
+      tx.add(distributeIx);
+      tx.feePayer = creatorPubkey;
+      tx.recentBlockhash = blockhash;
+
+      return tx.serialize({ requireAllSignatures: false }).toString('base64');
+    } catch (error) {
+      this.logger.error({
+        event: 'BUILD_DISTRIBUTE_SPL_TX_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('buildDistributeRewardsSplTx');
+    }
+  }
+
+  /**
+   * Build distributeRewardsSpl transactions in batches of
+   * MAX_DISTRIBUTE_RECIPIENTS_SPL_PER_TX.
+   */
+  async buildDistributeRewardsSplTxBatch(
+    creatorWallet: string,
+    surveyId: string,
+    allWallets: string[],
+    allAmounts: number[],
+    tokenMint: string,
+    blockhash: string,
+  ): Promise<{
+    txs: string[];
+    walletChunks: string[][];
+    amountChunks: number[][];
+  }> {
+    const walletChunks = chunkArray(
+      allWallets,
+      MAX_DISTRIBUTE_RECIPIENTS_SPL_PER_TX,
+    );
+    const amountChunks = chunkArray(
+      allAmounts,
+      MAX_DISTRIBUTE_RECIPIENTS_SPL_PER_TX,
+    );
+
+    this.logger.log({
+      event: 'BUILD_DISTRIBUTE_SPL_TX_BATCH',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+      totalRecipients: allWallets.length,
+      batchCount: walletChunks.length,
+    });
+
+    const txs: string[] = [];
+    for (let i = 0; i < walletChunks.length; i++) {
+      const walletBatch = walletChunks[i];
+      const amountBatch = amountChunks[i];
+      if (!walletBatch || !amountBatch) {
+        throw new RpcErrorException('buildDistributeRewardsSplTxBatch');
+      }
+
+      const serialised = await this.buildDistributeRewardsSplTx(
+        creatorWallet,
+        surveyId,
+        walletBatch,
+        amountBatch,
+        tokenMint,
+        blockhash,
+      );
+      txs.push(serialised);
+    }
+
+    return { txs, walletChunks, amountChunks };
+  }
+
+  /**
+   * Collect protocol fee from an SPL token escrow.
+   * Authority-gated — signed by protocolAuthorityKeypair.
+   */
+  async collectProtocolFeeSpl(
+    feeAmount: number,
+    surveyId: string,
+    surveyPda: string,
+    escrowVault: string,
+    tokenMint: string,
+  ): Promise<string> {
+    const surveyPubkey = this.validateWallet(surveyPda);
+    const escrowPubkey = this.validateWallet(escrowVault);
+    const mintPubkey = this.validateWallet(tokenMint);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+
+    // Get or derive the protocol treasury's ATA for this mint
+    const feeWalletStr = this.config.get<string>('PROTOCOL_FEE_WALLET');
+    const feeWalletOwner = this.validateWallet(
+      feeWalletStr ?? this.protocolAuthorityKeypair.publicKey.toBase58(),
+    );
+    const feeTokenAccount = await getAssociatedTokenAddress(
+      mintPubkey,
+      feeWalletOwner,
+    );
+
+    this.logger.log({
+      event: 'COLLECT_FEE_SPL_START',
+      surveyId: surveyId.slice(0, 16) + '...',
+      feeAmount,
+      mint: tokenMint.slice(0, 8) + '...',
+    });
+
+    try {
+      const txSignature = await this.program.methods
+        .collectFeeSpl(
+          Buffer.from(surveyIdBytes),
+          new anchor.BN(feeAmount), // eslint-disable-line @typescript-eslint/no-unsafe-call
+        )
+        .accounts({
+          authority: this.protocolAuthorityKeypair.publicKey,
+          survey: surveyPubkey,
+          escrowVault: escrowPubkey,
+          feeTokenAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([this.protocolAuthorityKeypair])
+        .rpc();
+
+      this.logger.log({
+        event: 'COLLECT_FEE_SPL_SUCCESS',
+        surveyId: surveyId.slice(0, 16) + '...',
+        feeAmount,
+        txSignature,
+      });
+
+      return txSignature;
+    } catch (error) {
+      this.logger.error({
+        event: 'COLLECT_FEE_SPL_FAILED',
+        surveyId: surveyId.slice(0, 16) + '...',
+        feeAmount,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new TransactionFailedException(
+        'collect_fee_spl',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /**
+   * Build an unsigned closeEscrowSpl transaction for the creator to sign.
+   * Sweeps remaining tokens to creator ATA and closes the token account.
+   */
+  async buildCloseEscrowSplTx(
+    creatorWallet: string,
+    surveyId: string,
+    tokenMint: string,
+    blockhash: string,
+  ): Promise<{ tx: string }> {
+    const creatorPubkey = this.validateWallet(creatorWallet);
+    const mintPubkey = this.validateWallet(tokenMint);
+    const surveyIdBytes = Buffer.from(surveyId, 'utf8');
+    const [surveyPda] = this.deriveSurveyPda(creatorPubkey, surveyIdBytes);
+    const [escrowVault] = this.deriveTokenEscrowPda(surveyPda);
+    const creatorAta = await getAssociatedTokenAddress(
+      mintPubkey,
+      creatorPubkey,
+    );
+
+    this.logger.log({
+      event: 'BUILD_CLOSE_ESCROW_SPL_TX',
+      creator: creatorWallet.slice(0, 8) + '...',
+      surveyId: surveyId.slice(0, 16) + '...',
+    });
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/await-thenable
+      const closeIx = await this.program.instruction['closeEscrowSpl'](
+        Buffer.from(surveyIdBytes),
+        {
+          accounts: {
+            signer: creatorPubkey,
+            survey: surveyPda,
+            escrowVault,
+            creatorTokenAccount: creatorAta,
+            beneficiary: creatorPubkey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          },
+        },
+      );
+
+      const tx = new Transaction();
+      tx.add(closeIx);
+      tx.feePayer = creatorPubkey;
+      tx.recentBlockhash = blockhash;
+
+      return {
+        tx: tx.serialize({ requireAllSignatures: false }).toString('base64'),
+      };
+    } catch (error) {
+      this.logger.error({
+        event: 'BUILD_CLOSE_ESCROW_SPL_TX_FAILED',
+        creator: creatorWallet.slice(0, 8) + '...',
+        surveyId: surveyId.slice(0, 16) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new RpcErrorException('buildCloseEscrowSplTx');
     }
   }
 }
