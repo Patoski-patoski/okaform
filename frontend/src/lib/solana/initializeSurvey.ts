@@ -37,7 +37,8 @@ export async function initializeSurveyOnChain(
     programId,
   );
 
-  const { blockhash } = await connection.getLatestBlockhash();
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash("confirmed");
 
   const { tx: txBase64 } = await api<{ tx: string }>("/forms/build-init-tx", {
     method: "POST",
@@ -61,7 +62,10 @@ export async function initializeSurveyOnChain(
   const signed = await wallet.signTransaction(tx);
   const txSignature = await connection.sendRawTransaction(signed.serialize());
 
-  await connection.confirmTransaction(txSignature, "confirmed");
+  await connection.confirmTransaction(
+    { blockhash, lastValidBlockHeight, signature: txSignature },
+    "confirmed",
+  );
 
   return {
     txSignature,

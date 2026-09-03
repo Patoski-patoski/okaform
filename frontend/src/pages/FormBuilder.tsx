@@ -2075,7 +2075,8 @@ export default function FormBuilder() {
       console.log("[INIT] surveyId:", surveyId);
 
       console.log("[INIT] Fetching recent blockhash");
-      const { blockhash } = await connection.getRecentBlockhash();
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
       console.log("[INIT] blockhash:", blockhash);
 
       console.log("[INIT] Calling buildInitTx");
@@ -2131,7 +2132,10 @@ export default function FormBuilder() {
       console.log("[INIT] txSignature:", txSignature);
 
       console.log("[INIT] Confirming transaction");
-      await connection.confirmTransaction(txSignature, "confirmed");
+      await connection.confirmTransaction(
+        { blockhash, lastValidBlockHeight, signature: txSignature },
+        "confirmed",
+      );
       console.log("[INIT] Transaction confirmed");
 
       console.log("[INIT] Registering form on backend");
