@@ -24,27 +24,30 @@ jobs:
             export PATH="/home/ubuntu/.bun/bin:$PATH"
             export PATH="/usr/local/bin:$PATH"
 
-            # 2. Navigate to backend directory
-            cd /home/ubuntu/projects/okaform/
+            # 2. Navigate to git repository root
+            cd /home/ubuntu/projects/okaform
 
             # 3. Pull the latest changes from main cleanly
             echo "Fetching latest changes from main..."
             git fetch origin main
             git reset --hard origin/main
 
-            # 4. Install dependencies with Bun
+            # 4. Navigate to backend directory
+            cd /home/ubuntu/projects/okaform/backend
+
+            # 5. Install dependencies with Bun
             echo "Installing dependencies..."
             bun install --frozen-lockfile
 
-            # 5. Build NestJS application
+            # 6. Build NestJS application
             echo "Building application..."
             bun run build
 
-            # 6. Run database backfill/migrations
+            # 7. Run database backfill/migrations
             echo "Running database migrations..."
             bun run migrate:add-currency
 
-            # 7. Restart PM2 process
+            # 8. Restart PM2 process
             echo "Restarting PM2 backend service..."
             pm2 restart okaform-backend --update-env
 
