@@ -34,10 +34,7 @@ pub fn process_distribute_rewards(
     _survey_id: Vec<u8>,
     amounts: Vec<u64>,
 ) -> Result<()> {
-    let survey: &Account<'_, SurveyAccount> = &ctx.accounts.survey;
-
-    require!(!survey.is_active, OkaformError::SurveyNotActive);
-    require_gt!(survey.response_count, 0, OkaformError::NoParticipants);
+    let survey: &mut Account<'_, SurveyAccount> = &mut ctx.accounts.survey;
 
     let participants = ctx.remaining_accounts;
 
@@ -63,6 +60,7 @@ pub fn process_distribute_rewards(
         msg!("Distributed {} lamports to {}", *amount, wallet_info.key());
     }
 
+    survey.is_active = false;
     msg!("Rewards distributed: {} total lamports", distributed);
     Ok(())
 }

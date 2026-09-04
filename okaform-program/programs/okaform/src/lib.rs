@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("2qJF3VgV2E9rHPs8gmcEiAiWr1SvKQZsP6QFdy1h4Dw3");
+declare_id!("DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V");
 
 pub mod constants;
 pub mod errors;
@@ -63,5 +63,55 @@ pub mod okaform {
         amounts: Vec<u64>,
     ) -> Result<()> {
         process_distribute_rewards(ctx, survey_id, amounts)
+    }
+
+    pub fn close_escrow(
+        ctx: Context<CloseEscrow>,
+        survey_id: Vec<u8>,
+    ) -> Result<()> {
+        process_close_escrow(ctx, survey_id)
+    }
+
+    pub fn collect_fee(
+        ctx: Context<CollectFee>,
+        survey_id: Vec<u8>,
+        fee_lamports: u64,
+    ) -> Result<()> {
+        process_collect_fee(ctx, survey_id, fee_lamports)
+    }
+
+    // ── SPL Token Instructions ──────────────────────────────────────────
+
+    pub fn initialize_survey_spl(
+        ctx: Context<InitializeSurveySpl>,
+        survey_id: Vec<u8>,
+        reward_pool: u64,
+        reward_type: RewardType,
+        max_responses: u32,
+    ) -> Result<()> {
+        process_initialize_survey_spl(ctx, survey_id, reward_pool, reward_type, max_responses)
+    }
+
+    pub fn distribute_rewards_spl<'a>(
+        ctx: Context<'_, '_, 'a, 'a, DistributeRewardsSpl<'a>>,
+        survey_id: Vec<u8>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        process_distribute_rewards_spl(ctx, survey_id, amounts)
+    }
+
+    pub fn collect_fee_spl(
+        ctx: Context<CollectFeeSpl>,
+        survey_id: Vec<u8>,
+        fee_amount: u64,
+    ) -> Result<()> {
+        process_collect_fee_spl(ctx, survey_id, fee_amount)
+    }
+
+    pub fn close_escrow_spl(
+        ctx: Context<CloseEscrowSpl>,
+        survey_id: Vec<u8>,
+    ) -> Result<()> {
+        process_close_escrow_spl(ctx, survey_id)
     }
 }

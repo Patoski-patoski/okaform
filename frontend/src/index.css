@@ -1,19 +1,82 @@
-@import "tailwindcss";
+/* frontend/src/index.css */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/jetbrains-mono";
+
+/*
+  Okaform design system — GitHub-inspired premium dark palette.
+  High-contrast, documentation-style aesthetic.
+*/
+
+@theme {
+  /* Surfaces — GitHub Darkest */
+  --color-ok-bg: #0D1117;
+  --color-ok-surface: #151B23;
+  --color-ok-surface-hover: #1C2128;
+  --color-ok-border: #3D444D;
+  --color-ok-border-glow: rgba(56, 189, 248, 0.15);
+
+  /* Accents */
+  --color-ok-green: #14F195;
+  --color-ok-purple: #A371F7;
+
+  /* Text — GitHub Contrast Hierarchy */
+  --color-ok-text: #F0F6F6;
+  --color-ok-muted: #9198A1;
+  --color-ok-dim: #656C76;
+
+  /* Feedback */
+  --color-ok-danger: #F85149;
+  --color-ok-warning: #D29922;
+
+  /* Badge tiers */
+  --color-ok-grey: #8B949E;
+  --color-ok-blue: #58A6FF;
+  --color-ok-gold: #E3B341;
+  --color-ok-diamond: #79C0FF;
+
+  /* Typography */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono Variable", monospace;
+
+  /* Scaled Radius Strategy */
+  --radius-ok: 12px;             /* Default — used by most components */
+  --radius-ok-outer: 16px;       /* Dashboard wrappers, large cards */
+  --radius-ok-inner: 10px;       /* Nested inputs, action buttons inside cards */
+  --radius-ok-pill: 9999px;      /* Compact status badges */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background-color: var(--color-ok-bg);
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--color-ok-bg);
+    color: var(--color-ok-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift), 400px) rotate(var(--rotation)) scale(0.3);
+  }
 }

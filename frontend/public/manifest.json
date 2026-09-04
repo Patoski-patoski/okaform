@@ -1,0 +1,21 @@
+{
+  "name": "Okaform",
+  "short_name": "Okaform",
+  "description": "Solana-Native Survey Platform with On-Chain Rewards",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D1117",
+  "theme_color": "#3FB950",
+  "icons": [
+    {
+      "src": "/okaform-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

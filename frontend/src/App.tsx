@@ -1,14 +1,82 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Home from './pages/Home'
+import { Routes, Route, Navigate } from "react-router-dom";
+import { WalletContextProvider } from "./components/WalletProvider";
+import { AuthProvider } from "./components/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
+import Layout from "./components/Layout";
+import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import SurveyFill from "./pages/SurveyFill";
+import FormBuilder from "./pages/FormBuilder";
+import HowItWorks from "./pages/HowItWorks";
+import Explore from "./pages/Explore";
+import Pricing from "./pages/Pricing";
+import { Loader2 } from "lucide-react";
 
-function App() {
+function IndexRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#0D1117]">
+        <Loader2 className="h-6 w-6 animate-spin text-[#656C76]" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
-    </BrowserRouter>
-  )
+    <Layout>
+      <Home />
+    </Layout>
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <WalletContextProvider>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<IndexRoute />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route
+            path="/pricing"
+            element={
+              <Layout>
+                <Pricing />
+              </Layout>
+            }
+          />
+          <Route path="/explore" element={<Explore />} />
+          <Route
+            path="/form/:formId"
+            element={
+              <Layout>
+                <SurveyFill />
+              </Layout>
+            }
+          />
+          <Route
+            path="/create"
+            element={
+              <Layout>
+                <FormBuilder />
+              </Layout>
+            }
+          />
+          <Route
+            path="/create/:draftId"
+            element={
+              <Layout>
+                <FormBuilder />
+              </Layout>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </WalletContextProvider>
+  );
+}

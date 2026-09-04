@@ -20,4 +20,18 @@ pub enum OkaformError {
     NoParticipants,
     #[msg("Invalid reward type")]
     InvalidRewardType,
+    #[msg("Survey creator cannot be a respondent on their own survey")]
+    CreatorCannotBeRespondent,
+    #[msg("Escrow has already been closed")]
+    EscrowAlreadyClosed,
+    #[msg("Invalid token mint — this survey uses native SOL")]
+    InvalidTokenMint,
+    #[msg("Token account mint does not match survey mint")]
+    TokenMintMismatch,
+    #[msg("Insufficient token balance in escrow")]
+    InsufficientTokenBalance,
+    #[msg("Invalid token decimals — SPL survey rewards must use 6-decimal tokens (e.g. USDC)")]
+    InvalidTokenDecimals,
+    #[msg("Invalid recipient token account — must be the canonical ATA for the respondent wallet")]
+    InvalidTokenAccount,
 }

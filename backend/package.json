@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "",
   "author": "",
-  "private": true,
+  "private": false,
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
@@ -17,14 +17,41 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "migrate:usernames": "npx ts-node -r dotenv/config scripts/lowercase-usernames.ts",
+    "migrate:reward-type": "npx ts-node -r dotenv/config scripts/migrate-reward-type.ts",
+    "migrate:add-currency": "npx tsx scripts/migrate-add-currency.ts",
+    "backfill:score": "npx ts-node -r dotenv/config scripts/backfill-score-at-submission.ts"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
     "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/mongoose": "^11.0.4",
+    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/throttler": "^6.5.0",
+    "@sinclair/typebox": "^0.34.49",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.4",
+    "@types/mocha": "^10.0.10",
+    "bs58": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.7.3",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "tweetnacl": "^1.0.3"
+  },
+  "overrides": {
+    "bigint-buffer": "npm:four-flap-bigint-buffer@1.1.6"
+  },
+  "resolutions": {
+    "bigint-buffer": "npm:four-flap-bigint-buffer@1.1.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -32,9 +59,11 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.1.0",
+    "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -63,9 +92,20 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.module.ts",
+      "!**/main.ts",
+      "!**/current-user.decorator.ts"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 80,
+        "branches": 75,
+        "functions": 90,
+        "lines": 80
+      }
+    },
     "testEnvironment": "node"
   }
 }

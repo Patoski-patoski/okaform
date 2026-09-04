@@ -1,22 +1,27 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { OkaformProgram } from "../target/types/okaform_program";
+import { Okaform } from "../target/types/okaform";
 import { PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  TOKEN_PROGRAM_ID,
+  getAccount,
+} from "@solana/spl-token";
 import { expect } from "chai";
-
-
 
 describe("okaform-program", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace
-    .okaformProgram as Program<OkaformProgram>;
+  const program = anchor.workspace.okaform as Program<Okaform>;
   const creator = Keypair.generate();
   const respondent = Keypair.generate();
 
   const SURVEY_SEED = Buffer.from("survey");
   const ESCROW_SEED = Buffer.from("escrow");
+  const TOKEN_ESCROW_SEED = Buffer.from("token_escrow");
   const PARTICIPANT_SEED = Buffer.from("participant");
   const SCORE_SEED = Buffer.from("score");
 
@@ -40,6 +45,13 @@ describe("okaform-program", () => {
       [ESCROW_SEED, surveyPubkey.toBuffer()],
       program.programId
     )[0];
+  }
+
+  function getTokenEscrowPda(surveyPubkey: PublicKey): [PublicKey, number] {
+    return PublicKey.findProgramAddressSync(
+      [TOKEN_ESCROW_SEED, surveyPubkey.toBuffer()],
+      program.programId
+    );
   }
 
   function getParticipantPda(
@@ -85,7 +97,7 @@ describe("okaform-program", () => {
           100
         )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
           escrowVault: escrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -124,7 +136,7 @@ describe("okaform-program", () => {
             50
           )
           .accountsPartial({
-            creator: creator.publicKey,
+            signer: creator.publicKey,
             survey: tooLowSurveyPda,
             escrowVault: tooLowEscrowPda,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -152,7 +164,7 @@ describe("okaform-program", () => {
             50
           )
           .accountsPartial({
-            creator: creator.publicKey,
+            signer: creator.publicKey,
             survey: tooHighSurveyPda,
             escrowVault: tooHighEscrowPda,
             systemProgram: anchor.web3.SystemProgram.programId,
@@ -179,7 +191,7 @@ describe("okaform-program", () => {
           10
         )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: minSurveyPda,
           escrowVault: minEscrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -207,11 +219,11 @@ describe("okaform-program", () => {
         .initializeSurvey(
           maxId,
           new anchor.BN(MAX_REWARD_POOL),
-          { lottery: {} },
+          { luckyDraw: {} },
           1000
         )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: maxSurveyPda,
           escrowVault: maxEscrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -223,7 +235,7 @@ describe("okaform-program", () => {
         maxSurveyPda
       );
       expect(surveyAccount.rewardPool.toNumber()).to.equal(MAX_REWARD_POOL);
-      expect(surveyAccount.rewardType).to.deep.equal({ lottery: {} });
+      expect(surveyAccount.rewardType).to.deep.equal({ luckyDraw: {} });
     });
   });
 
@@ -244,7 +256,7 @@ describe("okaform-program", () => {
           3
         )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
           escrowVault: getEscrowPda(surveyPda),
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -255,14 +267,15 @@ describe("okaform-program", () => {
 
     it("registers a participant successfully", async () => {
       await program.methods
-        .registerParticipant()
+        .registerParticipant(surveyId)
         .accountsPartial({
+          creator: creator.publicKey,
           survey: surveyPda,
           participant: participantPda,
           respondent: respondent.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([respondent])
+        .signers([creator])
         .rpc();
 
       const participantAccount = await program.account.participantEntry.fetch(
@@ -294,14 +307,15 @@ describe("okaform-program", () => {
       );
 
       await program.methods
-        .registerParticipant()
+        .registerParticipant(surveyId)
         .accountsPartial({
+          creator: creator.publicKey,
           survey: surveyPda,
           participant: participant2Pda,
           respondent: respondent2.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([respondent2])
+        .signers([creator])
         .rpc();
 
       const surveyAccount = await program.account.surveyAccount.fetch(
@@ -320,14 +334,15 @@ describe("okaform-program", () => {
       );
 
       await program.methods
-        .registerParticipant()
+        .registerParticipant(surveyId)
         .accountsPartial({
+          creator: creator.publicKey,
           survey: surveyPda,
           participant: participant3Pda,
           respondent: respondent3.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([respondent3])
+        .signers([creator])
         .rpc();
 
       const respondent4 = Keypair.generate();
@@ -340,14 +355,15 @@ describe("okaform-program", () => {
 
       try {
         await program.methods
-          .registerParticipant()
+          .registerParticipant(surveyId)
           .accountsPartial({
+            creator: creator.publicKey,
             survey: surveyPda,
             participant: participant4Pda,
             respondent: respondent4.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
           })
-          .signers([respondent4])
+          .signers([creator])
           .rpc();
 
         expect.fail("Should have thrown MaxResponsesReached error");
@@ -364,14 +380,15 @@ describe("okaform-program", () => {
 
       try {
         await program.methods
-          .registerParticipant()
+          .registerParticipant(surveyId)
           .accountsPartial({
+            creator: creator.publicKey,
             survey: surveyPda,
             participant: duplicateParticipantPda,
             respondent: respondent.publicKey,
             systemProgram: anchor.web3.SystemProgram.programId,
           })
-          .signers([respondent])
+          .signers([creator])
           .rpc();
 
         expect.fail("Should have thrown error for duplicate registration");
@@ -410,7 +427,7 @@ describe("okaform-program", () => {
       );
       expect(scoreAccount.globalScore).to.equal(0);
       expect(scoreAccount.surveysCompleted).to.equal(0);
-      expect(scoreAccount.badgeTier).to.deep.equal({ grey: {} });
+      expect(scoreAccount.badgeTier).to.deep.equal({ ghost: {} });
     });
 
     it("fails when trying to initialize duplicate score account", async () => {
@@ -455,7 +472,7 @@ describe("okaform-program", () => {
         wallet2.publicKey.toString()
       );
       expect(scoreAccount2.globalScore).to.equal(0);
-      expect(scoreAccount2.badgeTier).to.deep.equal({ grey: {} });
+      expect(scoreAccount2.badgeTier).to.deep.equal({ ghost: {} });
 
       const scoreAccount1 = await program.account.respondentScoreAccount.fetch(
         scorePda
@@ -502,7 +519,7 @@ describe("okaform-program", () => {
       );
       expect(scoreAccount.globalScore).to.equal(10);
       expect(scoreAccount.surveysCompleted).to.equal(1);
-      expect(scoreAccount.badgeTier).to.deep.equal({ grey: {} });
+      expect(scoreAccount.badgeTier).to.deep.equal({ ghost: {} });
     });
 
     it("accumulates score across multiple calls", async () => {
@@ -521,7 +538,7 @@ describe("okaform-program", () => {
       );
       expect(scoreAccount.globalScore).to.equal(30);
       expect(scoreAccount.surveysCompleted).to.equal(2);
-      expect(scoreAccount.badgeTier).to.deep.equal({ blue: {} });
+      expect(scoreAccount.badgeTier).to.deep.equal({ cipher: {} });
     });
 
     it("decreases score with negative delta", async () => {
@@ -540,7 +557,7 @@ describe("okaform-program", () => {
       );
       expect(scoreAccount.globalScore).to.equal(25);
       expect(scoreAccount.surveysCompleted).to.equal(3);
-      expect(scoreAccount.badgeTier).to.deep.equal({ grey: {} });
+      expect(scoreAccount.badgeTier).to.deep.equal({ ghost: {} });
     });
 
     it("clamps score at zero (never underflows)", async () => {
@@ -558,7 +575,7 @@ describe("okaform-program", () => {
         scorePda
       );
       expect(scoreAccount.globalScore).to.equal(0);
-      expect(scoreAccount.badgeTier).to.deep.equal({ grey: {} });
+      expect(scoreAccount.badgeTier).to.deep.equal({ ghost: {} });
     });
 
     it("transitions through all badge tiers", async () => {
@@ -577,11 +594,11 @@ describe("okaform-program", () => {
         .rpc();
 
       const tiers: [number, object][] = [
-        [10, { grey: {} }],
-        [20, { blue: {} }],
-        [25, { green: {} }],
-        [25, { gold: {} }],
-        [30, { diamond: {} }],
+        [10, { ghost: {} }],
+        [20, { cipher: {} }],
+        [25, { sentinel: {} }],
+        [25, { oracle: {} }],
+        [30, { sovereign: {} }],
       ];
 
       let cumulative = 0;
@@ -597,8 +614,9 @@ describe("okaform-program", () => {
           .rpc();
 
         cumulative += delta;
-        const scoreAccount =
-          await program.account.respondentScoreAccount.fetch(freshPda);
+        const scoreAccount = await program.account.respondentScoreAccount.fetch(
+          freshPda
+        );
         expect(scoreAccount.globalScore).to.equal(cumulative);
         expect(scoreAccount.badgeTier).to.deep.equal(expectedTier);
       }
@@ -643,7 +661,7 @@ describe("okaform-program", () => {
           50
         )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
           escrowVault: getEscrowPda(surveyPda),
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -656,7 +674,7 @@ describe("okaform-program", () => {
       await program.methods
         .closeSurvey(surveyId)
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
         })
         .signers([creator])
@@ -673,7 +691,7 @@ describe("okaform-program", () => {
         await program.methods
           .closeSurvey(surveyId)
           .accountsPartial({
-            creator: creator.publicKey,
+            signer: creator.publicKey,
             survey: surveyPda,
           })
           .signers([creator])
@@ -693,7 +711,7 @@ describe("okaform-program", () => {
         await program.methods
           .closeSurvey(surveyId)
           .accountsPartial({
-            creator: fakeCreator.publicKey,
+            signer: fakeCreator.publicKey,
             survey: surveyPda,
           })
           .signers([fakeCreator])
@@ -722,9 +740,14 @@ describe("okaform-program", () => {
       const rewardPool = 5 * LAMPORTS_PER_SOL;
 
       await program.methods
-        .initializeSurvey(surveyId, new anchor.BN(rewardPool), { weighted: {} }, 10)
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(rewardPool),
+          { weighted: {} },
+          10
+        )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
           escrowVault: escrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -735,15 +758,25 @@ describe("okaform-program", () => {
       const scorePda = getScorePda(r1.publicKey);
       await program.methods
         .initializeScoreAccount()
-        .accountsPartial({ wallet: r1.publicKey, scoreAccount: scorePda, systemProgram: anchor.web3.SystemProgram.programId })
+        .accountsPartial({
+          wallet: r1.publicKey,
+          scoreAccount: scorePda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
         .signers([r1])
         .rpc();
 
       const pda1 = getParticipantPda(surveyPda, r1.publicKey);
       await program.methods
-        .registerParticipant()
-        .accountsPartial({ survey: surveyPda, participant: pda1, respondent: r1.publicKey, systemProgram: anchor.web3.SystemProgram.programId })
-        .signers([r1])
+        .registerParticipant(surveyId)
+        .accountsPartial({
+          creator: creator.publicKey,
+          survey: surveyPda,
+          participant: pda1,
+          respondent: r1.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
         .rpc();
 
       const balance1Before = await provider.connection.getBalance(r1.publicKey);
@@ -766,11 +799,13 @@ describe("okaform-program", () => {
       const received = balance1After - balance1Before;
       expect(received).to.equal(rewardPool);
 
-      const surveyAccount = await program.account.surveyAccount.fetch(surveyPda);
+      const surveyAccount = await program.account.surveyAccount.fetch(
+        surveyPda
+      );
       expect(surveyAccount.isActive).to.be.false;
     });
 
-    it("distributes lottery mock as equal split", async () => {
+    it("distributes lucky draw mock as equal split", async () => {
       const creator = Keypair.generate();
       await airdrop(creator.publicKey, 15 * LAMPORTS_PER_SOL);
 
@@ -779,15 +814,20 @@ describe("okaform-program", () => {
       await airdrop(r1.publicKey, 5 * LAMPORTS_PER_SOL);
       await airdrop(r2.publicKey, 5 * LAMPORTS_PER_SOL);
 
-      const surveyId = Buffer.from("dist-lottery");
+      const surveyId = Buffer.from("dist-lucky-draw");
       const surveyPda = getSurveyPda(creator.publicKey, surveyId);
       const escrowPda = getEscrowPda(surveyPda);
       const rewardPool = 8 * LAMPORTS_PER_SOL;
 
       await program.methods
-        .initializeSurvey(surveyId, new anchor.BN(rewardPool), { lottery: {} }, 10)
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(rewardPool),
+          { luckyDraw: {} },
+          10
+        )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
           escrowVault: escrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -799,15 +839,25 @@ describe("okaform-program", () => {
         const scorePda = getScorePda(r.publicKey);
         await program.methods
           .initializeScoreAccount()
-          .accountsPartial({ wallet: r.publicKey, scoreAccount: scorePda, systemProgram: anchor.web3.SystemProgram.programId })
+          .accountsPartial({
+            wallet: r.publicKey,
+            scoreAccount: scorePda,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
           .signers([r])
           .rpc();
 
         const pda = getParticipantPda(surveyPda, r.publicKey);
         await program.methods
-          .registerParticipant()
-          .accountsPartial({ survey: surveyPda, participant: pda, respondent: r.publicKey, systemProgram: anchor.web3.SystemProgram.programId })
-          .signers([r])
+          .registerParticipant(surveyId)
+          .accountsPartial({
+            creator: creator.publicKey,
+            survey: surveyPda,
+            participant: pda,
+            respondent: r.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([creator])
           .rpc();
       }
 
@@ -817,7 +867,10 @@ describe("okaform-program", () => {
       const each = Math.floor(rewardPool / 2);
 
       await program.methods
-        .distributeRewards(surveyId, [new anchor.BN(each), new anchor.BN(rewardPool - each)])
+        .distributeRewards(surveyId, [
+          new anchor.BN(each),
+          new anchor.BN(rewardPool - each),
+        ])
         .accountsPartial({
           creator: creator.publicKey,
           survey: surveyPda,
@@ -837,7 +890,9 @@ describe("okaform-program", () => {
       expect(bal1After - bal1Before).to.equal(each);
       expect(bal2After - bal2Before).to.equal(rewardPool - each);
 
-      const surveyAccount = await program.account.surveyAccount.fetch(surveyPda);
+      const surveyAccount = await program.account.surveyAccount.fetch(
+        surveyPda
+      );
       expect(surveyAccount.isActive).to.be.false;
     });
 
@@ -850,9 +905,14 @@ describe("okaform-program", () => {
       const escrowPda = getEscrowPda(surveyPda);
 
       await program.methods
-        .initializeSurvey(surveyId, new anchor.BN(1 * LAMPORTS_PER_SOL), { weighted: {} }, 10)
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(1 * LAMPORTS_PER_SOL),
+          { weighted: {} },
+          10
+        )
         .accountsPartial({
-          creator: creator.publicKey,
+          signer: creator.publicKey,
           survey: surveyPda,
           escrowVault: escrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -875,6 +935,291 @@ describe("okaform-program", () => {
         expect.fail("Should have thrown NoParticipants error");
       } catch (err: any) {
         expect(err.toString()).to.contain("NoParticipants");
+      }
+    });
+  });
+
+  describe("close_escrow", () => {
+    it("sweeps the remaining rent-exemption balance back to the creator", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 15 * LAMPORTS_PER_SOL);
+
+      const r1 = Keypair.generate();
+      await airdrop(r1.publicKey, 5 * LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("close-escrow-test");
+      const surveyPda = getSurveyPda(creator.publicKey, surveyId);
+      const escrowPda = getEscrowPda(surveyPda);
+      const rewardPool = 5 * LAMPORTS_PER_SOL;
+
+      await program.methods
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(rewardPool),
+          { weighted: {} },
+          10
+        )
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+
+      const escrowBefore = await provider.connection.getBalance(escrowPda);
+      expect(escrowBefore).to.be.greaterThan(rewardPool);
+
+      // Distribute the entire reward pool, leaving only the rent buffer.
+      await program.methods
+        .distributeRewards(surveyId, [new anchor.BN(rewardPool)])
+        .accountsPartial({
+          creator: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .remainingAccounts([
+          { pubkey: r1.publicKey, isSigner: false, isWritable: true },
+        ])
+        .signers([creator])
+        .rpc();
+
+      const escrowRemaining = await provider.connection.getBalance(escrowPda);
+      expect(escrowRemaining).to.be.greaterThan(0);
+
+      const creatorBefore = await provider.connection.getBalance(
+        creator.publicKey
+      );
+
+      await program.methods
+        .closeEscrow(surveyId)
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          beneficiary: creator.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+
+      const creatorAfter = await provider.connection.getBalance(
+        creator.publicKey
+      );
+      // Minus the close_escrow transaction fee (~5000 lamports).
+      expect(creatorAfter - creatorBefore).to.be.greaterThan(
+        escrowRemaining - 10000
+      );
+
+      const escrowAfter = await provider.connection.getBalance(escrowPda);
+      expect(escrowAfter).to.equal(0);
+    });
+
+    it("rejects closing an escrow while the survey is still active", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("close-escrow-active");
+      const surveyPda = getSurveyPda(creator.publicKey, surveyId);
+      const escrowPda = getEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(1 * LAMPORTS_PER_SOL),
+          { weighted: {} },
+          10
+        )
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+
+      try {
+        await program.methods
+          .closeEscrow(surveyId)
+          .accountsPartial({
+            signer: creator.publicKey,
+            survey: surveyPda,
+            escrowVault: escrowPda,
+            beneficiary: creator.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([creator])
+          .rpc();
+
+        expect.fail("Should have thrown SurveyNotActive error");
+      } catch (err: any) {
+        expect(err.toString()).to.contain("SurveyNotActive");
+      }
+    });
+  });
+
+  describe("collect_fee", () => {
+    const authority = (provider.wallet as anchor.Wallet).payer;
+
+    async function initSurvey(
+      creator: Keypair,
+      surveyId: Buffer,
+      rewardPoolLamports: number
+    ) {
+      const surveyPda = getSurveyPda(creator.publicKey, surveyId);
+      const escrowPda = getEscrowPda(surveyPda);
+      await program.methods
+        .initializeSurvey(
+          surveyId,
+          new anchor.BN(rewardPoolLamports),
+          { weighted: {} },
+          10
+        )
+        .accountsPartial({
+          signer: creator.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc();
+      return { surveyPda, escrowPda };
+    }
+
+    it("transfers the fee from the escrow to the fee wallet", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const feeWallet = Keypair.generate();
+      await airdrop(feeWallet.publicKey, LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-1");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      const feeLamports = 100_000_000; // 0.1 SOL
+      const escrowBefore = await provider.connection.getBalance(escrowPda);
+      const feeWalletBefore = await provider.connection.getBalance(
+        feeWallet.publicKey
+      );
+
+      await program.methods
+        .collectFee(surveyId, new anchor.BN(feeLamports))
+        .accountsPartial({
+          authority: authority.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          feeWallet: feeWallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([authority])
+        .rpc();
+
+      const escrowAfter = await provider.connection.getBalance(escrowPda);
+      const feeWalletAfter = await provider.connection.getBalance(
+        feeWallet.publicKey
+      );
+
+      expect(escrowBefore - escrowAfter).to.equal(feeLamports);
+      expect(feeWalletAfter - feeWalletBefore).to.equal(feeLamports);
+    });
+
+    it("rejects when called by a non-authority signer", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-unauthorized");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      try {
+        await program.methods
+          .collectFee(surveyId, new anchor.BN(100_000_000))
+          .accountsPartial({
+            authority: creator.publicKey,
+            survey: surveyPda,
+            escrowVault: escrowPda,
+            feeWallet: creator.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([creator])
+          .rpc();
+        expect.fail("Should have thrown Unauthorized error");
+      } catch (err: any) {
+        expect(err.toString()).to.contain("Unauthorized");
+      }
+    });
+
+    it("is a no-op when the fee is zero", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const feeWallet = Keypair.generate();
+      await airdrop(feeWallet.publicKey, LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-zero");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      const escrowBefore = await provider.connection.getBalance(escrowPda);
+
+      await program.methods
+        .collectFee(surveyId, new anchor.BN(0))
+        .accountsPartial({
+          authority: authority.publicKey,
+          survey: surveyPda,
+          escrowVault: escrowPda,
+          feeWallet: feeWallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([authority])
+        .rpc();
+
+      const escrowAfter = await provider.connection.getBalance(escrowPda);
+      expect(escrowAfter).to.equal(escrowBefore);
+    });
+
+    it("rejects when the fee exceeds the escrow balance", async () => {
+      const creator = Keypair.generate();
+      await airdrop(creator.publicKey, 10 * LAMPORTS_PER_SOL);
+
+      const feeWallet = Keypair.generate();
+      await airdrop(feeWallet.publicKey, LAMPORTS_PER_SOL);
+
+      const surveyId = Buffer.from("collect-fee-too-high");
+      const { surveyPda, escrowPda } = await initSurvey(
+        creator,
+        surveyId,
+        2 * LAMPORTS_PER_SOL
+      );
+
+      try {
+        await program.methods
+          .collectFee(surveyId, new anchor.BN(10 * LAMPORTS_PER_SOL))
+          .accountsPartial({
+            authority: authority.publicKey,
+            survey: surveyPda,
+            escrowVault: escrowPda,
+            feeWallet: feeWallet.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([authority])
+          .rpc();
+        expect.fail("Should have thrown InsufficientRewardPool error");
+      } catch (err: any) {
+        expect(err.toString()).to.contain("InsufficientRewardPool");
       }
     });
   });
@@ -905,7 +1250,7 @@ describe("okaform-program", () => {
           50
         )
         .accountsPartial({
-          creator: e2eCreator.publicKey,
+          signer: e2eCreator.publicKey,
           survey: surveyPda,
           escrowVault: escrowPda,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -924,14 +1269,15 @@ describe("okaform-program", () => {
         .rpc();
 
       await program.methods
-        .registerParticipant()
+        .registerParticipant(surveyId)
         .accountsPartial({
+          creator: e2eCreator.publicKey,
           survey: surveyPda,
           participant: participantPda,
           respondent: e2eRespondent.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([e2eRespondent])
+        .signers([e2eCreator])
         .rpc();
 
       const surveyAccount = await program.account.surveyAccount.fetch(
@@ -964,9 +1310,363 @@ describe("okaform-program", () => {
         e2eRespondent.publicKey.toString()
       );
       expect(scoreAccount.globalScore).to.equal(0);
-      expect(scoreAccount.badgeTier).to.deep.equal({ grey: {} });
+      expect(scoreAccount.badgeTier).to.deep.equal({ ghost: {} });
 
       expect(escrowBalance).to.be.greaterThan(rewardPool);
+    });
+  });
+
+  describe("SPL Token Surveys (USDC)", () => {
+    let usdcMint: PublicKey;
+    let splCreator: Keypair;
+    let splRespondent: Keypair;
+    let splCreatorAta: PublicKey;
+    let splRespondentAta: PublicKey;
+    let treasuryAta: PublicKey;
+    const authorityPayer = (provider.wallet as anchor.Wallet).payer;
+
+    const USDC_DECIMALS = 6;
+    const ONE_USDC = 1_000_000;
+
+    before(async () => {
+      splCreator = Keypair.generate();
+      splRespondent = Keypair.generate();
+
+      await airdrop(splCreator.publicKey, 2 * LAMPORTS_PER_SOL);
+      await airdrop(splRespondent.publicKey, 1 * LAMPORTS_PER_SOL);
+
+      // Create 6-decimal mock USDC mint
+      usdcMint = await createMint(
+        provider.connection,
+        authorityPayer,
+        authorityPayer.publicKey,
+        null,
+        USDC_DECIMALS
+      );
+
+      // Create creator ATA and mint 100 USDC
+      const creatorAtaAccount = await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        splCreator,
+        usdcMint,
+        splCreator.publicKey
+      );
+      splCreatorAta = creatorAtaAccount.address;
+
+      await mintTo(
+        provider.connection,
+        authorityPayer,
+        usdcMint,
+        splCreatorAta,
+        authorityPayer,
+        100 * ONE_USDC
+      );
+
+      // Create respondent ATA
+      const respondentAtaAccount = await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        splRespondent,
+        usdcMint,
+        splRespondent.publicKey
+      );
+      splRespondentAta = respondentAtaAccount.address;
+
+      // Create treasury ATA for authority
+      const treasuryAtaAccount = await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        authorityPayer,
+        usdcMint,
+        authorityPayer.publicKey
+      );
+      treasuryAta = treasuryAtaAccount.address;
+    });
+
+    it("initializes an SPL token survey (USDC) with token escrow", async () => {
+      const surveyId = Buffer.from("usdc-survey-init-1");
+      const rewardPoolTokens = 10 * ONE_USDC; // 10 USDC
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurveySpl(
+          surveyId,
+          new anchor.BN(rewardPoolTokens),
+          { weighted: {} },
+          50
+        )
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          rewardMint: usdcMint,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      const surveyAccount = await program.account.surveyAccount.fetch(surveyPda);
+      expect(surveyAccount.creator.toString()).to.equal(splCreator.publicKey.toString());
+      expect(surveyAccount.rewardPool.toNumber()).to.equal(rewardPoolTokens);
+      expect(surveyAccount.tokenMint.toString()).to.equal(usdcMint.toString());
+      expect(surveyAccount.isActive).to.be.true;
+
+      const escrowAccount = await getAccount(provider.connection, tokenEscrowPda);
+      expect(Number(escrowAccount.amount)).to.equal(rewardPoolTokens);
+    });
+
+    it("rejects SPL survey initialization with non-6-decimal token mint", async () => {
+      const badMint = await createMint(
+        provider.connection,
+        authorityPayer,
+        authorityPayer.publicKey,
+        null,
+        9 // 9 decimals instead of 6!
+      );
+      const badCreatorAta = (
+        await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          splCreator,
+          badMint,
+          splCreator.publicKey
+        )
+      ).address;
+      await mintTo(
+        provider.connection,
+        authorityPayer,
+        badMint,
+        badCreatorAta,
+        authorityPayer,
+        10 * ONE_USDC
+      );
+
+      const surveyId = Buffer.from("usdc-bad-decimals");
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      try {
+        await program.methods
+          .initializeSurveySpl(
+            surveyId,
+            new anchor.BN(10 * ONE_USDC),
+            { weighted: {} },
+            50
+          )
+          .accountsPartial({
+            signer: splCreator.publicKey,
+            survey: surveyPda,
+            rewardMint: badMint,
+            escrowVault: tokenEscrowPda,
+            creatorTokenAccount: badCreatorAta,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([splCreator])
+          .rpc();
+        expect.fail("Should have rejected non-6-decimal mint");
+      } catch (err: any) {
+        expect(err.toString()).to.include("InvalidTokenDecimals");
+      }
+    });
+
+    it("distributes SPL token rewards to respondent ATA", async () => {
+      const surveyId = Buffer.from("usdc-survey-dist-1");
+      const rewardPoolTokens = 5 * ONE_USDC;
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurveySpl(
+          surveyId,
+          new anchor.BN(rewardPoolTokens),
+          { weighted: {} },
+          50
+        )
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          rewardMint: usdcMint,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      const balBefore = await getAccount(provider.connection, splRespondentAta);
+
+      await program.methods
+        .distributeRewardsSpl(surveyId, [new anchor.BN(rewardPoolTokens)])
+        .accountsPartial({
+          creator: splCreator.publicKey,
+          survey: surveyPda,
+          escrowVault: tokenEscrowPda,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .remainingAccounts([
+          { pubkey: splRespondent.publicKey, isSigner: false, isWritable: false },
+          { pubkey: splRespondentAta, isSigner: false, isWritable: true },
+        ])
+        .signers([splCreator])
+        .rpc();
+
+      const balAfter = await getAccount(provider.connection, splRespondentAta);
+      expect(Number(balAfter.amount) - Number(balBefore.amount)).to.equal(rewardPoolTokens);
+
+      const surveyAccount = await program.account.surveyAccount.fetch(surveyPda);
+      expect(surveyAccount.isActive).to.be.false;
+    });
+
+    it("rejects SPL reward distribution if recipient ATA does not match wallet", async () => {
+      const surveyId = Buffer.from("usdc-survey-dist-fail");
+      const rewardPoolTokens = 5 * ONE_USDC;
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurveySpl(
+          surveyId,
+          new anchor.BN(rewardPoolTokens),
+          { weighted: {} },
+          50
+        )
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          rewardMint: usdcMint,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      // Passing creator ATA instead of respondent ATA must fail
+      try {
+        await program.methods
+          .distributeRewardsSpl(surveyId, [new anchor.BN(rewardPoolTokens)])
+          .accountsPartial({
+            creator: splCreator.publicKey,
+            survey: surveyPda,
+            escrowVault: tokenEscrowPda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .remainingAccounts([
+            { pubkey: splRespondent.publicKey, isSigner: false, isWritable: false },
+            { pubkey: splCreatorAta, isSigner: false, isWritable: true },
+          ])
+          .signers([splCreator])
+          .rpc();
+        expect.fail("Should have thrown InvalidTokenAccount error");
+      } catch (err: any) {
+        expect(err.toString()).to.include("InvalidTokenAccount");
+      }
+    });
+
+    it("collects protocol fee in SPL tokens from escrow", async () => {
+      const surveyId = Buffer.from("usdc-survey-fee-1");
+      const rewardPoolTokens = 10 * ONE_USDC;
+      const feeTokens = 500_000; // 0.5 USDC (5%)
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurveySpl(
+          surveyId,
+          new anchor.BN(rewardPoolTokens),
+          { weighted: {} },
+          50
+        )
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          rewardMint: usdcMint,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      const treasuryBefore = await getAccount(provider.connection, treasuryAta);
+
+      await program.methods
+        .collectFeeSpl(surveyId, new anchor.BN(feeTokens))
+        .accountsPartial({
+          authority: authorityPayer.publicKey,
+          survey: surveyPda,
+          escrowVault: tokenEscrowPda,
+          feeTokenAccount: treasuryAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([authorityPayer])
+        .rpc();
+
+      const treasuryAfter = await getAccount(provider.connection, treasuryAta);
+      expect(Number(treasuryAfter.amount) - Number(treasuryBefore.amount)).to.equal(feeTokens);
+    });
+
+    it("closes SPL escrow and sweeps remaining tokens + refunds rent", async () => {
+      const surveyId = Buffer.from("usdc-survey-close-1");
+      const rewardPoolTokens = 2 * ONE_USDC;
+      const surveyPda = getSurveyPda(splCreator.publicKey, surveyId);
+      const [tokenEscrowPda] = getTokenEscrowPda(surveyPda);
+
+      await program.methods
+        .initializeSurveySpl(
+          surveyId,
+          new anchor.BN(rewardPoolTokens),
+          { weighted: {} },
+          50
+        )
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          rewardMint: usdcMint,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      // Close the survey to allow close_escrow
+      await program.methods
+        .closeSurvey(surveyId)
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      const creatorTokensBefore = await getAccount(provider.connection, splCreatorAta);
+
+      await program.methods
+        .closeEscrowSpl(surveyId)
+        .accountsPartial({
+          signer: splCreator.publicKey,
+          survey: surveyPda,
+          escrowVault: tokenEscrowPda,
+          creatorTokenAccount: splCreatorAta,
+          beneficiary: splCreator.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([splCreator])
+        .rpc();
+
+      const creatorTokensAfter = await getAccount(provider.connection, splCreatorAta);
+      expect(Number(creatorTokensAfter.amount) - Number(creatorTokensBefore.amount)).to.equal(rewardPoolTokens);
+
+      // Token account should now be closed / null
+      const closedAccountInfo = await provider.connection.getAccountInfo(tokenEscrowPda);
+      expect(closedAccountInfo).to.be.null;
     });
   });
 });
