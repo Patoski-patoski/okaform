@@ -15,6 +15,7 @@ import { useRecentActivity } from "@/hooks/useRecentActivity";
 import { getBadgeTier } from "@/lib/tiers";
 import { cn, displayName } from "@/lib/utils";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
+import CurrencyLogo from "@/components/CurrencyLogo";
 
 // ─── Activity feed ─────────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ interface SurveySummary {
   responses: number;
   maxResponses: number;
   rewardPool: number;
+  rewardCurrency?: string;
   createdAt: string;
   closedAt: string | null;
 }
@@ -274,8 +276,14 @@ export default function HomeView({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1.5 font-mono text-sm font-bold text-ok-green">
-                    <img src={solanaLogo} alt="Solana" className="h-2 w-3" />
+                    <CurrencyLogo
+                      currency={survey.rewardCurrency}
+                      className="h-3 w-auto"
+                    />
                     {survey.rewardPool}
+                    <span className="text-[11px] font-sans font-normal text-[#9198A1]">
+                      {survey.rewardCurrency || "SOL"}
+                    </span>
                   </span>
                   <Link
                     to="/dashboard"

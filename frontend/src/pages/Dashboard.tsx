@@ -546,6 +546,7 @@ function SurveysTable({
                   <td className="px-5 py-4">
                     <SOLAmount
                       amount={survey.rewardPool}
+                      currency={survey.rewardCurrency || "SOL"}
                       unit="sol"
                       className="text-xs font-mono"
                     />

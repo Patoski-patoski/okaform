@@ -19,6 +19,7 @@ import OkaformLogo from "./OkaformLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
+import CurrencyLogo from "./CurrencyLogo";
 
 interface ButtonProps
   extends
@@ -237,23 +238,31 @@ function WalletButton({
 
 interface SOLAmountProps extends React.HTMLAttributes<HTMLSpanElement> {
   amount: number;
+  currency?: string;
   unit?: "lamports" | "sol";
   showSymbol?: boolean;
 }
 
 function SOLAmount({
   amount,
+  currency = "SOL",
   unit = "lamports",
   showSymbol = true,
   className,
   ...props
 }: SOLAmountProps) {
+  const isUsdc = currency === "USDC";
   const displayValue =
     unit === "lamports"
-      ? formatLamports(amount)
+      ? isUsdc
+        ? (amount / 1_000_000).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        : formatLamports(amount)
       : amount.toLocaleString("en-US", {
           minimumFractionDigits: 2,
-          maximumFractionDigits: 4,
+          maximumFractionDigits: isUsdc ? 2 : 4,
         });
 
   return (
@@ -261,10 +270,12 @@ function SOLAmount({
       className={cn("inline-flex items-center gap-1 font-mono", className)}
       {...props}
     >
-      {showSymbol && <img src={solanaLogo} alt="SOL" className="h-3 w-auto" />}
+      {showSymbol && (
+        <CurrencyLogo currency={currency} className="h-3 w-auto" />
+      )}
       <span className="text-ok-text">{displayValue}</span>
       {showSymbol && (
-        <span className="text-ok-muted text-xs font-sans">SOL</span>
+        <span className="text-ok-muted text-xs font-sans">{currency}</span>
       )}
     </span>
   );

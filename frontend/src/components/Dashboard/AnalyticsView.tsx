@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TrendingUp, TrendingDown, AlertTriangle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/okaform";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
-import SolanaLogo from "@/components/SolanaLogo";
+import CurrencyLogo from "@/components/CurrencyLogo";
 import { cn } from "@/lib/utils";
 import { useAnalytics, type TimeRange } from "@/hooks/useAnalytics";
 
@@ -383,11 +383,17 @@ export default function AnalyticsView({ onSelectSurvey }: AnalyticsViewProps) {
                         {survey.avgScore !== null ? survey.avgScore : "—"}
                       </td>
                       <td className="px-5 py-3">
-                        <span className="font-mono text-xs font-medium text-ok-green">
-                          <SolanaLogo className="h-3 w-auto" />{" "}
+                        <span className="font-mono text-xs font-medium text-ok-green inline-flex items-center gap-1">
+                          <CurrencyLogo
+                            currency={survey.rewardCurrency}
+                            className="h-3 w-auto"
+                          />
                           {survey.rewardPoolSol.toLocaleString("en-US", {
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          <span className="text-[10px] text-[#9198A1]">
+                            {survey.rewardCurrency || "SOL"}
+                          </span>
                         </span>
                       </td>
                       <td className="px-5 py-3">

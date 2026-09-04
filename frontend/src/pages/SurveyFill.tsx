@@ -15,7 +15,7 @@ import {
   SuccessScreen,
 } from "@/components/Survey";
 import { validateAnswers } from "@/utils/survey-validation";
-import solanaLogo from "@/assets/icons/solana-logo.svg";
+import CurrencyLogo from "@/components/CurrencyLogo";
 import type { Question, QuestionType } from "@/types/survey";
 import {
   getFormById,
@@ -340,6 +340,7 @@ export default function SurveyFill() {
 
               <RewardBanner
                 rewardPool={form.rewardPool}
+                rewardCurrency={form.rewardCurrency}
                 rewardType={form.rewardType}
                 maxResponses={form.maxResponses}
               />
@@ -448,25 +449,28 @@ export default function SurveyFill() {
 
 function RewardBanner({
   rewardPool,
+  rewardCurrency,
   rewardType,
   maxResponses,
 }: {
   rewardPool: number;
+  rewardCurrency?: string;
   rewardType: string;
   maxResponses: number;
 }) {
-  const solAmount = rewardPool.toFixed(2);
+  const currency = rewardCurrency || "SOL";
+  const formattedAmount = rewardPool.toFixed(2);
 
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-ok)] border border-ok-border bg-ok-surface p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-ok)] border border-ok-green/20 bg-ok-green/10">
-          <img src={solanaLogo} alt="SOL" className="h-5 w-auto" />
+          <CurrencyLogo currency={currency} className="h-5 w-auto" />
         </div>
         <div>
           <p className="text-xs text-ok-muted">Reward Pool</p>
           <span className="font-mono text-base font-semibold text-ok-text">
-            {solAmount} SOL
+            {formattedAmount} {currency}
           </span>
           <p className="text-[10px] text-ok-muted/50">
             Max {maxResponses} responses
