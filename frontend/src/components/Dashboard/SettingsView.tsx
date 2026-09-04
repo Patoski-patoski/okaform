@@ -6,10 +6,12 @@ import {
   LogOut,
   ExternalLink,
   Loader2,
+  ShieldCheck,
+  Lock,
+  Cpu,
 } from "lucide-react";
 import { Badge } from "@/components/okaform";
 import { tierFromLabel, getBadgeTier } from "@/lib/tiers";
-import { truncateAddress } from "@/lib/format";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,7 +39,9 @@ const SETTINGS_NAV = [
   { id: "danger" as const, label: "Danger Zone" },
 ] as const;
 
-const AUTHORITY_KEY = "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V";
+const PROGRAM_ID =
+  import.meta.env.VITE_PROGRAM_ID ||
+  "DC6BMdAaZVUuPKG2jDMnMUSb7AqYiiSUpjtScCnSui5V";
 
 // ─── SettingsView component ────────────────────────────────────────────────────
 
@@ -49,6 +53,7 @@ export default function SettingsView() {
     useState<SettingsSection>("profile");
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [copiedProgramId, setCopiedProgramId] = useState(false);
   const [username, setUsername] = useState(user?.username ?? "");
   const [confirmDeleteData, setConfirmDeleteData] = useState(false);
   const [confirmCloseAll, setConfirmCloseAll] = useState(false);
@@ -120,6 +125,14 @@ export default function SettingsView() {
         setCopyError(true);
         setTimeout(() => setCopyError(false), 2000);
       });
+  };
+
+  const handleCopyProgramId = () => {
+    if (!navigator?.clipboard?.writeText) return;
+    navigator.clipboard.writeText(PROGRAM_ID).then(() => {
+      setCopiedProgramId(true);
+      setTimeout(() => setCopiedProgramId(false), 1500);
+    });
   };
 
   return (
@@ -340,42 +353,160 @@ export default function SettingsView() {
 
         {/* SECURITY SECTION */}
         {activeSection === "security" && (
-          <div>
-            <p className="mb-6 font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
-              SECURITY
-            </p>
-            <div className="rounded border border-[#3D444D] bg-[#151B23] p-5 space-y-5">
-              {/* Active Session */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
-                    ACTIVE SESSION
-                  </label>
-                  <p className="font-mono text-xs text-[#9198A1]">
-                    Authenticated via wallet signature · Expires in 6h 23m
-                  </p>
+          <div className="space-y-6">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
+                SECURITY & PROTOCOL ARCHITECTURE
+              </p>
+              <p className="mt-1 text-xs text-[#9198A1]">
+                Cryptographic session verification and on-chain smart contract
+                transparency.
+              </p>
+            </div>
+
+            {/* Active Session Card */}
+            <div className="rounded border border-[#3D444D] bg-[#151B23] p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-[#3D444D]/30 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-ok-green" />
+                  <span className="font-mono text-xs font-semibold text-[#F0F6F6] uppercase tracking-wider">
+                    Active Cryptographic Session
+                  </span>
                 </div>
                 <button
                   onClick={() => disconnect()}
                   className="inline-flex items-center gap-1.5 rounded border border-ok-danger/20 bg-transparent px-3 py-1.5 font-mono text-[10px] text-ok-danger transition-colors hover:bg-ok-danger/10"
                 >
                   <LogOut className="h-3 w-3" />
-                  Sign out
+                  Disconnect Session
                 </button>
               </div>
 
-              {/* Authority Keypair */}
-              <div className="border-t border-[#3D444D]/30 pt-5">
-                <label className="mb-2 block font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
-                  BACKEND AUTHORITY
-                </label>
-                <div className="rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-xs text-[#F0F6F6]">
-                  {truncateAddress(AUTHORITY_KEY)}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
+                    Connected Wallet
+                  </label>
+                  <div className="font-mono text-xs text-[#F0F6F6] bg-[#0D1117] border border-[#3D444D] rounded px-3 py-2 flex items-center justify-between">
+                    <span className="truncate">
+                      {wallet || "Not connected"}
+                    </span>
+                    {wallet && (
+                      <button
+                        onClick={handleCopyAddress}
+                        className="ml-2 text-[#9198A1] hover:text-[#F0F6F6] transition-colors"
+                        title="Copy Wallet"
+                      >
+                        {copiedAddress ? (
+                          <Check className="h-3.5 w-3.5 text-ok-green" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="mt-2 text-[10px] leading-relaxed text-[#656C76]">
-                  This keypair signs on-chain instructions on your behalf. It
-                  never holds funds and cannot move your escrow.
-                </p>
+
+                <div>
+                  <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
+                    Authentication Standard
+                  </label>
+                  <div className="font-mono text-xs text-[#9198A1] bg-[#0D1117] border border-[#3D444D] rounded px-3 py-2 flex items-center justify-between">
+                    <span>Sign-In With Solana (Ed25519)</span>
+                    <span className="inline-flex items-center gap-1.5 text-[10px] text-ok-green">
+                      <span className="h-1.5 w-1.5 rounded-full bg-ok-green animate-pulse" />
+                      Verified
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Smart Contract Card */}
+            <div className="rounded border border-[#3D444D] bg-[#151B23] p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-[#3D444D]/30 pb-3">
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-ok-green" />
+                  <span className="font-mono text-xs font-semibold text-[#F0F6F6] uppercase tracking-wider">
+                    On-Chain Program Verification
+                  </span>
+                </div>
+                <a
+                  href={`https://explorer.solana.com/address/${PROGRAM_ID}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-mono text-[10px] text-ok-green hover:underline"
+                >
+                  View on Solana Explorer
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
+                  Program ID (Anchor / Rust)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-xs text-[#F0F6F6] truncate">
+                    {PROGRAM_ID}
+                  </div>
+                  <button
+                    onClick={handleCopyProgramId}
+                    className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-transparent px-3 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+                  >
+                    {copiedProgramId ? (
+                      <Check className="h-3 w-3 text-ok-green" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                    {copiedProgramId ? "Copied" : "Copy ID"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Non-Custodial Architecture Card */}
+            <div className="rounded border border-[#3D444D] bg-[#151B23] p-5 space-y-4">
+              <div className="flex items-center gap-2 border-b border-[#3D444D]/30 pb-3">
+                <Lock className="h-4 w-4 text-ok-green" />
+                <span className="font-mono text-xs font-semibold text-[#F0F6F6] uppercase tracking-wider">
+                  Non-Custodial Escrow Guarantees
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded border border-[#3D444D]/50 bg-[#0D1117] p-3 space-y-1.5">
+                  <p className="font-mono text-[11px] font-semibold text-[#F0F6F6]">
+                    Deterministic PDAs
+                  </p>
+                  <p className="text-[10px] leading-relaxed text-[#9198A1]">
+                    Reward pools (SOL & USDC) are held in Program Derived
+                    Addresses governed strictly by smart contract bytecode, not
+                    private keys.
+                  </p>
+                </div>
+
+                <div className="rounded border border-[#3D444D]/50 bg-[#0D1117] p-3 space-y-1.5">
+                  <p className="font-mono text-[11px] font-semibold text-[#F0F6F6]">
+                    Creator Reclaim
+                  </p>
+                  <p className="text-[10px] leading-relaxed text-[#9198A1]">
+                    When a survey completes or closes, leftover reward balances
+                    and escrow rent are swept directly back to your creator
+                    wallet.
+                  </p>
+                </div>
+
+                <div className="rounded border border-[#3D444D]/50 bg-[#0D1117] p-3 space-y-1.5">
+                  <p className="font-mono text-[11px] font-semibold text-[#F0F6F6]">
+                    Zero-Custody Relayer
+                  </p>
+                  <p className="text-[10px] leading-relaxed text-[#9198A1]">
+                    Backend authorities only submit bot reputation scores. They
+                    cannot withdraw, redirect, or touch creator funds under any
+                    circumstance.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
