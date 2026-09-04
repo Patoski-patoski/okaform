@@ -61,7 +61,14 @@ export default function HomeView({
   const activeSurveys = surveys.filter((s) => s.status === "active");
   const totalResponses = surveys.reduce((sum, s) => sum + s.responses, 0);
   const solDistributed = surveys
-    .filter((s) => s.status === "closed")
+    .filter(
+      (s) =>
+        s.status === "closed" &&
+        (!s.rewardCurrency || s.rewardCurrency === "SOL"),
+    )
+    .reduce((sum, s) => sum + s.rewardPool, 0);
+  const usdcDistributed = surveys
+    .filter((s) => s.status === "closed" && s.rewardCurrency === "USDC")
     .reduce((sum, s) => sum + s.rewardPool, 0);
 
   const {
@@ -157,24 +164,46 @@ export default function HomeView({
           </p>
         </div>
 
-        {/* SOL Distributed */}
+        {/* Distributed Rewards */}
         <div className="relative rounded border border-[#3D444D] bg-[#151B23] p-4">
           <div className="absolute right-3 top-3">
             <Server className="h-4 w-4 text-[#9198A1]" />
           </div>
           <p className="font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
-            SOL DISTRIBUTED
+            {usdcDistributed > 0 && solDistributed === 0
+              ? "USDC DISTRIBUTED"
+              : usdcDistributed > 0
+                ? "REWARDS DISTRIBUTED"
+                : "SOL DISTRIBUTED"}
           </p>
-          <p className="mt-2 font-mono text-2xl font-bold">
-            <span className="inline-flex items-center gap-1.5">
-              <img
-                src={solanaLogo}
-                alt="Solana"
-                className="h-5 w-5 text-ok-green"
-              />{" "}
-              <span className="text-[#F0F6F6]">{solDistributed}</span>
-            </span>
-          </p>
+          <div className="mt-2 font-mono font-bold">
+            {usdcDistributed > 0 && solDistributed === 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-2xl text-[#F0F6F6]">
+                <CurrencyLogo currency="USDC" className="h-5 w-5" />
+                {usdcDistributed.toFixed(2)}
+              </span>
+            ) : usdcDistributed > 0 ? (
+              <div className="flex flex-col gap-0.5">
+                <span className="inline-flex items-center gap-1 text-base text-[#F0F6F6]">
+                  <CurrencyLogo currency="SOL" className="h-4 w-4" />
+                  {solDistributed} SOL
+                </span>
+                <span className="inline-flex items-center gap-1 text-base text-[#F0F6F6]">
+                  <CurrencyLogo currency="USDC" className="h-4 w-4" />
+                  {usdcDistributed.toFixed(2)} USDC
+                </span>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-2xl text-[#F0F6F6]">
+                <img
+                  src={solanaLogo}
+                  alt="Solana"
+                  className="h-5 w-5 text-ok-green"
+                />{" "}
+                <span className="text-[#F0F6F6]">{solDistributed}</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

@@ -195,6 +195,8 @@ export interface AnalyticsResponseItem {
 
 export interface AnalyticsDistributionItem {
   amountLamports: number;
+  amountUnits?: number;
+  rewardCurrency?: string;
   distributedAt: string;
 }
 
