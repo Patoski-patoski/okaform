@@ -25,7 +25,7 @@ jobs:
             export PATH="/usr/local/bin:$PATH"
 
             # 2. Navigate to backend directory
-            cd /home/ubuntu/okaform/backend
+            cd /home/ubuntu/projects/okaform/
 
             # 3. Pull the latest changes from main cleanly
             echo "Fetching latest changes from main..."
