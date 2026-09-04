@@ -703,6 +703,8 @@ describe('FormsService', () => {
       expect(result.forms[0]?.distributions).toHaveLength(1);
       expect(result.forms[0]?.distributions[0]).toMatchObject({
         amountLamports: 500_000_000,
+        amountUnits: 500_000_000,
+        rewardCurrency: 'SOL',
       });
       expect(formModel.find).toHaveBeenCalledWith({
         creator: 'wallet123',
@@ -711,6 +713,55 @@ describe('FormsService', () => {
       expect(distributionService.getDistributionByFormIds).toHaveBeenCalledWith(
         ['form123'],
       );
+    });
+
+    it('should include amountUnits and rewardCurrency for USDC distributions', async () => {
+      const formQuery = {
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          {
+            _id: 'form_usdc',
+            title: 'USDC Survey',
+            creator: 'wallet123',
+            rewardPool: 50,
+            rewardCurrency: 'USDC',
+            maxResponses: 25,
+            status: 'closed',
+            closesAt: new Date('2025-01-05'),
+          },
+        ]),
+      };
+      formModel.find.mockReturnValue(formQuery);
+
+      const responseQuery = {
+        sort: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      };
+      const responseModel = module.get(getModelToken(SurveyResponse.name));
+      responseModel.find.mockReturnValue(responseQuery);
+
+      distributionService.getDistributionByFormIds.mockResolvedValue([
+        {
+          formId: 'form_usdc',
+          amountLamports: 0,
+          amountUnits: 2_000_000,
+          rewardCurrency: 'USDC',
+          distributedAt: new Date('2025-01-06'),
+        },
+      ]);
+
+      const result = await service.getAnalyticsForCreator('wallet123');
+
+      expect(result.forms).toHaveLength(1);
+      expect(result.forms[0]?.rewardCurrency).toBe('USDC');
+      expect(result.forms[0]?.distributions).toHaveLength(1);
+      expect(result.forms[0]?.distributions[0]).toMatchObject({
+        amountLamports: 0,
+        amountUnits: 2_000_000,
+        rewardCurrency: 'USDC',
+      });
     });
 
     it('should return empty forms for creator with no surveys', async () => {

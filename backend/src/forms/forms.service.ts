@@ -113,6 +113,8 @@ export interface AnalyticsResponseItem {
 
 export interface AnalyticsDistributionItem {
   amountLamports: number;
+  amountUnits?: number;
+  rewardCurrency?: 'SOL' | 'USDC';
   distributedAt: string;
 }
 
@@ -597,6 +599,8 @@ export class FormsService {
       const list = distributionsByForm.get(d.formId) ?? [];
       list.push({
         amountLamports: d.amountLamports,
+        amountUnits: d.amountUnits ?? d.amountLamports,
+        rewardCurrency: d.rewardCurrency === 'USDC' ? 'USDC' : 'SOL',
         distributedAt: d.distributedAt.toISOString(),
       });
       distributionsByForm.set(d.formId, list);

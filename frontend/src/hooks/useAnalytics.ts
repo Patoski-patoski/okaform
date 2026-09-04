@@ -44,6 +44,7 @@ export interface AnalyticsDeltas {
   completion: number | null;
   score: number | null;
   sol: number | null;
+  usdc?: number | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -273,8 +274,20 @@ export function useAnalytics(timeRange: TimeRange) {
         subs.map((r) => r.scoreAtSubmission).filter((s) => Number.isFinite(s)),
       );
 
-    const solFor = (dist: AnalyticsDistributionItem[]) =>
-      dist.reduce((sum, d) => sum + d.amountLamports, 0) / 1e9;
+    const calculateDistributed = (dist: AnalyticsDistributionItem[]) => {
+      let sol = 0;
+      let usdc = 0;
+      for (const d of dist) {
+        const currency = d.rewardCurrency ?? "SOL";
+        const units = d.amountUnits ?? d.amountLamports;
+        if (currency === "USDC") {
+          usdc += units / 1e6;
+        } else {
+          sol += units / 1e9;
+        }
+      }
+      return { sol, usdc };
+    };
 
     const totalResponses = current.length;
     const previousResponses = previous.length;
@@ -282,8 +295,12 @@ export function useAnalytics(timeRange: TimeRange) {
     const previousCompletionRate = completionFor(previous);
     const avgScore = avgScoreFor(current);
     const previousAvgScore = avgScoreFor(previous);
-    const solDistributed = solFor(currentDistributions);
-    const previousSolDistributed = solFor(previousDistributions);
+    const currentDist = calculateDistributed(currentDistributions);
+    const previousDist = calculateDistributed(previousDistributions);
+    const solDistributed = currentDist.sol;
+    const usdcDistributed = currentDist.usdc;
+    const previousSolDistributed = previousDist.sol;
+    const previousUsdcDistributed = previousDist.usdc;
 
     const deltas: AnalyticsDeltas = {
       responses: pctChange(totalResponses, previousResponses),
@@ -296,6 +313,7 @@ export function useAnalytics(timeRange: TimeRange) {
           ? pctChange(avgScore, previousAvgScore)
           : null,
       sol: pctChange(solDistributed, previousSolDistributed),
+      usdc: pctChange(usdcDistributed, previousUsdcDistributed),
     };
 
     return {
@@ -304,6 +322,7 @@ export function useAnalytics(timeRange: TimeRange) {
         avgCompletionRate !== null ? Math.round(avgCompletionRate) : null,
       avgScore: avgScore !== null ? Math.round(avgScore) : null,
       solDistributed,
+      usdcDistributed,
       deltas,
       volumeSeries: buildVolumeSeries(allResponses, timeRange, nowMs),
     };

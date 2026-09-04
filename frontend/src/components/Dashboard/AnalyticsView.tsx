@@ -42,6 +42,7 @@ export default function AnalyticsView({ onSelectSurvey }: AnalyticsViewProps) {
     avgCompletionRate,
     avgScore,
     solDistributed,
+    usdcDistributed,
     deltas,
     volumeSeries,
     badgeDistribution,
@@ -183,18 +184,58 @@ export default function AnalyticsView({ onSelectSurvey }: AnalyticsViewProps) {
                 : renderDelta(null)}
             </div>
 
-            {/* SOL Distributed */}
+            {/* Distributed Rewards */}
             <div className="rounded border border-[#3D444D] bg-[#151B23] p-4">
               <p className="font-mono text-[10px] uppercase tracking-wider text-[#656C76]">
-                SOL DISTRIBUTED
+                {usdcDistributed > 0 && solDistributed === 0
+                  ? "USDC DISTRIBUTED"
+                  : usdcDistributed > 0
+                    ? "REWARDS DISTRIBUTED"
+                    : "SOL DISTRIBUTED"}
               </p>
-              <p className="mt-2 font-mono text-2xl font-bold">
-                <img src={solanaLogo} alt="Solana" className="inline h-5 w-5" />{" "}
-                <span className="text-[#F0F6F6]">
-                  {formatSol(solDistributed)}
-                </span>
-              </p>
-              {renderDelta(deltas.sol)}
+              <div className="mt-2">
+                {usdcDistributed > 0 && solDistributed === 0 ? (
+                  <p className="font-mono text-2xl font-bold">
+                    <CurrencyLogo currency="USDC" className="inline h-5 w-5" />{" "}
+                    <span className="text-[#F0F6F6]">
+                      {usdcDistributed.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </p>
+                ) : usdcDistributed > 0 ? (
+                  <div className="flex flex-wrap items-baseline gap-x-3">
+                    <span className="inline-flex items-center gap-1 font-mono text-lg font-bold text-[#F0F6F6]">
+                      <CurrencyLogo currency="SOL" className="h-4 w-4" />
+                      {formatSol(solDistributed)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-mono text-lg font-bold text-[#F0F6F6]">
+                      <CurrencyLogo currency="USDC" className="h-4 w-4" />
+                      {usdcDistributed.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="font-mono text-2xl font-bold">
+                    <img
+                      src={solanaLogo}
+                      alt="Solana"
+                      className="inline h-5 w-5"
+                    />{" "}
+                    <span className="text-[#F0F6F6]">
+                      {formatSol(solDistributed)}
+                    </span>
+                  </p>
+                )}
+              </div>
+              {renderDelta(
+                usdcDistributed > 0 && solDistributed === 0
+                  ? (deltas.usdc ?? null)
+                  : deltas.sol,
+              )}
             </div>
           </div>
 
