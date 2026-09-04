@@ -656,6 +656,22 @@ export default function Explore() {
     [filtered, visibleCount],
   );
 
+  const totalSolPool = useMemo(
+    () =>
+      surveys
+        .filter((s) => !s.rewardCurrency || s.rewardCurrency === "SOL")
+        .reduce((sum, s) => sum + s.rewardPool, 0),
+    [surveys],
+  );
+
+  const totalUsdcPool = useMemo(
+    () =>
+      surveys
+        .filter((s) => s.rewardCurrency === "USDC")
+        .reduce((sum, s) => sum + s.rewardPool, 0),
+    [surveys],
+  );
+
   return (
     <div className="min-h-screen bg-[#0D1117] text-[#F0F6F6] selection:bg-ok-green/20">
       {/* ─── NAV ────────────────────────────────────────────────────────────── */}
@@ -722,11 +738,41 @@ export default function Explore() {
             <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">
               Total Pool Value
             </span>
-            <span className="text-sm font-semibold text-ok-green mt-0.5">
-              {!loading
-                ? `${surveys.reduce((sum, s) => sum + s.rewardPool, 0).toFixed(2)} SOL`
-                : "..."}
-            </span>
+            <div className="text-sm font-semibold text-ok-green mt-0.5">
+              {loading ? (
+                "..."
+              ) : totalUsdcPool > 0 && totalSolPool === 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <CurrencyLogo currency="USDC" className="h-3.5 w-auto" />
+                  {totalUsdcPool.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  USDC
+                </span>
+              ) : totalUsdcPool > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs sm:text-sm">
+                  <span className="inline-flex items-center gap-1">
+                    <CurrencyLogo currency="SOL" className="h-3.5 w-auto" />
+                    {totalSolPool.toFixed(1)} SOL
+                  </span>
+                  <span className="text-[#656C76] font-normal">+</span>
+                  <span className="inline-flex items-center gap-1">
+                    <CurrencyLogo currency="USDC" className="h-3.5 w-auto" />
+                    {totalUsdcPool.toLocaleString(undefined, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    USDC
+                  </span>
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <CurrencyLogo currency="SOL" className="h-3.5 w-auto" />
+                  {totalSolPool.toFixed(2)} SOL
+                </span>
+              )}
+            </div>
           </div>
           <div className="border-r border-[#3D444D]/40 last:border-0 pr-4 sm:pl-4">
             <span className="block text-[10px] text-[#656C76] uppercase tracking-wider">
