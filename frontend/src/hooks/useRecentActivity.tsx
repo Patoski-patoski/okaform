@@ -3,7 +3,7 @@ import { useQueries, useQueryClient, type Query } from "@tanstack/react-query";
 import { getSubmissions } from "@/lib/forms";
 import { getFormDistribution } from "@/lib/distribution";
 import { getBadgeTier } from "@/lib/tiers";
-import SolanaLogo from "@/components/SolanaLogo";
+import CurrencyLogo from "@/components/CurrencyLogo";
 
 export interface RecentActivityItem {
   id: string;
@@ -16,6 +16,7 @@ interface SurveySummary {
   id: string;
   title: string;
   rewardPool: number;
+  rewardCurrency?: string;
   createdAt: string;
   closedAt: string | null;
 }
@@ -89,8 +90,12 @@ export function useRecentActivity(surveys: SurveySummary[]) {
         color: "bg-ok-green",
         text: (
           <>
-            {survey.title} published — <SolanaLogo className="h-3 w-auto" />{" "}
-            {survey.rewardPool} SOL escrowed
+            {survey.title} published —{" "}
+            <CurrencyLogo
+              currency={survey.rewardCurrency}
+              className="h-3 w-auto"
+            />{" "}
+            {survey.rewardPool} {survey.rewardCurrency || "SOL"} escrowed
           </>
         ),
         time: new Date(survey.createdAt),
@@ -106,8 +111,11 @@ export function useRecentActivity(surveys: SurveySummary[]) {
       }
 
       if (distribution.length > 0) {
-        const totalLamports = distribution.reduce(
-          (sum, d) => sum + d.amountLamports,
+        const currency =
+          distribution[0]?.rewardCurrency || survey.rewardCurrency || "SOL";
+        const divisor = currency === "USDC" ? 1_000_000 : 1_000_000_000;
+        const totalUnits = distribution.reduce(
+          (sum, d) => sum + (d.amountUnits ?? d.amountLamports),
           0,
         );
         const wallets = new Set(distribution.map((d) => d.recipientWallet));
@@ -122,11 +130,11 @@ export function useRecentActivity(surveys: SurveySummary[]) {
           text: (
             <>
               {survey.title} distribution complete —{" "}
-              <SolanaLogo className="h-3 w-auto" />{" "}
-              {(totalLamports / 1e9).toLocaleString(undefined, {
-                maximumFractionDigits: 2,
+              <CurrencyLogo currency={currency} className="h-3 w-auto" />{" "}
+              {(totalUnits / divisor).toLocaleString(undefined, {
+                maximumFractionDigits: currency === "USDC" ? 2 : 4,
               })}{" "}
-              SOL sent to {wallets.size} wallet
+              {currency} sent to {wallets.size} wallet
               {wallets.size === 1 ? "" : "s"}
             </>
           ),

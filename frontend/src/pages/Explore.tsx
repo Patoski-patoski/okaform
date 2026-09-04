@@ -26,6 +26,7 @@ import { getBadgeTier } from "@/lib/tiers";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
 import solanaLogo from "@/assets/icons/solana-logo.svg";
+import CurrencyLogo from "@/components/CurrencyLogo";
 import { cn, displayName } from "@/lib/utils";
 import { getExploreForms } from "@/lib/forms";
 import type { ExploreFormItem } from "@/lib/forms";
@@ -45,6 +46,7 @@ interface SurveyListing {
   protocolColor: string;
   title: string;
   rewardPool: number;
+  rewardCurrency?: string;
   rewardType: "weighted" | "lucky_draw";
   numWinners?: number;
   responses: number;
@@ -459,10 +461,14 @@ function SurveyCard({ survey }: SurveyCardProps) {
             <span className="font-mono text-xs text-[#656C76] uppercase tracking-wider">
               Escrowed Rewards
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <Lock className="h-3 w-3 text-ok-green/80" />
+              <CurrencyLogo
+                currency={survey.rewardCurrency}
+                className="h-3.5 w-auto"
+              />
               <span className="font-display font-mono text-base font-semibold text-ok-green">
-                {survey.rewardPool.toFixed(2)} SOL
+                {survey.rewardPool.toFixed(2)} {survey.rewardCurrency || "SOL"}
               </span>
             </div>
           </div>
@@ -500,8 +506,13 @@ function SurveyRow({ survey }: SurveyCardProps) {
         <span className="text-[#656C76] shrink-0 font-mono">
           [{survey.id.toUpperCase()}]
         </span>
-        <span className="text-ok-green shrink-0 font-semibold">
-          {survey.rewardPool.toFixed(1)} SOL
+        <span className="text-ok-green shrink-0 font-semibold inline-flex items-center gap-1">
+          <CurrencyLogo
+            currency={survey.rewardCurrency}
+            className="h-3 w-auto"
+          />
+          {survey.rewardPool.toFixed(survey.rewardCurrency === "USDC" ? 2 : 1)}{" "}
+          {survey.rewardCurrency || "SOL"}
         </span>
         <span className="text-[#9198A1] shrink-0">{survey.protocol}</span>
         <span className="text-[#3D444D] shrink-0">|</span>
@@ -556,6 +567,7 @@ export default function Explore() {
               protocol: f.organization || "Unknown",
               protocolColor: orgToColor(f.organization || f.id),
               rewardPool: f.rewardPool,
+              rewardCurrency: f.rewardCurrency,
               rewardType: f.rewardType as "weighted" | "lucky_draw",
               numWinners: f.numWinners,
               responses: f.responses,

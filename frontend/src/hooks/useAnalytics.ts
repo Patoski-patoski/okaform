@@ -34,8 +34,9 @@ export interface SurveyRow {
   maxResponses: number;
   completion: number;
   avgScore: number | null;
-  /** Reward pool in SOL. */
+  /** Reward pool in SOL or USDC units. */
   rewardPoolSol: number;
+  rewardCurrency?: string;
 }
 
 export interface AnalyticsDeltas {
@@ -218,6 +219,7 @@ export function useAnalytics(timeRange: TimeRange) {
           completion,
           avgScore: avgScore !== null ? Math.round(avgScore) : null,
           rewardPoolSol: form.rewardPoolSol,
+          rewardCurrency: form.rewardCurrency || "SOL",
         };
       }),
     [forms],

@@ -137,6 +137,9 @@ export interface ExploreFormItem {
   minWalletAge: number;
   minSolBalance: number;
   createdAt: string;
+  rewardCurrency?: string;
+  tokenMint?: string;
+  tokenDecimals?: number;
 }
 
 export interface FormConfig {
@@ -200,8 +203,9 @@ export interface AnalyticsFormItem {
   title: string;
   status: string;
   maxResponses: number;
-  /** Reward pool in SOL. */
+  /** Reward pool in SOL or USDC units. */
   rewardPoolSol: number;
+  rewardCurrency?: string;
   responses: AnalyticsResponseItem[];
   distributions: AnalyticsDistributionItem[];
 }

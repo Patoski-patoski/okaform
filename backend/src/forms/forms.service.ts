@@ -123,6 +123,7 @@ export interface AnalyticsFormItem {
   maxResponses: number;
   /** Reward pool in SOL (the DB stores SOL; lamports live in grossRewardPoolLamports). */
   rewardPoolSol: number;
+  rewardCurrency?: 'SOL' | 'USDC';
   responses: AnalyticsResponseItem[];
   distributions: AnalyticsDistributionItem[];
 }
@@ -625,6 +626,7 @@ export class FormsService {
               : this.deriveStatus(form.closesAt, form.status),
           maxResponses: form.maxResponses,
           rewardPoolSol: form.rewardPool,
+          rewardCurrency: form.rewardCurrency || 'SOL',
           responses: responseList,
           distributions: distributionList,
         };
