@@ -1,0 +1,51 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            # 1. Load Bun & Node environment into PATH
+            export PATH="/home/ubuntu/.bun/bin:$PATH"
+            export PATH="/usr/local/bin:$PATH"
+
+            # 2. Navigate to backend directory
+            cd /home/ubuntu/okaform/backend
+
+            # 3. Pull the latest changes from main cleanly
+            echo "Fetching latest changes from main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 4. Install dependencies with Bun
+            echo "Installing dependencies..."
+            bun install --frozen-lockfile
+
+            # 5. Build NestJS application
+            echo "Building application..."
+            bun run build
+
+            # 6. Run database backfill/migrations
+            echo "Running database migrations..."
+            bun run migrate:add-currency
+
+            # 7. Restart PM2 process
+            echo "Restarting PM2 backend service..."
+            pm2 restart okaform-backend --update-env
+
+            echo "Deployment to EC2 completed successfully!"
