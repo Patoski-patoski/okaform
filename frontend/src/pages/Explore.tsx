@@ -52,6 +52,7 @@ interface SurveyListing {
   responses: number;
   maxResponses: number;
   closesAt: string | null;
+  createdAt?: string;
   status: "active" | "ending_soon" | "closed";
   requirements: Requirement[];
   previewQuestion?: string;
@@ -573,6 +574,7 @@ export default function Explore() {
               responses: f.responses,
               maxResponses: f.maxResponses,
               closesAt: f.closesAt,
+              createdAt: f.createdAt,
               status:
                 f.status === "closed" ? "closed" : deriveStatus(f.closesAt),
               requirements: buildRequirements(f.minWalletAge, f.minSolBalance),
@@ -633,9 +635,14 @@ export default function Explore() {
     }
 
     list.sort((a, b) => {
+      // Prioritize active / ending soon surveys over concluded ones
+      const aClosed = a.status === "closed" ? 1 : 0;
+      const bClosed = b.status === "closed" ? 1 : 0;
+      if (aClosed !== bClosed) return aClosed - bClosed;
+
       if (sortKey === "latest") {
-        const aTime = a.closesAt ? new Date(a.closesAt).getTime() : 0;
-        const bTime = b.closesAt ? new Date(b.closesAt).getTime() : 0;
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bTime - aTime;
       }
       if (sortKey === "highest_reward") return b.rewardPool - a.rewardPool;
