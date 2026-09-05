@@ -28,6 +28,44 @@ import type { QuestionOption } from "@/types/survey";
 import { ensureScoreAccountOnChain } from "@/lib/solana/initializeScore";
 import { logger } from "@/lib/logger";
 
+// ─── Session-storage helpers ───────────────────────────────────────────────────
+
+function draftKey(formId: string): string {
+  return `okaform:draft:${formId}`;
+}
+
+function loadDraft(formId: string): Record<string, string | string[]> {
+  try {
+    const raw = sessionStorage.getItem(draftKey(formId));
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+      return {};
+    return parsed as Record<string, string | string[]>;
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(
+  formId: string,
+  answers: Record<string, string | string[]>,
+): void {
+  try {
+    sessionStorage.setItem(draftKey(formId), JSON.stringify(answers));
+  } catch {
+    // sessionStorage may be unavailable (e.g. in private mode with strict settings)
+  }
+}
+
+function clearDraft(formId: string): void {
+  try {
+    sessionStorage.removeItem(draftKey(formId));
+  } catch {
+    // ignore
+  }
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function toFrontendQuestion(q: FormDetail["questions"][number]): Question {
@@ -55,6 +93,19 @@ function formatRewardType(rewardType: string): string {
   return rewardType;
 }
 
+// Returns true if an error likely represents a user-initiated wallet cancellation.
+function isWalletCancellation(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("user rejected") ||
+    msg.includes("user denied") ||
+    msg.includes("cancelled") ||
+    msg.includes("canceled") ||
+    msg.includes("transaction was not confirmed")
+  );
+}
+
 // ─── Progress bar ──────────────────────────────────────────────────────────────
 
 function ProgressBar({ percent }: { percent: number }) {
@@ -76,7 +127,11 @@ export default function SurveyFill() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+
+  // Initialise answers from session storage so a page-refresh restores progress.
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>(
+    () => (formId ? loadDraft(formId) : {}),
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -175,15 +230,24 @@ export default function SurveyFill() {
     setVisible(true);
   }, [setVisible]);
 
-  const handleAnswer = useCallback((id: string, value: string | string[]) => {
-    setAnswers((prev) => ({ ...prev, [id]: value }));
-    setErrors((prev) => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }, []);
+  const handleAnswer = useCallback(
+    (id: string, value: string | string[]) => {
+      setAnswers((prev) => {
+        const next = { ...prev, [id]: value };
+        // Persist to session storage on every answer change so a refresh
+        // restores the in-progress draft.
+        if (formId) saveDraft(formId, next);
+        return next;
+      });
+      setErrors((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    },
+    [formId],
+  );
 
   const handleSubmit = useCallback(async () => {
     const validationErrors = validateAnswers(answers, surveyQuestions);
@@ -197,15 +261,29 @@ export default function SurveyFill() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // Best-effort: ensure the respondent's on-chain score account exists so
-      // the backend can apply the reputation delta. Failures are non-fatal —
-      // the backend handles a missing account gracefully.
+      // Ensure the respondent's on-chain score account exists so the backend
+      // can apply the reputation delta.
+      //
+      // IMPORTANT: if the account does NOT yet exist, this opens a wallet
+      // signature prompt. If the user cancels that prompt we must abort the
+      // whole submission — we re-throw cancellation errors instead of swallowing
+      // them (the previous behaviour of swallowing caused the form to submit
+      // even after the user hit "Cancel" in their wallet).
       try {
         await ensureScoreAccountOnChain(
           { publicKey, signTransaction },
           connection,
         );
       } catch (err) {
+        if (isWalletCancellation(err)) {
+          // User deliberately cancelled the wallet prompt — abort.
+          setSubmitError(
+            "Wallet signature cancelled. Please try again to submit your response.",
+          );
+          return;
+        }
+        // Non-cancellation failure (e.g. RPC issue): warn and continue.
+        // The backend handles a missing score account gracefully.
         logger.warn("Score account init skipped:", err);
       }
 
@@ -217,6 +295,10 @@ export default function SurveyFill() {
         respondentWallet: wallet,
         openedAt: openedAt.current,
       });
+
+      // Submission succeeded — clear the saved draft.
+      clearDraft(formId);
+
       setSubmissionResult({
         scoreDelta: submission.scoreDelta,
         scoreAtSubmission: submission.scoreAtSubmission,
