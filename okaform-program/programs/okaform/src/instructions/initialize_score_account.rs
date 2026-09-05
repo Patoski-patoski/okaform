@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::constants::*;
+use crate::errors::*;
 use crate::state::*;
 
 // InitializeScoreAccount creates a wallet-level reputation profile — a persistent on-chain identity that tracks
@@ -14,37 +15,49 @@ use crate::state::*;
 // - badge_tier — reputation level (Ghost → higher tiers)
 
 // The score_account is the foundation for the reputation system.
-// When update_score runs after survey completion, it modifies this global account — incrementing surveys_completed, 
-// adjusting global_score, and upgrading badge_tier based on accumulated score. 
-// This creates a Sybil-resistant incentive: wallet history is transparent and harder to fake, 
+// When update_score runs after survey completion, it modifies this global account — incrementing surveys_completed,
+// adjusting global_score, and upgrading badge_tier based on accumulated score.
+// This creates a Sybil-resistant incentive: wallet history is transparent and harder to fake,
 // since high-reputation wallets have a track record of consistent participation.
+
+// The authority (protocol authority keypair) pays the rent for account creation so respondents
+// never need to hold SOL or approve a transaction just to participate in a survey.
+// The wallet field is a read-only AccountInfo — it is only used as a PDA seed and to set
+// score_account.wallet; it does NOT need to sign.
 
 #[derive(Accounts)]
 pub struct InitializeScoreAccount<'info> {
-    #[account(mut)]
-    pub wallet: Signer<'info>, // the account that pays
+    /// Protocol authority — signs and pays the rent for account creation.
+    #[account(
+        mut,
+        constraint = authority.key() == crate::constants::authority::ID @ OkaformError::Unauthorized
+    )]
+    pub authority: Signer<'info>,
+
+    /// CHECK: Read-only; used only as a PDA seed and to record which wallet
+    /// this score account belongs to. No ownership or signature check needed.
+    pub wallet: AccountInfo<'info>,
 
     #[account(
         init, // creates the account
-        payer = wallet, // who pays
-        space = 8 + RespondentScoreAccount::INIT_SPACE, // allocates space
-        seeds = [SCORE_SEED, wallet.key().as_ref()], // seeds
-        bump // For PDA derivation
+        payer = authority, // protocol authority pays the rent
+        space = 8 + RespondentScoreAccount::INIT_SPACE,
+        seeds = [SCORE_SEED, wallet.key().as_ref()], // still derived from the respondent wallet
+        bump
     )]
-    pub score_account: Account<'info, RespondentScoreAccount>, // the account to be initialized
+    pub score_account: Account<'info, RespondentScoreAccount>,
 
-    pub system_program: Program<'info, System>, // required for init
+    pub system_program: Program<'info, System>,
 }
-
 
 pub fn process_initialize_score_account(ctx: Context<InitializeScoreAccount>) -> Result<()> {
     let score_account: &mut Account<'_, RespondentScoreAccount> = &mut ctx.accounts.score_account;
-    score_account.wallet = ctx.accounts.wallet.key(); // set the wallet field to the wallet's public key
-    score_account.global_score = 0; // initialize the global score to 0
-    score_account.surveys_completed = 0; // initialize the surveys completed to 0
-    score_account.badge_tier = BadgeTier::Ghost; // initialize the badge tier to Ghost
-    score_account.bump = ctx.bumps.score_account; // set the bump for PDA derivation
+    score_account.wallet = ctx.accounts.wallet.key(); // the respondent's public key
+    score_account.global_score = 0;
+    score_account.surveys_completed = 0;
+    score_account.badge_tier = BadgeTier::Ghost;
+    score_account.bump = ctx.bumps.score_account;
 
-    msg!("Score account initialized");
+    msg!("Score account initialized for wallet: {:?}", ctx.accounts.wallet.key());
     Ok(())
 }

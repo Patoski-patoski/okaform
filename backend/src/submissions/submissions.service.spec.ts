@@ -116,6 +116,7 @@ describe('SubmissionsService', () => {
 
     solanaService = {
       scoreAccountExists: jest.fn().mockResolvedValue(true),
+      initializeScoreAccount: jest.fn().mockResolvedValue('txInitScore123'),
       updateScore: jest.fn().mockResolvedValue('txScore123'),
       fetchRespondentScore: jest.fn().mockResolvedValue(385),
     } as unknown as jest.Mocked<SolanaService>;
@@ -279,13 +280,39 @@ describe('SubmissionsService', () => {
       );
     });
 
-    it('should skip update_score when score account does not exist', async () => {
+    it('should initialize and sponsor score account when it does not exist', async () => {
       const mockDoc = {
         ...mockSubmission,
         save: jest.fn().mockResolvedValue(mockSubmission),
       };
       responseModel.create.mockResolvedValue(mockDoc);
       solanaService.scoreAccountExists.mockResolvedValue(false);
+      solanaService.initializeScoreAccount.mockResolvedValue('txInitScore123');
+
+      await service.createSubmission(
+        'form123',
+        'wallet123',
+        [{ questionId: 'q1', value: 'answer' }],
+        new Date('2025-01-01').getTime(),
+      );
+
+      expect(solanaService.initializeScoreAccount).toHaveBeenCalledWith(
+        'wallet123',
+      );
+      expect(solanaService.updateScore).toHaveBeenCalledWith('wallet123', 35);
+      expect(responseModel.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should skip update_score when score account does not exist and sponsored initialization fails', async () => {
+      const mockDoc = {
+        ...mockSubmission,
+        save: jest.fn().mockResolvedValue(mockSubmission),
+      };
+      responseModel.create.mockResolvedValue(mockDoc);
+      solanaService.scoreAccountExists.mockResolvedValue(false);
+      solanaService.initializeScoreAccount.mockRejectedValue(
+        new Error('init failed'),
+      );
 
       await service.createSubmission(
         'form123',

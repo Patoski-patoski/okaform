@@ -458,9 +458,18 @@
       "discriminator": [127, 149, 186, 98, 63, 240, 63, 209],
       "accounts": [
         {
-          "name": "wallet",
+          "name": "authority",
+          "docs": [
+            "Protocol authority — signs and pays the rent for account creation."
+          ],
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "wallet",
+          "docs": [
+            "this score account belongs to. No ownership or signature check needed."
+          ]
         },
         {
           "name": "score_account",

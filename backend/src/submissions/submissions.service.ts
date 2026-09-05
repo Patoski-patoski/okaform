@@ -297,7 +297,32 @@ export class SubmissionsService {
     };
 
     try {
-      if (!(await this.solanaService.scoreAccountExists(respondentWallet))) {
+      let hasScoreAccount =
+        await this.solanaService.scoreAccountExists(respondentWallet);
+
+      if (!hasScoreAccount) {
+        this.logger.log({
+          event: 'SPONSORING_SCORE_ACCOUNT_INIT',
+          formId,
+          wallet: respondentWallet.slice(0, 8) + '...',
+        });
+        try {
+          await this.solanaService.initializeScoreAccount(respondentWallet);
+          hasScoreAccount = true;
+        } catch (initError) {
+          this.logger.warn({
+            event: 'SPONSORED_SCORE_ACCOUNT_INIT_FAILED',
+            formId,
+            wallet: respondentWallet.slice(0, 8) + '...',
+            error:
+              initError instanceof Error
+                ? initError.message
+                : String(initError),
+          });
+        }
+      }
+
+      if (!hasScoreAccount) {
         this.logger.warn({
           event: 'SCORE_ACCOUNT_NOT_FOUND',
           formId,

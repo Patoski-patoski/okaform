@@ -401,6 +401,7 @@ describe("okaform-program", () => {
   describe("initialize_score_account", () => {
     const scoreWallet = Keypair.generate();
     let scorePda: PublicKey;
+    const authority = (provider.wallet as anchor.Wallet).payer;
 
     before(async () => {
       await airdrop(scoreWallet.publicKey, 5 * LAMPORTS_PER_SOL);
@@ -411,11 +412,12 @@ describe("okaform-program", () => {
       await program.methods
         .initializeScoreAccount()
         .accountsPartial({
+          authority: authority.publicKey,
           wallet: scoreWallet.publicKey,
           scoreAccount: scorePda,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([scoreWallet])
+        .signers([authority])
         .rpc();
 
       const scoreAccount = await program.account.respondentScoreAccount.fetch(
@@ -435,11 +437,12 @@ describe("okaform-program", () => {
         await program.methods
           .initializeScoreAccount()
           .accountsPartial({
+            authority: authority.publicKey,
             wallet: scoreWallet.publicKey,
             scoreAccount: scorePda,
             systemProgram: anchor.web3.SystemProgram.programId,
           })
-          .signers([scoreWallet])
+          .signers([authority])
           .rpc();
 
         expect.fail("Should have thrown error for duplicate score account");
@@ -457,11 +460,12 @@ describe("okaform-program", () => {
       await program.methods
         .initializeScoreAccount()
         .accountsPartial({
+          authority: authority.publicKey,
           wallet: wallet2.publicKey,
           scoreAccount: scorePda2,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([wallet2])
+        .signers([authority])
         .rpc();
 
       const scoreAccount2 = await program.account.respondentScoreAccount.fetch(
@@ -495,11 +499,12 @@ describe("okaform-program", () => {
       await program.methods
         .initializeScoreAccount()
         .accountsPartial({
+          authority: authority.publicKey,
           wallet: scoreWallet.publicKey,
           scoreAccount: scorePda,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([scoreWallet])
+        .signers([authority])
         .rpc();
     });
 
@@ -586,11 +591,12 @@ describe("okaform-program", () => {
       await program.methods
         .initializeScoreAccount()
         .accountsPartial({
+          authority: authority.publicKey,
           wallet: freshWallet.publicKey,
           scoreAccount: freshPda,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([freshWallet])
+        .signers([authority])
         .rpc();
 
       const tiers: [number, object][] = [
@@ -759,11 +765,12 @@ describe("okaform-program", () => {
       await program.methods
         .initializeScoreAccount()
         .accountsPartial({
+          authority: authority.publicKey,
           wallet: r1.publicKey,
           scoreAccount: scorePda,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([r1])
+        .signers([authority])
         .rpc();
 
       const pda1 = getParticipantPda(surveyPda, r1.publicKey);
@@ -840,11 +847,12 @@ describe("okaform-program", () => {
         await program.methods
           .initializeScoreAccount()
           .accountsPartial({
+            authority: authority.publicKey,
             wallet: r.publicKey,
             scoreAccount: scorePda,
             systemProgram: anchor.web3.SystemProgram.programId,
           })
-          .signers([r])
+          .signers([authority])
           .rpc();
 
         const pda = getParticipantPda(surveyPda, r.publicKey);
@@ -1261,11 +1269,12 @@ describe("okaform-program", () => {
       await program.methods
         .initializeScoreAccount()
         .accountsPartial({
+          authority: authority.publicKey,
           wallet: e2eRespondent.publicKey,
           scoreAccount: scorePda,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
-        .signers([e2eRespondent])
+        .signers([authority])
         .rpc();
 
       await program.methods

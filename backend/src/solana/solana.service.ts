@@ -857,57 +857,81 @@ export class SolanaService {
   }
 
   /**
-   * Build an unsigned initializeScoreAccount transaction for the respondent's
-   * wallet to sign. The wallet is the payer and signer for account creation,
-   * so this transaction MUST be signed by the respondent wallet — never by the
-   * protocol authority.
+  /**
+   * Initialize a respondent's on-chain score account, sponsored by the protocol authority.
+   * The protocol authority pays the rent and signs the transaction.
+   * Authority-gated to protocolAuthorityKeypair (authority::ID).
+   */
+  async initializeScoreAccount(wallet: string): Promise<string> {
+    const walletPubkey = this.validateWallet(wallet);
+    const [scorePda] = this.deriveScorePda(walletPubkey);
+
+    this.logger.log({
+      event: 'INITIALIZE_SCORE_ACCOUNT_START',
+      wallet: wallet.slice(0, 8) + '...',
+    });
+
+    try {
+      const txSignature = await (
+        this.program.methods as unknown as {
+          initializeScoreAccount: () => {
+            accounts: (accs: {
+              authority: PublicKey;
+              wallet: PublicKey;
+              scoreAccount: PublicKey;
+              systemProgram: PublicKey;
+            }) => {
+              signers: (signers: Keypair[]) => {
+                rpc: () => Promise<string>;
+              };
+            };
+          };
+        }
+      )
+        .initializeScoreAccount()
+        .accounts({
+          authority: this.protocolAuthorityKeypair.publicKey,
+          wallet: walletPubkey,
+          scoreAccount: scorePda,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([this.protocolAuthorityKeypair])
+        .rpc();
+
+      this.logger.log({
+        event: 'INITIALIZE_SCORE_ACCOUNT_SUCCESS',
+        wallet: wallet.slice(0, 8) + '...',
+        txSignature,
+      });
+
+      return txSignature;
+    } catch (error) {
+      this.logger.error({
+        event: 'INITIALIZE_SCORE_ACCOUNT_FAILED',
+        wallet: wallet.slice(0, 8) + '...',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new TransactionFailedException(
+        'initialize_score_account',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /**
+   * Build an initializeScoreAccount transaction (deprecated - score account is now
+   * automatically initialized and sponsored on the backend during submission).
    */
   async buildInitScoreTx(
     wallet: string,
     blockhash: string,
   ): Promise<{ tx: string; scorePda: string; exists: boolean }> {
+    void blockhash;
     const walletPubkey = this.validateWallet(wallet);
     const [scorePda] = this.deriveScorePda(walletPubkey);
     const exists = await this.scoreAccountExists(wallet);
 
-    if (exists) {
-      return { tx: '', scorePda: scorePda.toBase58(), exists: true };
-    }
-
-    this.logger.log({
-      event: 'BUILD_INIT_SCORE_TX',
-      wallet: wallet.slice(0, 8) + '...',
-    });
-
-    try {
-      const tx = await this.program.methods
-        .initializeScoreAccount()
-        .accounts({
-          wallet: walletPubkey,
-          scoreAccount: scorePda,
-          systemProgram: SystemProgram.programId,
-        })
-        .transaction();
-
-      tx.feePayer = walletPubkey;
-      tx.recentBlockhash = blockhash;
-
-      return {
-        tx: tx.serialize({ requireAllSignatures: false }).toString('base64'),
-        scorePda: scorePda.toBase58(),
-        exists: false,
-      };
-    } catch (error) {
-      this.logger.error({
-        event: 'BUILD_INIT_SCORE_TX_FAILED',
-        wallet: wallet.slice(0, 8) + '...',
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw new TransactionFailedException(
-        'buildInitScoreTx',
-        error instanceof Error ? error.message : String(error),
-      );
-    }
+    return { tx: '', scorePda: scorePda.toBase58(), exists };
   }
 
   /**
