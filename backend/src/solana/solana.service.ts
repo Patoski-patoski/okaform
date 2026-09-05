@@ -1118,19 +1118,40 @@ export class SolanaService {
         isSigner: boolean;
         isWritable: boolean;
       }[] = [];
-      for (const wallet of participantWallets) {
-        const walletPubkey = this.validateWallet(wallet);
-        const ata = await getAssociatedTokenAddress(mintPubkey, walletPubkey);
 
-        // Create ATA if it doesn't exist (idempotent — no-op if it already exists)
-        tx.add(
-          createAssociatedTokenAccountIdempotentInstruction(
-            creatorPubkey, // payer
-            ata, // ATA address
-            walletPubkey, // owner
-            mintPubkey, // mint
-          ),
-        );
+      // Resolve recipient ATAs in parallel
+      const ataAddresses = await Promise.all(
+        participantWallets.map(async (wallet) => {
+          const walletPubkey = this.validateWallet(wallet);
+          const ata = await getAssociatedTokenAddress(mintPubkey, walletPubkey);
+          return { walletPubkey, ata };
+        }),
+      );
+
+      // Query which ATAs already exist on-chain in a single batch RPC call
+      const accountsInfo = await this.connection.getMultipleAccountsInfo(
+        ataAddresses.map((a) => a.ata),
+      );
+
+      for (let i = 0; i < ataAddresses.length; i++) {
+        const entry = ataAddresses[i];
+        if (!entry) continue;
+        const { walletPubkey, ata } = entry;
+        const info = accountsInfo[i];
+
+        // Only include the ATA creation instruction if the account does NOT exist yet.
+        // If it already exists, omitting it saves transaction size and avoids simulating
+        // ATA rent in the creator's wallet modal.
+        if (!info) {
+          tx.add(
+            createAssociatedTokenAccountIdempotentInstruction(
+              creatorPubkey, // payer
+              ata, // ATA address
+              walletPubkey, // owner
+              mintPubkey, // mint
+            ),
+          );
+        }
 
         // Recipient wallet (identity check)
         recipientAccounts.push({
