@@ -18,7 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { setUsername as setUsernameApi } from "@/lib/auth";
 import { getUserEarnings } from "@/lib/distribution";
 import type { DistributionRecord } from "@/types/distribution";
-import SolanaLogo from "@/components/SolanaLogo";
+import CurrencyLogo from "@/components/CurrencyLogo";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -139,16 +139,16 @@ export default function SettingsView() {
     <div className="flex flex-col gap-6 lg:flex-row">
       {/* ── Left Column: Settings Nav ──────────────────────────────────────── */}
       <div className="w-full shrink-0 lg:w-[220px]">
-        <nav className="flex flex-row gap-1 overflow-x-auto lg:flex-col">
+        <nav className="flex flex-row gap-1.5 overflow-x-auto pb-2 scrollbar-none lg:flex-col lg:pb-0">
           {SETTINGS_NAV.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
               className={cn(
-                "whitespace-nowrap font-mono text-sm transition-all",
+                "whitespace-nowrap font-mono text-xs sm:text-sm rounded px-3 py-2 transition-all shrink-0 text-left",
                 activeSection === item.id
-                  ? "border-l-2 border-ok-green bg-ok-green/5 pl-3 text-ok-green"
-                  : "pl-3.5 text-[#9198A1] hover:text-[#F0F6F6]",
+                  ? "bg-ok-green/10 text-ok-green border-b-2 lg:border-b-0 lg:border-l-2 border-ok-green font-semibold"
+                  : "text-[#9198A1] hover:text-[#F0F6F6] hover:bg-[#151B23]",
               )}
             >
               {item.label}
@@ -172,12 +172,17 @@ export default function SettingsView() {
                   CONNECTED WALLET
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-xs text-[#F0F6F6]">
-                    {wallet || "Not connected"}
+                  <div className="flex-1 min-w-0 rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-xs text-[#F0F6F6]">
+                    <span
+                      className="block truncate"
+                      title={wallet || "Not connected"}
+                    >
+                      {wallet || "Not connected"}
+                    </span>
                   </div>
                   <button
                     onClick={handleCopyAddress}
-                    className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-transparent px-3 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded border border-[#3D444D] bg-transparent px-3 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
                   >
                     {copyError ? (
                       <AlertTriangle className="h-3 w-3 text-ok-danger" />
@@ -186,7 +191,9 @@ export default function SettingsView() {
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
-                    {copyError ? "Failed" : copiedAddress ? "Copied" : "Copy"}
+                    <span>
+                      {copyError ? "Failed" : copiedAddress ? "Copied" : "Copy"}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -245,8 +252,8 @@ export default function SettingsView() {
                         key={record.txSignature + record.recipientWallet}
                         className="flex items-start justify-between border-b border-[#3D444D]/20 py-3 last:border-b-0"
                       >
-                        <div className="space-y-0.5">
-                          <p className="font-mono text-xs font-medium text-[#F0F6F6]">
+                        <div className="space-y-0.5 min-w-0 flex-1 pr-3">
+                          <p className="font-mono text-xs font-medium text-[#F0F6F6] truncate">
                             {record.formId}
                           </p>
                           <div className="flex items-center gap-2">
@@ -261,10 +268,16 @@ export default function SettingsView() {
                             </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-mono text-sm font-bold text-ok-green">
-                            <SolanaLogo className="h-3.5 w-auto" />{" "}
-                            {(record.amountLamports / 1e9).toFixed(4)}
+                        <div className="text-right shrink-0">
+                          <p className="font-mono text-sm font-bold text-ok-green inline-flex items-center justify-end gap-1">
+                            <CurrencyLogo
+                              currency={record.rewardCurrency}
+                              className="h-3.5 w-auto"
+                            />{" "}
+                            {(
+                              (record.amountUnits ?? record.amountLamports) /
+                              (record.rewardCurrency === "USDC" ? 1e6 : 1e9)
+                            ).toFixed(record.rewardCurrency === "USDC" ? 2 : 4)}
                           </p>
                           <a
                             href={record.explorerUrl}
@@ -447,19 +460,21 @@ export default function SettingsView() {
                   Program ID (Anchor / Rust)
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-xs text-[#F0F6F6] truncate">
-                    {PROGRAM_ID}
+                  <div className="flex-1 min-w-0 rounded border border-[#3D444D] bg-[#0D1117] px-3 py-2 font-mono text-xs text-[#F0F6F6]">
+                    <span className="block truncate" title={PROGRAM_ID}>
+                      {PROGRAM_ID}
+                    </span>
                   </div>
                   <button
                     onClick={handleCopyProgramId}
-                    className="inline-flex items-center gap-1.5 rounded border border-[#3D444D] bg-transparent px-3 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded border border-[#3D444D] bg-transparent px-3 py-2 font-mono text-[10px] text-[#9198A1] transition-colors hover:border-[#656C76] hover:text-[#F0F6F6]"
                   >
                     {copiedProgramId ? (
                       <Check className="h-3 w-3 text-ok-green" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
-                    {copiedProgramId ? "Copied" : "Copy ID"}
+                    <span>{copiedProgramId ? "Copied" : "Copy ID"}</span>
                   </button>
                 </div>
               </div>

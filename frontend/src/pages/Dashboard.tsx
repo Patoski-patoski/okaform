@@ -1610,7 +1610,7 @@ export default function Dashboard() {
       {/* Main content */}
       <main
         className={cn(
-          "min-h-screen p-6 transition-all duration-200 lg:p-8",
+          "min-h-screen p-4 pt-16 sm:p-6 sm:pt-6 lg:p-8 transition-all duration-200",
           sidebarOpen ? "ml-[240px]" : "ml-0",
         )}
       >
